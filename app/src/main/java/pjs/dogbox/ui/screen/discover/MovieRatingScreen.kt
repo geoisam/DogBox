@@ -1,0 +1,804 @@
+package pjs.dogbox.ui.screen.discover
+
+import android.annotation.SuppressLint
+import android.content.Intent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import coil3.compose.AsyncImage
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import pjs.dogbox.R
+import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.ui.screen.PagerTabFollowEffect
+import pjs.dogbox.util.AppData
+import pjs.dogbox.util.OkHttpUtil
+import java.net.URLEncoder
+
+internal data class MovieItem(
+    val id: String,
+    val cover: String,
+    val title: String,
+    val subtitle: String,
+    val rating: Double,
+)
+
+private const val DOUBAN_API = "https://frodo.douban.com/api/v2"
+private const val APIKEY = "?apikey=0ac44ae016490db2204ce0a042db2916"
+
+private fun buildUrl(start: Int, category: String, type: String): String {
+    val encCate = URLEncoder.encode(category, "UTF-8")
+    val encType = URLEncoder.encode(type, "UTF-8")
+    return "${DOUBAN_API}/subject/recent_hot/movie${APIKEY}&start=$start&limit=32&category=$encCate&type=$encType"
+}
+
+private const val STATE_LOADING = 0
+private const val STATE_LOADED = 1
+private const val STATE_ERROR = 2
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MovieRatingScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSearchMovie: (String) -> Unit = {}
+) {
+    val tabs = listOf("豆瓣高分", "冷门佳片")
+    val categories = listOf("豆瓣高分", "冷门佳片")
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    var showTabSheet by remember { mutableStateOf(false) }
+    val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val context = LocalContext.current
+    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
+    var typeOptions by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var selectedType by remember { mutableStateOf("") }
+
+
+    LaunchedEffect(Unit) {
+        var attempts = 0
+        while (attempts < 2) {
+            attempts++
+            try {
+                val text = context.assets.open("json/douban.json")
+                    .bufferedReader().use { it.readText() }
+                val json = Json.parseToJsonElement(text).jsonObject
+                val options = json["hot-type"]?.jsonArray?.mapNotNull { e ->
+                    val o = e.jsonObject
+                    val v = o["v"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    val n = o["n"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    v to n
+                } ?: emptyList()
+                typeOptions = options
+                selectedType = options.firstOrNull()?.first ?: ""
+                filterState = STATE_LOADED
+                break
+            } catch (_: Exception) {
+                if (attempts >= 2) filterState = STATE_ERROR
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        TopAppBar(
+            title = { Text("高分电影", fontWeight = FontWeight.Bold) },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+            navigationIcon = {
+                FilledTonalIconButton(
+                    onClick = onBack,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.arrow_back_outlined),
+                        contentDescription = "返回",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            },
+        )
+
+        if (filterState == STATE_LOADING) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                ChrysanthemumLoading()
+            }
+        } else if (filterState == STATE_ERROR) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "暂无数据",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            val tabScrollState = rememberLazyListState()
+            PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LazyRow(
+                    state = tabScrollState,
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(tabs) { index, tab ->
+                        val selected = pagerState.currentPage == index
+                        val chipColor by animateColorAsState(
+                            targetValue = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(200),
+                        )
+                        val textColor by animateColorAsState(
+                            targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = tween(200),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.large)
+                                .background(chipColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                )
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) {
+                            Text(
+                                text = tab,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = textColor,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+
+                FilledTonalIconButton(
+                    onClick = { showTabSheet = true },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(32.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
+                        contentDescription = "展开",
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 0,
+            ) { page ->
+                key(categories[page]) {
+                    MovieCategoryContent(
+                        category = categories[page],
+                        typeOptions = typeOptions,
+                        filterState = filterState,
+                        selectedType = selectedType,
+                        onTypeChange = { selectedType = it },
+                        onSearchMovie = onSearchMovie,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showTabSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showTabSheet = false },
+            sheetState = tabSheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    tabs.forEachIndexed { index, label ->
+                        val isSelected = pagerState.currentPage == index
+                        val bgColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        )
+                        val txtColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(bgColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                        showTabSheet = false
+                                    },
+                                )
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = txtColor,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MovieCategoryContent(
+    category: String,
+    typeOptions: List<Pair<String, String>>,
+    filterState: Int,
+    selectedType: String,
+    onTypeChange: (String) -> Unit,
+    onSearchMovie: (String) -> Unit = {},
+) {
+    var currentPage by remember { mutableIntStateOf(0) }
+    var movieList by remember { mutableStateOf(emptyList<MovieItem>()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+
+    LaunchedEffect(currentPage, selectedType, category) {
+        if (currentPage == 0) {
+            movieList = emptyList()
+        }
+        isLoading = true
+        val start = currentPage * 32
+        val url = buildUrl(start, category, selectedType)
+        withContext(Dispatchers.IO) {
+            OkHttpUtil.get(
+                url, mapOf(
+                    "User-Agent" to AppData.UA_WECHAT_PC,
+                    "Referer" to "https://servicewechat.com/wx2f9b06c1de1ccfca/99/page-frame.html",
+                )
+            )
+        }.onSuccess { response ->
+            try {
+                val json = Json.parseToJsonElement(response).jsonObject
+                val items = json["items"]?.jsonArray
+                if (items != null) {
+                    val parsed = items.mapNotNull { element ->
+                        val obj = element.jsonObject
+                        val rawCover =
+                            obj["cover"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                                ?: obj["pic"]?.jsonObject?.get("normal")?.jsonPrimitive?.contentOrNull
+                                ?: return@mapNotNull null
+                        val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
+                            "http://",
+                            "https://"
+                        ) else rawCover
+                        MovieItem(
+                            id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+                            cover = cover,
+                            title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
+                            subtitle = obj["card_subtitle"]?.jsonPrimitive?.contentOrNull ?: "",
+                            rating = obj["rating"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull
+                                ?: 0.0,
+                        )
+                    }
+                    if (currentPage == 0) movieList = parsed else movieList += parsed
+                    hasMore = parsed.size >= 32
+                } else {
+                    hasMore = false
+                }
+            } catch (_: Exception) {
+                hasMore = false
+            }
+        }.onFailure {
+            hasMore = false
+        }
+        isLoading = false
+    }
+
+    val lazyGridState = rememberLazyGridState()
+
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val totalItems = lazyGridState.layoutInfo.totalItemsCount
+            if (totalItems == 0) return@derivedStateOf false
+            val lastVisible = lazyGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= totalItems - 5 && hasMore && !isLoading
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && hasMore && !isLoading) {
+            currentPage++
+        }
+    }
+
+    val isAtTop by remember {
+        derivedStateOf {
+            lazyGridState.firstVisibleItemIndex == 0 && lazyGridState.firstVisibleItemScrollOffset < 50
+        }
+    }
+
+    val scope = rememberCoroutineScope()
+
+    when (filterState) {
+        STATE_LOADING -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                ChrysanthemumLoading()
+            }
+        }
+
+        STATE_ERROR -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "暂无数据",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        STATE_LOADED -> {
+            if (isLoading && movieList.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ChrysanthemumLoading()
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (typeOptions.isNotEmpty() && movieList.isNotEmpty()) {
+                        FilterChipBar(
+                            options = typeOptions,
+                            selectedValue = selectedType,
+                            onValueChange = { onTypeChange(it); currentPage = 0 },
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (movieList.isEmpty() && !isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "暂无数据",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(3),
+                                state = lazyGridState,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                items(movieList, key = { "${it.id}_${it.title}" }) { item ->
+                                    MovieGridItem(
+                                        item = item,
+                                        onClick = {
+                                            if (item.id.isNotEmpty()) {
+                                                onSearchMovie(item.title)
+                                            }
+                                        },
+                                    )
+                                }
+
+                                if (isLoading) {
+                                    item(span = { GridItemSpan(3) }) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            ChrysanthemumLoading(size = 36.dp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!isAtTop) {
+                            FloatingActionButton(
+                                onClick = {
+                                    scope.launch {
+                                        lazyGridState.animateScrollToItem(0)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(20.dp),
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.arrow_upward_outlined),
+                                    contentDescription = "回到顶部",
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterChipBar(
+    options: List<Pair<String, String>>,
+    selectedValue: String,
+    onValueChange: (String) -> Unit,
+) {
+    var showSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollState = rememberScrollState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { (value, label) ->
+                val isSelected = selectedValue == value
+                val chipColor by animateColorAsState(
+                    targetValue = if (isSelected)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                    animationSpec = tween(200),
+                )
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(200),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(chipColor)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onValueChange(value) },
+                        )
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = textColor,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        FilledTonalIconButton(
+            onClick = { showSheet = true },
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .size(32.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
+                contentDescription = "展开",
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    options.forEach { (value, label) ->
+                        val isSelected = selectedValue == value
+                        val bgColor by animateColorAsState(
+                            targetValue = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(200),
+                        )
+                        val txtColor by animateColorAsState(
+                            targetValue = if (isSelected)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSurface,
+                            animationSpec = tween(200),
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(bgColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        onValueChange(value)
+                                        showSheet = false
+                                    },
+                                )
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = txtColor,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@SuppressLint("DefaultLocale")
+@Composable
+private fun MovieGridItem(item: MovieItem, onClick: () -> Unit) {
+    val slashIndex = item.subtitle.indexOf("/")
+    val year = if (slashIndex >= 0) item.subtitle.substring(0, slashIndex).trim() else ""
+    val rest =
+        if (slashIndex >= 0) item.subtitle.substring(slashIndex + 1).trim() else item.subtitle
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = {
+                val intent = Intent(Intent.ACTION_VIEW, item.cover.toUri())
+                context.startActivity(intent)
+            },
+        ),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(item.cover)
+                        .crossfade(true)
+                        .httpHeaders(
+                            NetworkHeaders.Builder()
+                                .set("Referer", "https://m.douban.com/")
+                                .set("User-Agent", AppData.UA_CHROME_M)
+                                .build()
+                        ).build(),
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(3f / 4f)
+                        .clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop,
+                )
+
+                if (item.rating > 0.0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                shape = MaterialTheme.shapes.medium,
+                            )
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = String.format("%.1f", item.rating),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+
+                if (rest.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black
+                                    ),
+                                )
+                            )
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = rest.replace(Regex("\\s+"), "/").replace(Regex("/+"), "/"),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (year.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = year,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}

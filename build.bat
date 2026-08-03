@@ -1,0 +1,6 @@
+@echo off
+chcp 65001 >nul
+
+call "%~dp0\gradlew" assembleDebug --no-daemon
+
+exit

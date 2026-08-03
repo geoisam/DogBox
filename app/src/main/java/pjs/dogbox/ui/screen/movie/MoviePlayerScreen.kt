@@ -1,0 +1,1299 @@
+@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+
+package pjs.dogbox.ui.screen.movie
+
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
+import android.os.BatteryManager
+import android.view.WindowManager
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import pjs.dogbox.R
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.math.abs
+
+
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+fun MoviePlayerScreen(
+    exoPlayer: ExoPlayer,
+    title: String?,
+    episodeName: String? = null,
+    isFullscreen: Boolean,
+    onFullscreenChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    onNextEpisode: (() -> Unit)? = null,
+    onPreviousEpisode: (() -> Unit)? = null,
+    onShowEpisodes: (() -> Unit)? = null,
+    episodes: List<EpisodeInfo> = emptyList(),
+    selectedEpisodeIndex: Int = 0,
+    onEpisodeSelect: (Int) -> Unit = {},
+    isSwitchingEpisode: Boolean = false,
+    scaleModeIndex: Int = 0,
+    onScaleModeIndexChange: ((Int) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+
+    var playerIsPlaying by remember { mutableStateOf(false) }
+    var playerIsBuffering by remember { mutableStateOf(true) }
+    var playerCurrentPosition by remember { mutableStateOf(0L) }
+    var playerDuration by remember { mutableStateOf(0L) }
+    var playerBufferedPercentage by remember { mutableIntStateOf(0) }
+    var playerVideoWidth by remember { mutableIntStateOf(0) }
+    var playerVideoHeight by remember { mutableIntStateOf(0) }
+    var currentSpeed by remember { mutableStateOf(1.0f) }
+    var longPressSpeed by remember { mutableFloatStateOf(3.0f) }
+    var isMuted by remember { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
+    var currentScaleModeIndex by remember(scaleModeIndex) { mutableIntStateOf(mapAllToPlayerScale(scaleModeIndex, isLandscape)) }
+    val currentScaleMode = getScaleModes(isLandscape)[currentScaleModeIndex]
+    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    var locked by remember { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(true) }
+
+    var currentTimeText by remember { mutableStateOf("未知") }
+    var batteryPercentText by remember { mutableStateOf("未知") }
+
+    LaunchedEffect(Unit) {
+        currentTimeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        while (true) {
+            delay(30000)
+            currentTimeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        batteryPercentText = if (level >= 0 && scale > 0) "${level * 100 / scale}%" else ""
+    }
+
+    val window = remember(context) { (context as? android.app.Activity)?.window }
+    val audioManager =
+        remember(context) { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+
+    @Suppress("DEPRECATION")
+    var brightness by remember {
+        mutableFloatStateOf(
+            (window?.attributes?.screenBrightness ?: -1f))
+    }
+    var savedSystemBrightness by remember { mutableFloatStateOf(-1f) }
+    var isRewinding by remember { mutableStateOf(false) }
+    var isFastForwarding by remember { mutableStateOf(false) }
+    var isAdjustingBrightness by remember { mutableStateOf(false) }
+    var isAdjustingVolume by remember { mutableStateOf(false) }
+    var brightnessPercent by remember { mutableIntStateOf(50) }
+    var volumePercent by remember { mutableIntStateOf(50) }
+    var previousVolume by remember { mutableFloatStateOf(1f) }
+    var previousVolumePercent by remember { mutableIntStateOf(50) }
+    var brightnessHideJob by remember { mutableStateOf<Job?>(null) }
+    var volumeHideJob by remember { mutableStateOf<Job?>(null) }
+    var showSpeedSheet by remember { mutableStateOf(false) }
+    var showScaleSheet by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
+    var showEpisodeSheet by remember { mutableStateOf(false) }
+    var userToggledControls by remember { mutableStateOf(false) }
+    var flipHorizontal by remember { mutableStateOf(false) }
+    var flipVertical by remember { mutableStateOf(false) }
+    var backgroundPlayback by remember { mutableStateOf(false) }
+    var playbackOrder by remember { mutableStateOf(PlaybackOrder.AUTO_NEXT) }
+    var isSeeking by remember { mutableStateOf(false) }
+    var seekPreviewPosition by remember { mutableStateOf(0L) }
+    var seekHideJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun toggleMute() {
+        isMuted = !isMuted
+        if (isMuted) {
+            previousVolume = exoPlayer.volume
+            previousVolumePercent = volumePercent
+            exoPlayer.volume = 0f
+            volumePercent = 0
+            Toast.makeText(context, "已静音", Toast.LENGTH_SHORT).show()
+        } else {
+            exoPlayer.volume = previousVolume
+            volumePercent = previousVolumePercent
+            Toast.makeText(context, "音量已恢复", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    LaunchedEffect(brightness) {
+        val lp = window?.attributes ?: return@LaunchedEffect
+        lp.screenBrightness = brightness
+        window.attributes = lp
+    }
+
+    @Suppress("DEPRECATION")
+    LaunchedEffect(isFullscreen) {
+        val lp = window?.attributes ?: return@LaunchedEffect
+        if (isFullscreen) {
+            savedSystemBrightness = lp.screenBrightness
+            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        } else {
+            lp.screenBrightness = savedSystemBrightness
+            window.attributes = lp
+            brightness = savedSystemBrightness
+            window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        }
+    }
+
+    LaunchedEffect(isRewinding) {
+        if (isRewinding) {
+            exoPlayer.pause()
+            while (true) {
+                val newPos = (exoPlayer.currentPosition - 100).coerceAtLeast(0L)
+                exoPlayer.seekTo(newPos)
+                delay(100)
+            }
+        }
+    }
+
+    LaunchedEffect(isFastForwarding) {
+        if (isFastForwarding) {
+            val origSpeed = currentSpeed
+            exoPlayer.playbackParameters = PlaybackParameters(3.0f)
+            if (!exoPlayer.isPlaying) exoPlayer.play()
+            try {
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                exoPlayer.playbackParameters = PlaybackParameters(origSpeed)
+            }
+        }
+    }
+
+    val currentPlaybackOrder by rememberUpdatedState(playbackOrder)
+    val currentOnNextEpisode by rememberUpdatedState(onNextEpisode)
+    val currentOnEpisodeSelect by rememberUpdatedState(onEpisodeSelect)
+
+    val playerListener = remember {
+        object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                playerIsBuffering = playbackState == Player.STATE_BUFFERING
+                if (playbackState == Player.STATE_ENDED) {
+                    when (currentPlaybackOrder) {
+                        PlaybackOrder.SINGLE_LOOP -> {
+                            exoPlayer.seekTo(0)
+                            exoPlayer.play()
+                        }
+                        PlaybackOrder.AUTO_NEXT -> {
+                            currentOnNextEpisode?.invoke()
+                        }
+                        PlaybackOrder.LIST_LOOP -> {
+                            if (currentOnNextEpisode != null) {
+                                currentOnNextEpisode?.invoke()
+                            } else {
+                                currentOnEpisodeSelect(0)
+                            }
+                        }
+                        PlaybackOrder.STOP_AFTER -> { }
+                    }
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playerIsPlaying = isPlaying
+            }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                playerVideoWidth = videoSize.width
+                playerVideoHeight = videoSize.height
+            }
+
+            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+                currentSpeed = playbackParameters.speed
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT).show()
+                onBack()
+            }
+        }
+    }
+
+    DisposableEffect(exoPlayer) {
+        playerIsBuffering = exoPlayer.playbackState == Player.STATE_BUFFERING
+        playerIsPlaying = exoPlayer.isPlaying
+        exoPlayer.addListener(playerListener)
+        onDispose {
+            exoPlayer.removeListener(playerListener)
+        }
+    }
+
+    LaunchedEffect(playbackOrder) {
+        exoPlayer.repeatMode = when (playbackOrder) {
+            PlaybackOrder.SINGLE_LOOP -> Player.REPEAT_MODE_ONE
+            PlaybackOrder.LIST_LOOP -> Player.REPEAT_MODE_ALL
+            else -> Player.REPEAT_MODE_OFF
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            playerCurrentPosition = exoPlayer.currentPosition
+            playerDuration = exoPlayer.duration
+            playerBufferedPercentage = exoPlayer.bufferedPercentage
+            delay(200)
+        }
+    }
+
+    DisposableEffect(window) {
+        if (window != null) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            onDispose {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        } else {
+            onDispose { }
+        }
+    }
+
+    val lifecycleOwner = remember(context) { context as? LifecycleOwner }
+    val currentBackgroundPlayback by rememberUpdatedState(backgroundPlayback)
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                if (!currentBackgroundPlayback && exoPlayer.isPlaying) {
+                    exoPlayer.pause()
+                }
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose {
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+    }
+
+    fun onInteraction() {
+        if (showControls) {
+            showControls = false
+            userToggledControls = true
+        } else {
+            showControls = true
+            userToggledControls = false
+        }
+    }
+
+    fun hideControls() {
+        showControls = false
+        userToggledControls = true
+    }
+
+    var lastTapTime by remember { mutableStateOf(0L) }
+    var singleTapJob by remember { mutableStateOf<Job?>(null) }
+    val viewConfig = LocalViewConfiguration.current
+
+    LaunchedEffect(showControls, playerIsPlaying, showSpeedSheet, showScaleSheet, showMoreSheet) {
+        if (showControls && playerIsPlaying) {
+            delay(5000)
+            showControls = false
+        }
+    }
+
+    LaunchedEffect(playerIsPlaying) {
+        if (!playerIsPlaying && !userToggledControls) {
+            showControls = true
+        }
+    }
+
+    if (isFullscreen) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            PlayerCore(
+                exoPlayer = exoPlayer,
+                currentScaleMode = currentScaleMode,
+                flipHorizontal = flipHorizontal,
+                flipVertical = flipVertical,
+                playerIsBuffering = playerIsBuffering,
+                isRewinding = isRewinding,
+                isFastForwarding = isFastForwarding,
+                isAdjustingBrightness = isAdjustingBrightness,
+                isAdjustingVolume = isAdjustingVolume,
+                brightnessPercent = brightnessPercent,
+                volumePercent = volumePercent,
+                isSeeking = isSeeking,
+                seekPreviewPosition = seekPreviewPosition,
+                playerDuration = playerDuration,
+                isLandscape = isLandscape,
+                screenWidthDp = screenWidthDp,
+                screenHeightDp = screenHeightDp,
+                onInteraction = { onInteraction() },
+                onPlayerViewRef = { playerViewRef = it },
+                window = window,
+                audioManager = audioManager,
+                brightness = brightness,
+                onBrightnessChange = { brightness = it; brightnessPercent = (it * 100).toInt() },
+                isRewindingChange = { isRewinding = it },
+                isFastForwardingChange = { isFastForwarding = it },
+                brightnessHideJob = brightnessHideJob,
+                onBrightnessHideJobChange = { brightnessHideJob = it },
+                volumeHideJob = volumeHideJob,
+                onVolumeHideJobChange = { volumeHideJob = it },
+                seekHideJob = seekHideJob,
+                onSeekHideJobChange = { seekHideJob = it },
+                isSeekingChange = { isSeeking = it },
+                seekPreviewPositionChange = { seekPreviewPosition = it },
+                isAdjustingBrightnessChange = { isAdjustingBrightness = it },
+                isAdjustingVolumeChange = { isAdjustingVolume = it },
+                onVolumePercentChange = { volumePercent = it },
+                scope = scope,
+                resetControlsTimer = { hideControls() },
+                showControls = showControls,
+                isSwitchingEpisode = isSwitchingEpisode,
+                playerIsPlaying = playerIsPlaying,
+            )
+
+            if (showControls) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (!locked) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
+                                    )
+                                )
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "时间 $currentTimeText",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "$batteryPercentText 电量",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                IconButton(onClick = {
+                                    onFullscreenChange(false)
+                                }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.arrow_back_outlined),
+                                        contentDescription = "退出全屏",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = title ?: "未知影片",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (episodeName != null) {
+                                        Text(
+                                            text = "正在播放：$episodeName",
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+
+                                IconButton(onClick = { }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.headphones_outlined),
+                                        contentDescription = "音频播放",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                                IconButton(onClick = { }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.cast_outlined),
+                                        contentDescription = "投屏",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    hideControls()
+                                    showMoreSheet = true
+                                }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.more_horiz_filled),
+                                        contentDescription = "更多",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown()
+                                    down.consume()
+                                    val downTime = System.currentTimeMillis()
+                                    val isDoubleTap =
+                                        (downTime - lastTapTime) < viewConfig.doubleTapTimeoutMillis
+                                    if (isDoubleTap) {
+                                        lastTapTime = 0L
+                                        singleTapJob?.cancel()
+                                        singleTapJob = null
+                                        if (playerDuration > 0 && exoPlayer.currentPosition >= playerDuration - 500) {
+                                            exoPlayer.seekTo(0)
+                                        }
+                                        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                                        while (true) {
+                                            val ev = awaitPointerEvent(PointerEventPass.Main)
+                                            ev.changes.forEach { it.consume() }
+                                            if (ev.changes.all { !it.pressed }) break
+                                        }
+                                        return@awaitEachGesture
+                                    }
+                                    lastTapTime = downTime
+                                    var pastTouchSlop = false
+                                    var dragAxis = 0 // 0=none, 1=horizontal(seek), 2=vertical(volume/brightness)
+                                    var lastPos = down.position
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Main)
+                                        val change = event.changes.first()
+                                        if (!change.pressed) {
+                                            if (!pastTouchSlop) {
+                                                singleTapJob?.cancel()
+                                                singleTapJob = scope.launch {
+                                                    delay(viewConfig.doubleTapTimeoutMillis)
+                                                    onInteraction()
+                                                }
+                                            }
+                                            break
+                                        }
+                                        if (!pastTouchSlop) {
+                                            val dx = change.position.x - down.position.x
+                                            val dy = change.position.y - down.position.y
+                                            if (abs(dx) > viewConfiguration.touchSlop || abs(dy) > viewConfiguration.touchSlop) {
+                                                pastTouchSlop = true
+                                                dragAxis = if (abs(dx) > abs(dy)) 1 else 2
+                                                if (dragAxis == 2) {
+                                                    volumeHideJob?.cancel()
+                                                    brightnessHideJob?.cancel()
+                                                } else {
+                                                    seekHideJob?.cancel()
+                                                    seekPreviewPosition = exoPlayer.currentPosition
+                                                    isSeeking = true
+                                                }
+                                            }
+                                        }
+                                        if (pastTouchSlop) {
+                                            change.consume()
+                                            val delta = change.position - lastPos
+                                            if (dragAxis == 2) {
+                                                val centerX = size.width / 2
+                                                val x = change.position.x
+                                                if (x > centerX) {
+                                                    val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                                    val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                                    val newVol = (curVol - (delta.y / 300f * maxVol).toInt()).coerceIn(0, maxVol)
+                                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                                    volumePercent = (newVol * 100 / maxVol)
+                                                    if (!isAdjustingVolume) {
+                                                        isAdjustingVolume = true
+                                                    }
+                                                } else {
+                                                    @Suppress("DEPRECATION")
+                                                    val lp = window?.attributes ?: continue
+                                                    val b = (lp.screenBrightness - delta.y / 300f).coerceIn(0f, 1f)
+                                                    lp.screenBrightness = b
+                                                    window.attributes = lp
+                                                    brightness = b
+                                                    brightnessPercent = (b * 100).toInt()
+                                                    if (!isAdjustingBrightness) {
+                                                        isAdjustingBrightness = true
+                                                    }
+                                                }
+                                            } else if (dragAxis == 1 && playerDuration > 0) {
+                                                val seekDelta = (delta.x / size.width * playerDuration).toLong()
+                                                val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(0, playerDuration)
+                                                exoPlayer.seekTo(newPos)
+                                                seekPreviewPosition = newPos
+                                            }
+                                        }
+                                        lastPos = change.position
+                                    }
+                                    if (pastTouchSlop) {
+                                        if (dragAxis == 2) {
+                                            if (isAdjustingVolume) {
+                                                volumeHideJob = scope.launch {
+                                                    delay(1500)
+                                                    isAdjustingVolume = false
+                                                }
+                                            }
+                                            if (isAdjustingBrightness) {
+                                                brightnessHideJob = scope.launch {
+                                                    delay(1500)
+                                                    isAdjustingBrightness = false
+                                                }
+                                            }
+                                        } else if (dragAxis == 1) {
+                                            hideControls()
+                                            seekHideJob = scope.launch {
+                                                delay(1500)
+                                                isSeeking = false
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(horizontal = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    locked = !locked
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.Black.copy(0.3f),
+                                ),
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        if (locked) R.drawable.lock_outlined
+                                        else R.drawable.lock_open_outlined
+                                    ),
+                                    contentDescription = if (locked) "解锁" else "锁定操作",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val activity = context as? android.app.Activity
+                                    if (activity != null) {
+                                        activity.requestedOrientation = if (isLandscape)
+                                            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                                        else
+                                            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                    }
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.Black.copy(0.3f),
+                                ),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.mobile_rotate_outlined),
+                                    contentDescription = "旋转屏幕",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(horizontal = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    playerViewRef?.let { saveScreenshot(it, context) }
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.Black.copy(0.3f),
+                                ),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.screenshot_keyboard_outlined),
+                                    contentDescription = "截屏",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    if (!locked) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                                    )
+                                )
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "${formatTime(playerCurrentPosition)} / ${formatTime(playerDuration)}",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                PlayerSeekButton(
+                                    icon = R.drawable.replay_10_outlined,
+                                        text = "后退10s",
+                                        onClick = {
+                                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0L))
+                                        },
+                                    )
+                                    PlayerSeekButton(
+                                        icon = R.drawable.forward_10_outlined,
+                                        text = "前进10s",
+                                    onClick = {
+                                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(playerDuration))
+                                    },
+                                )
+                            }
+
+                            SeekBar(
+                                playedFraction = if (playerDuration > 0) (playerCurrentPosition.toFloat() / playerDuration) else 0f,
+                                bufferedFraction = playerBufferedPercentage / 100f,
+                                onSeek = { fraction ->
+                                    exoPlayer.seekTo((fraction * playerDuration).toLong())
+                                },
+                                onSeekFinished = {
+                                    seekHideJob = scope.launch {
+                                        delay(1500)
+                                        isSeeking = false
+                                    }
+                                },
+                                onSeekingStart = {
+                                    seekHideJob?.cancel()
+                                    isSeeking = true
+                                },
+                                onSeeking = { fraction ->
+                                    seekPreviewPosition = (fraction * playerDuration).toLong()
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            )
+
+                            if (isLandscape) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
+                                                exoPlayer.seekTo(0)
+                                            }
+                                            if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+
+                                        },
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(
+                                                if (playerIsPlaying) R.drawable.pause_filled
+                                                else R.drawable.play_filled
+                                            ),
+                                            contentDescription = if (playerIsPlaying) "暂停" else "播放",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+                                    if (onPreviousEpisode != null) {
+                                        IconButton(
+                                            onClick = {
+                                                onPreviousEpisode()
+                                                hideControls()
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.skip_previous_filled),
+                                                contentDescription = "上一集",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    }
+                                    if (onNextEpisode != null) {
+                                        IconButton(
+                                            onClick = {
+                                                onNextEpisode()
+                                                hideControls()
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.skip_next_filled),
+                                                contentDescription = "下一集",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            toggleMute()
+                                        },
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(
+                                                if (isMuted) R.drawable.volume_off_outlined
+                                                else R.drawable.volume_up_outlined
+                                            ),
+                                            contentDescription = if (isMuted) "恢复音量" else "静音",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    Text(
+                                        text = getQualityLabel(playerVideoWidth, playerVideoHeight),
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+                                    Spacer(modifier = Modifier.width(24.dp))
+                                    Text(
+                                        text = "${currentSpeed}x",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.clickable {
+                                            hideControls()
+                                            showSpeedSheet = true
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(24.dp))
+                                    Text(
+                                        text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.clickable {
+                                            hideControls()
+                                            showScaleSheet = true
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(24.dp))
+                                    Text(
+                                        text = "选集",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.clickable {
+                                            hideControls()
+                                            showEpisodeSheet = true
+                                        },
+                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    IconButton(
+                                        onClick = {
+                                            onFullscreenChange(false)
+                                        },
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.fullscreen_exit_filled),
+                                            contentDescription = "关闭全屏",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                    ) {
+                                        Text(
+                                            text = getQualityLabel(playerVideoWidth, playerVideoHeight),
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            style = MaterialTheme.typography.titleSmall,
+                                        )
+                                        Spacer(modifier = Modifier.width(24.dp))
+                                        Text(
+                                            text = "${currentSpeed}X",
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            modifier = Modifier.clickable {
+                                                hideControls()
+                                                showSpeedSheet = true
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(24.dp))
+                                        Text(
+                                            text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            modifier = Modifier.clickable {
+                                                hideControls()
+                                                showScaleSheet = true
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.width(24.dp))
+                                        Text(
+                                            text = "选集",
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            modifier = Modifier.clickable {
+                                                hideControls()
+                                                showEpisodeSheet = true
+                                            },
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
+                                                    exoPlayer.seekTo(0)
+                                                }
+                                                if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(
+                                                    if (playerIsPlaying) R.drawable.pause_filled
+                                                    else R.drawable.play_filled
+                                                ),
+                                                contentDescription = if (playerIsPlaying) "暂停" else "播放",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                        if (onPreviousEpisode != null) {
+                                            IconButton(
+                                                onClick = {
+                                                    onPreviousEpisode()
+                                                    hideControls()
+                                                },
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.skip_previous_filled),
+                                                    contentDescription = "上一集",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(24.dp),
+                                                )
+                                            }
+                                        }
+                                        if (onNextEpisode != null) {
+                                            IconButton(
+                                                onClick = {
+                                                    onNextEpisode()
+                                                    hideControls()
+                                                },
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.skip_next_filled),
+                                                    contentDescription = "下一集",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(24.dp),
+                                                )
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                toggleMute()
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(
+                                                    if (isMuted) R.drawable.volume_off_outlined
+                                                    else R.drawable.volume_up_outlined
+                                                ),
+                                                contentDescription = if (isMuted) "恢复音量" else "静音",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        IconButton(
+                                            onClick = {
+                                                onFullscreenChange(false)
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.fullscreen_exit_filled),
+                                                contentDescription = "关闭全屏",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!playerIsPlaying && !playerIsBuffering && !isSwitchingEpisode) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    FilledTonalIconButton(
+                        onClick = {
+                            if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
+                                exoPlayer.seekTo(0)
+                            }
+                            if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                            hideControls()
+                        },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Color.Black.copy(0.3f),
+                        ),
+                        modifier = Modifier.size(64.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.play_filled),
+                            contentDescription = "播放",
+                            tint = Color.White,
+                            modifier = Modifier.size(56.dp),
+                        )
+                    }
+                }
+            }
+
+            if (showSpeedSheet) {
+                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showSpeedSheet = false }) {
+                    var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
+                    var sliderLongPressSpeed by remember(longPressSpeed) { mutableFloatStateOf(longPressSpeed) }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("播放倍速", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            IconButton(onClick = { showSpeedSheet = false }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.close_outlined),
+                                    contentDescription = "关闭",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "固定倍速：${"%.2f".format(sliderSpeed)}X",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Slider(
+                            value = sliderSpeed,
+                            onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
+                            onValueChangeFinished = {
+                                currentSpeed = sliderSpeed
+                                exoPlayer.playbackParameters = PlaybackParameters(sliderSpeed)
+                            },
+                            valueRange = 0.25f..5.0f,
+                            steps = 18,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SpeedResetButton(
+                            onClick = {
+                                sliderSpeed = 1.0f
+                                currentSpeed = 1.0f
+                                exoPlayer.playbackParameters = PlaybackParameters(1.0f)
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        Text(
+                            "长按前进/后退倍速：${"%.2f".format(sliderLongPressSpeed)}X",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Slider(
+                            value = sliderLongPressSpeed,
+                            onValueChange = { sliderLongPressSpeed = (it * 4).toInt() / 4f },
+                            onValueChangeFinished = { longPressSpeed = sliderLongPressSpeed },
+                            valueRange = 0.25f..5.0f,
+                            steps = 18,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SpeedResetButton(
+                            onClick = {
+                                sliderLongPressSpeed = 3.0f
+                                longPressSpeed = 3.0f
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Spacer(Modifier.height(32.dp))
+                    }
+                }
+            }
+
+            if (showScaleSheet) {
+                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showScaleSheet = false }) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("视频画幅", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            IconButton(onClick = { showScaleSheet = false }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.close_outlined),
+                                    contentDescription = "关闭",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        val selectedAllIndex = mapPlayerToAllScale(currentScaleModeIndex, isLandscape)
+                        androidx.compose.foundation.layout.FlowRow(
+                            modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ALL_SCALE_MODES.forEachIndexed { index, scaleMode ->
+                                FilterChip(
+                                    selected = index == selectedAllIndex,
+                                    onClick = {
+                                        val playerIndex = mapAllToPlayerScale(index, isLandscape)
+                                        currentScaleModeIndex = playerIndex
+                                        onScaleModeIndexChange?.invoke(index)
+                                        playerViewRef?.resizeMode = getScaleModes(isLandscape)[playerIndex].resizeMode
+                                    },
+                                    label = { Text(scaleMode.label) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = Color.Transparent,
+                                        labelColor = Color.White,
+                                    ),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (index == selectedAllIndex) Color.Transparent else Color.White,
+                                    ),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(32.dp))
+                    }
+                }
+            }
+
+            if (showEpisodeSheet) {
+                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showEpisodeSheet = false }) {
+                    EpisodeOverlayContent(
+                        episodes = episodes,
+                        selectedIndex = selectedEpisodeIndex,
+                        onSelect = { idx ->
+                            onEpisodeSelect(idx)
+                            showEpisodeSheet = false
+                        },
+                        onDismiss = { showEpisodeSheet = false },
+                    )
+                }
+            }
+        }
+    } else {
+        NonFullscreenPlayer(
+            exoPlayer = exoPlayer,
+            currentScaleMode = currentScaleMode,
+            flipHorizontal = flipHorizontal,
+            flipVertical = flipVertical,
+            playerIsBuffering = playerIsBuffering,
+            isSwitchingEpisode = isSwitchingEpisode,
+            isVod = true,
+            playerIsPlaying = playerIsPlaying,
+            isMuted = isMuted,
+            playerCurrentPosition = playerCurrentPosition,
+            playerDuration = playerDuration,
+            playerVideoWidth = playerVideoWidth,
+            playerVideoHeight = playerVideoHeight,
+            currentSpeed = currentSpeed,
+            onPlayPause = {
+                if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
+                    exoPlayer.seekTo(0)
+                }
+                if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+            },
+            onMuteToggle = {
+                toggleMute()
+            },
+            onFullscreen = {
+                onFullscreenChange(true)
+            },
+            onInteraction = { onInteraction() },
+            onPlayerViewRef = { playerViewRef = it },
+            onBack = {
+                onBack?.invoke()
+            },
+            onCast = { },
+            onAudioPlay = { },
+            onMoreSettings = {
+                showMoreSheet = true
+            },
+            showControls = showControls,
+            playerBufferedPercentage = playerBufferedPercentage,
+            modifier = modifier,
+        )
+    }
+
+    if (showMoreSheet) {
+        if (isFullscreen) {
+            PlayerOverlay(isLandscape = isLandscape, onDismiss = { showMoreSheet = false }) {
+                MoreSettingsContent(
+                    flipHorizontal = flipHorizontal,
+                    flipVertical = flipVertical,
+                    backgroundPlayback = backgroundPlayback,
+                    playbackOrder = playbackOrder,
+                    onFlipHorizontalChange = { flipHorizontal = it },
+                    onFlipVerticalChange = { flipVertical = it },
+                    onBackgroundPlaybackChange = { backgroundPlayback = it },
+                    onPlaybackOrderChange = { playbackOrder = it },
+                    onDismiss = { showMoreSheet = false },
+                )
+            }
+        } else {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(300.dp)
+            ModalBottomSheet(
+                onDismissRequest = { showMoreSheet = false },
+                sheetState = sheetState,
+                dragHandle = null,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().height(sheetFixedHeight),
+                ) {
+                    MoreSettingsContent(
+                        flipHorizontal = flipHorizontal,
+                        flipVertical = flipVertical,
+                        backgroundPlayback = backgroundPlayback,
+                        playbackOrder = playbackOrder,
+                        onFlipHorizontalChange = { flipHorizontal = it },
+                        onFlipVerticalChange = { flipVertical = it },
+                        onBackgroundPlaybackChange = { backgroundPlayback = it },
+                        onPlaybackOrderChange = { playbackOrder = it },
+                        onDismiss = { showMoreSheet = false },
+                        useFixedDarkColors = false,
+                    )
+                }
+            }
+        }
+    }
+}

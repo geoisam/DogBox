@@ -1,0 +1,240 @@
+[
+  {
+    "name": "Jetpack Compose Libraries BOM",
+    "module": "androidx.compose:compose-bom",
+    "version": "2026.06.01",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack"
+  },
+  {
+    "name": "Compose UI",
+    "module": "androidx.compose.ui:ui",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-ui"
+  },
+  {
+    "name": "Compose UI Text",
+    "module": "androidx.compose.ui:ui-text",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-ui"
+  },
+  {
+    "name": "Compose Graphics",
+    "module": "androidx.compose.ui:ui-graphics",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-ui"
+  },
+  {
+    "name": "Compose Material3 Components",
+    "module": "androidx.compose.material3:material3",
+    "version": "1.4.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-material3"
+  },
+  {
+    "name": "Material Adaptive Navigation Suite",
+    "module": "androidx.compose.material3:material3-adaptive-navigation-suite",
+    "version": "1.4.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-material3"
+  },
+  {
+    "name": "Compose Foundation",
+    "module": "androidx.compose.foundation:foundation",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-foundation"
+  },
+  {
+    "name": "Compose Layouts",
+    "module": "androidx.compose.foundation:foundation-layout",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-foundation"
+  },
+  {
+    "name": "Compose Animation",
+    "module": "androidx.compose.animation:animation",
+    "version": "1.11.4",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-animation"
+  },
+  {
+    "name": "Core Kotlin Extensions",
+    "module": "androidx.core:core-ktx",
+    "version": "1.19.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/core"
+  },
+  {
+    "name": "SplashScreen",
+    "module": "androidx.core:core-splashscreen",
+    "version": "1.2.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/core"
+  },
+  {
+    "name": "Graphics Shapes",
+    "module": "androidx.graphics:graphics-shapes",
+    "version": "1.1.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/graphics"
+  },
+  {
+    "name": "Activity Compose",
+    "module": "androidx.activity:activity-compose",
+    "version": "1.13.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/activity"
+  },
+  {
+    "name": "Lifecycle Kotlin Extensions",
+    "module": "androidx.lifecycle:lifecycle-runtime-ktx",
+    "version": "2.11.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/lifecycle"
+  },
+  {
+    "name": "Kotlinx Coroutines Android",
+    "module": "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+    "version": "1.11.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/Kotlin/kotlinx.coroutines"
+  },
+  {
+    "name": "Kotlinx Serialization JSON",
+    "module": "org.jetbrains.kotlinx:kotlinx-serialization-json",
+    "version": "1.11.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/Kotlin/kotlinx.serialization"
+  },
+  {
+    "name": "OkHttp",
+    "module": "com.squareup.okhttp3:okhttp",
+    "version": "5.4.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/square/okhttp"
+  },
+  {
+    "name": "Coil",
+    "module": "io.coil-kt.coil3:coil",
+    "version": "3.5.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/coil-kt/coil"
+  },
+  {
+    "name": "Coil Compose",
+    "module": "io.coil-kt.coil3:coil-compose",
+    "version": "3.5.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/coil-kt/coil"
+  },
+  {
+    "name": "Coil Network OkHttp",
+    "module": "io.coil-kt.coil3:coil-network-okhttp",
+    "version": "3.5.0",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/coil-kt/coil"
+  },
+  {
+    "name": "Media3 ExoPlayer Module",
+    "module": "androidx.media3:media3-exoplayer",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 ExoPlayer HLS Module",
+    "module": "androidx.media3:media3-exoplayer-hls",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 ExoPlayer DASH Module",
+    "module": "androidx.media3:media3-exoplayer-dash",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 RTMP DataSource Module",
+    "module": "androidx.media3:media3-datasource-rtmp",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 UI Module",
+    "module": "androidx.media3:media3-ui",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 UI Compose Module",
+    "module": "androidx.media3:media3-ui-compose",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 OkHttp DataSource Module",
+    "module": "androidx.media3:media3-datasource-okhttp",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "Media3 Transformer Module",
+    "module": "androidx.media3:media3-transformer",
+    "version": "1.10.1",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/androidx/media"
+  },
+  {
+    "name": "MaterialKolor",
+    "module": "com.materialkolor:material-kolor",
+    "version": "5.0.0",
+    "license": "MIT",
+    "homepage": "https://github.com/jordond/materialkolor"
+  },
+  {
+    "name": "Ksoup",
+    "module": "com.fleeksoft.ksoup:ksoup",
+    "version": "0.2.6",
+    "license": "MIT",
+    "homepage": "https://github.com/fleeksoft/ksoup"
+  },
+  {
+    "name": "Tyme4j",
+    "module": "cn.6tail:tyme4j",
+    "version": "1.5.1",
+    "license": "MIT",
+    "homepage": "https://github.com/6tail/tyme4j"
+  },
+  {
+    "name": "Maxr1998 ProGuard Dictionaries Generator",
+    "module": "de.maxr1998.proguard-dictionaries-generator",
+    "version": "1.1.0",
+    "license": "MIT",
+    "homepage": "https://github.com/Maxr1998/Proguard-Dictionaries-Generator"
+  },
+  {
+    "name": "Android Application",
+    "module": "com.android.application",
+    "version": "9.3.1",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/studio/build"
+  },
+  {
+    "name": "Compose Compiler",
+    "module": "org.jetbrains.kotlin.plugin.compose",
+    "version": "2.4.10",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/JetBrains/kotlin"
+  }
+]

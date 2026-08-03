@@ -1,0 +1,44 @@
+[
+  {
+    "name": "潘钜森",
+    "desc": "开发者",
+    "icon": "https://q1.qlogo.cn/g?b=qq&nk=2858727468&s=0",
+    "link": "https://github.com/geoisam"
+  },
+  {
+    "name": "齐澍鹤",
+    "desc": "UI建议",
+    "icon": "https://q1.qlogo.cn/g?b=qq&nk=2246921312&s=0",
+    "link": "https://github.com/qisuhe"
+  },
+  {
+    "name": "OpenCode",
+    "desc": "开发辅助",
+    "icon": "https://a.favicon.im/opencode.ai",
+    "link": "https://github.com/anomalyco/opencode"
+  },
+  {
+    "name": "DeepSeek",
+    "desc": "编程建议、开发辅助",
+    "icon": "https://a.favicon.im/deepseek.com",
+    "link": "https://deepseek.com"
+  },
+  {
+    "name": "MiMo",
+    "desc": "编程建议、开发辅助",
+    "icon": "https://a.favicon.im/mimo.mi.com",
+    "link": "https://mimo.mi.com"
+  },
+  {
+    "name": "ChatGPT",
+    "desc": "图标设计、编程建议",
+    "icon": "https://a.favicon.im/chatgpt.com",
+    "link": "https://chatgpt.com"
+  },
+  {
+    "name": "Grok",
+    "desc": "图标设计、编程建议",
+    "icon": "https://a.favicon.im/grok.com",
+    "link": "https://grok.com"
+  }
+]
