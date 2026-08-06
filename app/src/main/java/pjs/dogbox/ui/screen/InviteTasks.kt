@@ -1,5 +1,6 @@
 package pjs.dogbox.ui.screen
 
+import io.ktor.http.ContentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -16,9 +17,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.MediaType.Companion.toMediaType
-import pjs.dogbox.util.CryptUtil
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.utils.CryptUtil
+import pjs.dogbox.utils.HttpUtil
 
 object InviteExecutor {
 
@@ -525,7 +525,7 @@ object InviteExecutor {
 
 
     private suspend fun httpGet(url: String, headers: Map<String, String> = emptyMap()) =
-        withContext(Dispatchers.IO) { OkHttpUtil.get(url, headers).getOrNull() }
+        withContext(Dispatchers.IO) { HttpUtil.get(url, headers).getOrNull() }
 
     private suspend fun httpPost(
         url: String,
@@ -533,7 +533,7 @@ object InviteExecutor {
         headers: Map<String, String> = emptyMap()
     ) =
         withContext(Dispatchers.IO) {
-            OkHttpUtil.post(url, body, "application/x-www-form-urlencoded".toMediaType(), headers)
+            HttpUtil.post(url, body, ContentType.Application.FormUrlEncoded, headers)
                 .getOrNull()
         }
 

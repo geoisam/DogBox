@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -14,29 +15,36 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableChipColors
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -48,11 +56,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -82,10 +94,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.OkHttpUtil
-import pjs.dogbox.util.SharedData
-import pjs.dogbox.util.WatchHistoryItem
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.WatchHistoryItem
+import kotlin.math.roundToInt
 
 data class EpisodeInfo(
     val name: String,
@@ -118,6 +131,7 @@ private fun saveWatchHistory(
     videoUrl: String,
     title: String,
     coverUrl: String,
+    episodeName: String,
     player: ExoPlayer,
 ) {
     val id = extractVideoId(videoUrl)
@@ -142,6 +156,7 @@ private fun saveWatchHistory(
             duration = duration,
             timestamp = System.currentTimeMillis(),
             orientation = 0,
+            episodeName = episodeName,
         ),
     )
 }
@@ -224,7 +239,8 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         }
 
         val playerMain =
-            doc.selectFirst(".player-box-main")?.html() ?: doc.selectFirst("#player-box-main")?.html()
+            doc.selectFirst(".player-box-main")?.html() ?: doc.selectFirst("#player-box-main")
+                ?.html()
             ?: doc.html()
         val playerJsonStr = extractPlayerJson(playerMain)
         val playerJson =
@@ -278,6 +294,8 @@ fun MovieDetailScreen(
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var fetchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var isSwitchingEpisode by remember { mutableStateOf(false) }
+    var pendingSwitchTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var pendingSwitchBack by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     var showIntroSheet by remember { mutableStateOf(false) }
     var showRouteSheet by remember { mutableStateOf(false) }
@@ -305,6 +323,24 @@ fun MovieDetailScreen(
                 playerVideoWidth = videoSize.width
                 playerVideoHeight = videoSize.height
             }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    pendingSwitchBack = null
+                    pendingSwitchTarget = null
+                }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (pendingSwitchTarget != null && pendingSwitchBack != null &&
+                    pendingSwitchTarget == (selectedRouteIndex to selectedEpisodeIndex)
+                ) {
+                    val action = pendingSwitchBack
+                    pendingSwitchBack = null
+                    pendingSwitchTarget = null
+                    action?.invoke()
+                }
+            }
         }
         exoPlayer.addListener(listener)
         onDispose {
@@ -331,18 +367,25 @@ fun MovieDetailScreen(
         }
     }
 
-    BackHandler(enabled = isFullscreen) {
-        setFullscreen(false)
-    }
-
-    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(300.dp)
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp)
 
     var savedHistoryOnDispose by remember { mutableStateOf(false) }
 
     fun saveCurrentToHistory() {
         if (savedHistoryOnDispose) return
         savedHistoryOnDispose = true
-        saveWatchHistory(context, currentEpisodeUrl, pageData?.title ?: "", pageData?.coverUrl ?: "", exoPlayer)
+        val epName = pageData?.routes?.getOrNull(selectedRouteIndex)?.episodes?.getOrNull(
+            selectedEpisodeIndex
+        )?.name ?: ""
+        saveWatchHistory(
+            context,
+            currentEpisodeUrl,
+            pageData?.title ?: "",
+            pageData?.coverUrl ?: "",
+            epName,
+            exoPlayer
+        )
     }
 
     DisposableEffect(exoPlayer) {
@@ -377,9 +420,17 @@ fun MovieDetailScreen(
         onBack()
     }
 
+    BackHandler {
+        if (isFullscreen) {
+            setFullscreen(false)
+        } else {
+            wrappedOnBack()
+        }
+    }
+
     LaunchedEffect(videoUrl) {
         while (true) {
-            kotlinx.coroutines.delay(30000)
+            kotlinx.coroutines.delay(15000)
             savedHistoryOnDispose = false
             saveCurrentToHistory()
         }
@@ -391,7 +442,7 @@ fun MovieDetailScreen(
     }
 
     suspend fun fetchEpisodeM3u8(episodeLink: String): String = withContext(Dispatchers.IO) {
-        OkHttpUtil.get(
+        HttpUtil.get(
             episodeLink, mapOf(
                 "User-Agent" to AppData.UA_CHROME_PC,
                 "Referer" to AppData.NIVOD_SEARCH,
@@ -418,6 +469,10 @@ fun MovieDetailScreen(
         if (routeIdx < 0 || routeIdx >= data.routes.size) return
         val route = data.routes[routeIdx]
         if (epIdx < 0 || epIdx >= route.episodes.size) return
+        val prevRouteIdx = selectedRouteIndex
+        val prevEpIdx = selectedEpisodeIndex
+        val prevEpisodeUrl = currentEpisodeUrl
+        val prevM3u8Url = currentM3u8Url
         fetchJob?.cancel()
         savedHistoryOnDispose = false
         saveCurrentToHistory()
@@ -428,6 +483,22 @@ fun MovieDetailScreen(
         isSwitchingEpisode = true
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
+        pendingSwitchTarget = routeIdx to epIdx
+        pendingSwitchBack = {
+            selectedRouteIndex = prevRouteIdx
+            selectedEpisodeIndex = prevEpIdx
+            currentEpisodeUrl = prevEpisodeUrl
+            currentM3u8Url = prevM3u8Url
+            isSwitchingEpisode = false
+            if (prevM3u8Url.isNotEmpty()) {
+                exoPlayer.apply {
+                    stop()
+                    setMediaItem(MediaItem.fromUri(prevM3u8Url))
+                    prepare()
+                    playWhenReady = true
+                }
+            }
+        }
         fetchJob = scope.launch {
             try {
                 val m3u8 = fetchEpisodeM3u8(ep.link)
@@ -439,8 +510,17 @@ fun MovieDetailScreen(
                         prepare()
                         playWhenReady = true
                     }
+                } else {
+                    val action = pendingSwitchBack
+                    pendingSwitchBack = null
+                    pendingSwitchTarget = null
+                    action?.invoke()
                 }
             } catch (_: Exception) {
+                val action = pendingSwitchBack
+                pendingSwitchBack = null
+                pendingSwitchTarget = null
+                action?.invoke()
             } finally {
                 isSwitchingEpisode = false
             }
@@ -451,7 +531,7 @@ fun MovieDetailScreen(
         isLoading = true
         errorMsg = null
         val result = withContext(Dispatchers.IO) {
-            OkHttpUtil.get(
+            HttpUtil.get(
                 videoUrl, mapOf(
                     "User-Agent" to AppData.UA_CHROME_PC,
                     "Referer" to AppData.NIVOD_SEARCH,
@@ -560,23 +640,27 @@ fun MovieDetailScreen(
             modifier = modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.surface,
         ) { paddingValues ->
-            if (isLoading) {
-                Box(
+            if (errorMsg != null || pageData == null) {
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
                 ) {
-                    ChrysanthemumLoading()
-                }
-            } else if (errorMsg != null || pageData == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(errorMsg ?: "未知错误", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PlayerPlaceholder(
+                        onBack = wrappedOnBack,
+                        isLoading = isLoading,
+                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!isLoading) {
+                            Text(
+                                text = errorMsg ?: "未知错误",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             } else {
                 val data = pageData!!
@@ -592,16 +676,24 @@ fun MovieDetailScreen(
                         .verticalScroll(rememberScrollState()),
                 ) {
 
-                    MoviePlayerScreen(
-                        exoPlayer = exoPlayer,
-                        title = pageData?.title,
-                        isFullscreen = false,
-                        onFullscreenChange = { setFullscreen(it) },
-                        onBack = wrappedOnBack,
-                        isSwitchingEpisode = isSwitchingEpisode,
-                        scaleModeIndex = currentScaleModeIndex,
-                        onScaleModeIndexChange = { currentScaleModeIndex = it },
-                    )
+                    if (currentM3u8Url.isNotEmpty()) {
+                        VideoPlayerScreen(
+                            exoPlayer = exoPlayer,
+                            title = data.title,
+                            isVod = true,
+                            isFullscreen = false,
+                            onFullscreenChange = { setFullscreen(it) },
+                            onBack = wrappedOnBack,
+                            scaleModeIndex = currentScaleModeIndex,
+                            onScaleModeIndexChange = { currentScaleModeIndex = it },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        PlayerPlaceholder(
+                            onBack = wrappedOnBack,
+                            isLoading = true,
+                        )
+                    }
 
                     Column(
                         modifier = Modifier
@@ -616,7 +708,8 @@ fun MovieDetailScreen(
                                 modifier = Modifier.combinedClickable(
                                     onClick = {},
                                     onLongClick = {
-                                        val intent = Intent(Intent.ACTION_VIEW, data.coverUrl.toUri())
+                                        val intent =
+                                            Intent(Intent.ACTION_VIEW, data.coverUrl.toUri())
                                         context.startActivity(intent)
                                     },
                                 ),
@@ -776,27 +869,18 @@ fun MovieDetailScreen(
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            data.routes.forEachIndexed { index, route ->
-                                FilterChip(
-                                    selected = index == selectedRouteIndex,
-                                    onClick = {
-                                        if (index != selectedRouteIndex) {
-                                            selectEpisode(index, 0)
-                                        }
-                                    },
-                                    label = { Text(route.name) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    ),
-                                )
-                            }
-                        }
+                        ChipScrollRow(
+                            labels = data.routes.map { it.name },
+                            selectedIndex = selectedRouteIndex,
+                            onSelect = { index ->
+                                if (index != selectedRouteIndex) {
+                                    selectEpisode(index, 0)
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -842,27 +926,19 @@ fun MovieDetailScreen(
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            currentRoute.episodes.forEachIndexed { index, ep ->
-                                FilterChip(
-                                    selected = index == selectedEpisodeIndex,
-                                    onClick = {
-                                        if (index != selectedEpisodeIndex) {
-                                            selectEpisode(selectedRouteIndex, index)
-                                        }
-                                    },
-                                    label = { Text(ep.name) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    ),
-                                )
-                            }
-                        }
+                        ChipScrollRow(
+                            labels = currentRoute.episodes.map { it.name },
+                            selectedIndex = selectedEpisodeIndex,
+                            labelKey = selectedRouteIndex,
+                            onSelect = { index ->
+                                if (index != selectedEpisodeIndex) {
+                                    selectEpisode(selectedRouteIndex, index)
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
 
                         Spacer(modifier = Modifier.height(32.dp))
                     }
@@ -938,6 +1014,105 @@ fun MovieDetailScreen(
 }
 
 @Composable
+private fun PlayerPlaceholder(
+    onBack: () -> Unit,
+    isLoading: Boolean = true,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(240.dp)
+            .background(Color.Black),
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 4.dp, top = 2.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.arrow_back_outlined),
+                contentDescription = "返回",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isLoading) {
+                ChrysanthemumLoading()
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.autoplay_outlined),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(56.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChipScrollRow(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    colors: SelectableChipColors? = null,
+    labelKey: Any? = null,
+    modifier: Modifier = Modifier,
+) {
+    val scrollState = rememberScrollState()
+    var rowWidthPx by remember { mutableIntStateOf(0) }
+    val itemXs = remember(labels.size, labelKey) { IntArray(labels.size) { Int.MIN_VALUE } }
+    val itemWidths = remember(labels.size, labelKey) { IntArray(labels.size) { 0 } }
+
+    LaunchedEffect(selectedIndex, labelKey, labels.size, rowWidthPx) {
+        if (selectedIndex !in labels.indices) return@LaunchedEffect
+        if (rowWidthPx <= 0) return@LaunchedEffect
+        var itemX = itemXs.getOrNull(selectedIndex) ?: return@LaunchedEffect
+        var attempts = 0
+        while (itemX == Int.MIN_VALUE && attempts < 30) {
+            withFrameNanos { }
+            attempts++
+            itemX = itemXs.getOrNull(selectedIndex) ?: return@LaunchedEffect
+        }
+        if (itemX == Int.MIN_VALUE) return@LaunchedEffect
+        val itemW = itemWidths.getOrNull(selectedIndex) ?: return@LaunchedEffect
+        val current = scrollState.value
+        val left = itemX - current
+        val right = left + itemW
+        if (left >= 0 && right <= rowWidthPx) return@LaunchedEffect
+        val target = if (left < 0) itemX else itemX + itemW - rowWidthPx
+        val clamped = target.coerceIn(0, scrollState.maxValue)
+        if (clamped != current) scrollState.animateScrollTo(clamped)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .onSizeChanged { rowWidthPx = it.width }
+            .horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        labels.forEachIndexed { index, label ->
+            FilterChip(
+                selected = index == selectedIndex,
+                onClick = { onSelect(index) },
+                label = { Text(label) },
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    itemXs[index] = coords.positionInParent().x.roundToInt()
+                    itemWidths[index] = coords.size.width
+                },
+                colors = colors ?: FilterChipDefaults.filterChipColors(),
+            )
+        }
+    }
+}
+
+@Composable
 private fun ActionIconItem(
     icon: Int,
     label: String,
@@ -987,7 +1162,9 @@ private fun IntroBottomSheet(
                 .height(fixedHeight),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1010,7 +1187,8 @@ private fun IntroBottomSheet(
             }
 
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
                     .padding(horizontal = 12.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
@@ -1086,6 +1264,14 @@ private fun RouteBottomSheet(
     fixedHeight: Dp,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(selectedIndex) {
+        withFrameNanos { }
+        repeat(10) {
+            bringIntoViewRequester.bringIntoView()
+            withFrameNanos { }
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -1099,7 +1285,9 @@ private fun RouteBottomSheet(
                 .height(fixedHeight),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1122,7 +1310,8 @@ private fun RouteBottomSheet(
             }
 
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1140,6 +1329,11 @@ private fun RouteBottomSheet(
                             selected = index == selectedIndex,
                             onClick = { onSelect(index) },
                             label = { Text(route.name) },
+                            modifier = if (index == selectedIndex) {
+                                Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                            } else {
+                                Modifier
+                            },
                         )
                     }
                 }
@@ -1160,6 +1354,14 @@ private fun EpisodeBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(selectedIndex) {
+        withFrameNanos { }
+        repeat(10) {
+            bringIntoViewRequester.bringIntoView()
+            withFrameNanos { }
+        }
+    }
     val pageSize = 100
     val totalEpisodes = episodes.size
     val categoryCount = (totalEpisodes + pageSize - 1) / pageSize
@@ -1169,6 +1371,14 @@ private fun EpisodeBottomSheet(
         pageCount = { categoryCount.coerceAtLeast(1) },
         initialPage = if (hasCategories) selectedIndex / pageSize else 0,
     )
+    LaunchedEffect(selectedIndex) {
+        if (hasCategories) {
+            val targetPage = (selectedIndex / pageSize).coerceIn(0, categoryCount - 1)
+            if (targetPage != pagerState.currentPage) {
+                pagerState.animateScrollToPage(targetPage)
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1183,7 +1393,8 @@ private fun EpisodeBottomSheet(
                 .height(fixedHeight),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1256,6 +1467,11 @@ private fun EpisodeBottomSheet(
                                     selected = realIdx == selectedIndex,
                                     onClick = { onSelect(realIdx) },
                                     label = { Text(ep.name) },
+                                    modifier = if (realIdx == selectedIndex) {
+                                        Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                                    } else {
+                                        Modifier
+                                    },
                                 )
                             }
                         }
@@ -1264,7 +1480,8 @@ private fun EpisodeBottomSheet(
                 }
             } else {
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1282,6 +1499,11 @@ private fun EpisodeBottomSheet(
                                 selected = index == selectedIndex,
                                 onClick = { onSelect(index) },
                                 label = { Text(ep.name) },
+                                modifier = if (index == selectedIndex) {
+                                    Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                                } else {
+                                    Modifier
+                                },
                             )
                         }
                     }

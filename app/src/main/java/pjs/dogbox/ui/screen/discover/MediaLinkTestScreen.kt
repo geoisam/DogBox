@@ -10,15 +10,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -65,11 +66,10 @@ import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
-import pjs.dogbox.ui.screen.movie.getStatusBarHeight
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun MediaPlayerScreen(
+fun MediaLinkTestScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -91,7 +91,8 @@ fun MediaPlayerScreen(
 
     val activity = context as? android.app.Activity
 
-    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(300.dp)
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp)
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build()
@@ -137,7 +138,9 @@ fun MediaPlayerScreen(
             override fun onPlayerError(pError: PlaybackException) {
                 isPlaying = false
                 isDetecting = false
-                Toast.makeText(context, "播放出错：${pError.localizedMessage}", Toast.LENGTH_SHORT).show()
+                if (isFullscreen) {
+                    setFullscreen(false)
+                }
             }
         }
         exoPlayer.addListener(errorListener)
@@ -161,6 +164,7 @@ fun MediaPlayerScreen(
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY) ready = true
                     }
+
                     override fun onPlayerError(pError: PlaybackException) {
                         error = true
                     }
@@ -380,7 +384,7 @@ fun MediaPlayerScreen(
                                 onClick = {
                                     focusManager.clearFocus()
                                     showSpeedSheet = true
-                                          },
+                                },
                                 modifier = Modifier.weight(1f),
                             )
                             ActionIconItem(
@@ -389,7 +393,7 @@ fun MediaPlayerScreen(
                                 onClick = {
                                     focusManager.clearFocus()
                                     showScaleSheet = true
-                                          },
+                                },
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -406,7 +410,8 @@ fun MediaPlayerScreen(
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                             ),
                             shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
                                 .height(56.dp)
                         ) {
                             Text(

@@ -1,11 +1,10 @@
-package pjs.dogbox.util
+package pjs.dogbox.utils
 
-import com.tyme.lunar.LunarDay
-import com.tyme.lunar.LunarHour
-import com.tyme.solar.SolarDay
 import com.tyme.festival.SolarFestival
-import com.tyme.solar.SolarTime
+import com.tyme.lunar.LunarDay
 import com.tyme.sixtycycle.HeavenStem
+import com.tyme.solar.SolarDay
+import com.tyme.solar.SolarTime
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
@@ -150,7 +149,9 @@ object LunarUtil {
         val timeNow = ZonedDateTime.now(ZoneId.systemDefault())
         val lunarDay = getLunarDay(timeNow)
         val pengZu = lunarDay.getSixtyCycle().getPengZu()
-        return "${pengZu.getPengZuHeavenStem().getName()}\n${pengZu.getPengZuEarthBranch().getName()}"
+        return "${pengZu.getPengZuHeavenStem().getName()}\n${
+            pengZu.getPengZuEarthBranch().getName()
+        }"
     }
 
     fun getDayXi(): String {
@@ -196,21 +197,81 @@ object LunarUtil {
         val now = ZonedDateTime.now(ZoneId.systemDefault())
 
         return LunarSnapshot(
-            yearMonth = try { getYearMonth() } catch (_: Exception) { "" },
-            shiChen = try { getShiChen() } catch (_: Exception) { "" },
-            week = try { getWeek() } catch (_: Exception) { "" },
-            day = try { getDay() } catch (_: Exception) { "" },
-            monthDay = try { getMonthDay() } catch (_: Exception) { "" },
-            ganZhi = try { getGanZhi() } catch (_: Exception) { "" },
-            jieQi = try { getJieQi() } catch (_: Exception) { "" },
-            dayYi = try { getDayYi() } catch (_: Exception) { "" },
-            dayJi = try { getDayJi() } catch (_: Exception) { "" },
-            dayChong = try { getDayChong() } catch (_: Exception) { "" },
-            pengZu = try { getPengZu() } catch (_: Exception) { "" },
-            dayXi = try { getDayXi() } catch (_: Exception) { "" },
-            dayCai = try { getDayCai() } catch (_: Exception) { "" },
-            dayFu = try { getDayFu() } catch (_: Exception) { "" },
-            festivals = try { getNextFestivals(now) } catch (_: Exception) { emptyList() }
+            yearMonth = try {
+                getYearMonth()
+            } catch (_: Exception) {
+                ""
+            },
+            shiChen = try {
+                getShiChen()
+            } catch (_: Exception) {
+                ""
+            },
+            week = try {
+                getWeek()
+            } catch (_: Exception) {
+                ""
+            },
+            day = try {
+                getDay()
+            } catch (_: Exception) {
+                ""
+            },
+            monthDay = try {
+                getMonthDay()
+            } catch (_: Exception) {
+                ""
+            },
+            ganZhi = try {
+                getGanZhi()
+            } catch (_: Exception) {
+                ""
+            },
+            jieQi = try {
+                getJieQi()
+            } catch (_: Exception) {
+                ""
+            },
+            dayYi = try {
+                getDayYi()
+            } catch (_: Exception) {
+                ""
+            },
+            dayJi = try {
+                getDayJi()
+            } catch (_: Exception) {
+                ""
+            },
+            dayChong = try {
+                getDayChong()
+            } catch (_: Exception) {
+                ""
+            },
+            pengZu = try {
+                getPengZu()
+            } catch (_: Exception) {
+                ""
+            },
+            dayXi = try {
+                getDayXi()
+            } catch (_: Exception) {
+                ""
+            },
+            dayCai = try {
+                getDayCai()
+            } catch (_: Exception) {
+                ""
+            },
+            dayFu = try {
+                getDayFu()
+            } catch (_: Exception) {
+                ""
+            },
+            festivals = try {
+                getNextFestivals(now)
+            } catch (_: Exception) {
+                emptyList()
+            }
         )
     }
 
@@ -258,7 +319,11 @@ object LunarUtil {
             }
 
             if (nearestFestivalDay == null) {
-                val festival = SolarFestival.fromYmd(solarDay.getYear(), solarDay.getMonth(), solarDay.getDay())
+                val festival = SolarFestival.fromYmd(
+                    solarDay.getYear(),
+                    solarDay.getMonth(),
+                    solarDay.getDay()
+                )
                 if (festival != null) {
                     nearestFestivalDay = i.toLong()
                     nearestFestivalName = festival.getName()

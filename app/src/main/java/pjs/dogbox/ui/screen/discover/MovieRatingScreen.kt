@@ -26,15 +26,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +47,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +59,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,8 +88,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SimpleDragHandle
 import java.net.URLEncoder
 
 internal data class MovieItem(
@@ -113,6 +115,18 @@ private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
 private const val STATE_ERROR = 2
 
+private class MovieCategoryState {
+    var currentPage by mutableIntStateOf(0)
+    var movieList by mutableStateOf(emptyList<MovieItem>())
+    var isLoading by mutableStateOf(false)
+    var hasMore by mutableStateOf(true)
+    var isRefreshing by mutableStateOf(false)
+    var refreshKey by mutableIntStateOf(0)
+    var prevRefreshKey by mutableIntStateOf(0)
+    var lastFetchKey by mutableStateOf("")
+    val gridState = LazyGridState()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovieRatingScreen(
@@ -124,6 +138,7 @@ fun MovieRatingScreen(
     val categories = listOf("豆瓣高分", "冷门佳片")
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val tabCache = rememberTabStateCache { MovieCategoryState() }
     var showTabSheet by remember { mutableStateOf(false) }
     val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -183,102 +198,115 @@ fun MovieRatingScreen(
             },
         )
 
-        if (filterState == STATE_LOADING) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                ChrysanthemumLoading()
-            }
-        } else if (filterState == STATE_ERROR) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "暂无数据",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            val tabScrollState = rememberLazyListState()
-            PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LazyRow(
-                    state = tabScrollState,
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+        when (filterState) {
+            STATE_LOADING -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    itemsIndexed(tabs) { index, tab ->
-                        val selected = pagerState.currentPage == index
-                        val chipColor by animateColorAsState(
-                            targetValue = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            animationSpec = tween(200),
-                        )
-                        val textColor by animateColorAsState(
-                            targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = tween(200),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.large)
-                                .background(chipColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                )
-                                .padding(horizontal = 14.dp, vertical = 7.dp),
-                        ) {
-                            Text(
-                                text = tab,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                color = textColor,
-                                maxLines = 1,
+                    ChrysanthemumLoading()
+                }
+            }
+
+            STATE_ERROR -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "暂无数据",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            else -> {
+                val tabScrollState = rememberLazyListState()
+                PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LazyRow(
+                        state = tabScrollState,
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        itemsIndexed(tabs) { index, tab ->
+                            val selected = pagerState.currentPage == index
+                            val chipColor by animateColorAsState(
+                                targetValue = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                animationSpec = tween(200),
                             )
+                            val textColor by animateColorAsState(
+                                targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                animationSpec = tween(200),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.large)
+                                    .background(chipColor)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(
+                                                    index
+                                                )
+                                            }
+                                        },
+                                    )
+                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                            ) {
+                                Text(
+                                    text = tab,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = textColor,
+                                    maxLines = 1,
+                                )
+                            }
                         }
+                    }
+
+                    FilledTonalIconButton(
+                        onClick = { showTabSheet = true },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .size(32.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
+                            contentDescription = "展开",
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
                 }
 
-                FilledTonalIconButton(
-                    onClick = { showTabSheet = true },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .size(32.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
-                        contentDescription = "展开",
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 0,
-            ) { page ->
-                key(categories[page]) {
-                    MovieCategoryContent(
-                        category = categories[page],
-                        typeOptions = typeOptions,
-                        filterState = filterState,
-                        selectedType = selectedType,
-                        onTypeChange = { selectedType = it },
-                        onSearchMovie = onSearchMovie,
-                    )
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 0,
+                ) { page ->
+                    key(categories[page]) {
+                        MovieCategoryContent(
+                            category = categories[page],
+                            typeOptions = typeOptions,
+                            filterState = filterState,
+                            selectedType = selectedType,
+                            onTypeChange = { selectedType = it },
+                            onSearchMovie = onSearchMovie,
+                            tabState = tabCache.get(categories[page]),
+                        )
+                    }
                 }
             }
         }
@@ -288,8 +316,7 @@ fun MovieRatingScreen(
         ModalBottomSheet(
             onDismissRequest = { showTabSheet = false },
             sheetState = tabSheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 FlowRow(
@@ -337,7 +364,7 @@ fun MovieRatingScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun MovieCategoryContent(
     category: String,
@@ -346,21 +373,25 @@ private fun MovieCategoryContent(
     selectedType: String,
     onTypeChange: (String) -> Unit,
     onSearchMovie: (String) -> Unit = {},
+    tabState: MovieCategoryState,
 ) {
-    var currentPage by remember { mutableIntStateOf(0) }
-    var movieList by remember { mutableStateOf(emptyList<MovieItem>()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-
-    LaunchedEffect(currentPage, selectedType, category) {
-        if (currentPage == 0) {
-            movieList = emptyList()
+    LaunchedEffect(tabState.currentPage, selectedType, category, tabState.refreshKey) {
+        val fetchKey = "$category|$selectedType|${tabState.currentPage}|${tabState.refreshKey}"
+        if (tabState.lastFetchKey == fetchKey && tabState.movieList.isNotEmpty()) {
+            return@LaunchedEffect
         }
-        isLoading = true
-        val start = currentPage * 32
+        tabState.lastFetchKey = fetchKey
+        val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
+        tabState.prevRefreshKey = tabState.refreshKey
+        if (tabState.currentPage == 0 && !isRefresh) {
+            tabState.movieList = emptyList()
+        }
+        tabState.isLoading = true
+        tabState.isRefreshing = isRefresh
+        val start = tabState.currentPage * 32
         val url = buildUrl(start, category, selectedType)
         withContext(Dispatchers.IO) {
-            OkHttpUtil.get(
+            HttpUtil.get(
                 url, mapOf(
                     "User-Agent" to AppData.UA_WECHAT_PC,
                     "Referer" to "https://servicewechat.com/wx2f9b06c1de1ccfca/99/page-frame.html",
@@ -390,34 +421,36 @@ private fun MovieCategoryContent(
                                 ?: 0.0,
                         )
                     }
-                    if (currentPage == 0) movieList = parsed else movieList += parsed
-                    hasMore = parsed.size >= 32
+                    if (tabState.currentPage == 0) tabState.movieList =
+                        parsed else tabState.movieList += parsed
+                    tabState.hasMore = parsed.size >= 32
                 } else {
-                    hasMore = false
+                    tabState.hasMore = false
                 }
             } catch (_: Exception) {
-                hasMore = false
+                tabState.hasMore = false
             }
         }.onFailure {
-            hasMore = false
+            tabState.hasMore = false
         }
-        isLoading = false
+        tabState.isLoading = false
+        tabState.isRefreshing = false
     }
 
-    val lazyGridState = rememberLazyGridState()
+    val lazyGridState = tabState.gridState
 
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = lazyGridState.layoutInfo.totalItemsCount
             if (totalItems == 0) return@derivedStateOf false
             val lastVisible = lazyGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= totalItems - 5 && hasMore && !isLoading
+            lastVisible >= totalItems - 5 && tabState.hasMore && !tabState.isLoading
         }
     }
 
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && hasMore && !isLoading) {
-            currentPage++
+        if (shouldLoadMore && tabState.hasMore && !tabState.isLoading) {
+            tabState.currentPage++
         }
     }
 
@@ -452,7 +485,7 @@ private fun MovieCategoryContent(
         }
 
         STATE_LOADED -> {
-            if (isLoading && movieList.isEmpty()) {
+            if (tabState.isLoading && tabState.movieList.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -461,22 +494,32 @@ private fun MovieCategoryContent(
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    if (typeOptions.isNotEmpty() && movieList.isNotEmpty()) {
+                    if (typeOptions.isNotEmpty() && tabState.movieList.isNotEmpty()) {
                         FilterChipBar(
                             options = typeOptions,
                             selectedValue = selectedType,
-                            onValueChange = { onTypeChange(it); currentPage = 0 },
+                            onValueChange = {
+                                onTypeChange(it)
+                                tabState.currentPage = 0
+                            },
                         )
                     }
 
-                    Box(
+                    PullToRefreshBox(
+                        isRefreshing = tabState.isRefreshing,
+                        onRefresh = {
+                            tabState.currentPage = 0
+                            tabState.refreshKey++
+                        },
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxWidth(),
                     ) {
-                        if (movieList.isEmpty() && !isLoading) {
+                        if (tabState.movieList.isEmpty() && !tabState.isLoading) {
                             Box(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -493,7 +536,9 @@ private fun MovieCategoryContent(
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                                 modifier = Modifier.fillMaxSize(),
                             ) {
-                                items(movieList, key = { "${it.id}_${it.title}" }) { item ->
+                                items(
+                                    tabState.movieList,
+                                    key = { "${it.id}_${it.title}" }) { item ->
                                     MovieGridItem(
                                         item = item,
                                         onClick = {
@@ -504,7 +549,7 @@ private fun MovieCategoryContent(
                                     )
                                 }
 
-                                if (isLoading) {
+                                if (tabState.isLoading) {
                                     item(span = { GridItemSpan(3) }) {
                                         Box(
                                             modifier = Modifier
@@ -630,8 +675,7 @@ private fun FilterChipBar(
         ModalBottomSheet(
             onDismissRequest = { showSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 FlowRow(

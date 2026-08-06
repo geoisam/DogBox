@@ -112,7 +112,10 @@ fun DogBoxTheme(
             if (dynamicColorStyle == "TonalSpot") {
                 if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             } else {
-                val dynamicScheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                val dynamicScheme =
+                    if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(
+                        context
+                    )
                 val seedColor = dynamicScheme.primary
                 val argb = (seedColor.red * 255).toInt() shl 16 or
                         (seedColor.green * 255).toInt() shl 8 or
@@ -178,7 +181,11 @@ fun DogBoxTheme(
     )
 }
 
-private fun createSchemeFromStyle(style: String, hct: Hct, isDark: Boolean): com.materialkolor.scheme.DynamicScheme {
+private fun createSchemeFromStyle(
+    style: String,
+    hct: Hct,
+    isDark: Boolean
+): com.materialkolor.scheme.DynamicScheme {
     return when (style) {
         "Neutral" -> SchemeNeutral(hct, isDark, contrastLevel = 0.0)
         "Vibrant" -> SchemeVibrant(hct, isDark, contrastLevel = 0.0)
@@ -192,7 +199,10 @@ private fun createSchemeFromStyle(style: String, hct: Hct, isDark: Boolean): com
     }
 }
 
-private fun dynamicSchemeToMaterialScheme(scheme: com.materialkolor.scheme.DynamicScheme, isDark: Boolean): androidx.compose.material3.ColorScheme {
+private fun dynamicSchemeToMaterialScheme(
+    scheme: com.materialkolor.scheme.DynamicScheme,
+    isDark: Boolean
+): androidx.compose.material3.ColorScheme {
     return if (isDark) {
         darkColorScheme(
             primary = Color(scheme.primary),

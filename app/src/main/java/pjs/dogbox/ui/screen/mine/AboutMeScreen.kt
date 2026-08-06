@@ -57,16 +57,16 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.DisclaimerDialog
-import pjs.dogbox.util.SharedData
-import pjs.dogbox.util.UpdateBottomSheet
-import pjs.dogbox.util.fetchRemoteConfig
-import pjs.dogbox.util.parseUpdateInfo
-import androidx.core.net.toUri
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.DisclaimerDialog
+import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.UpdateBottomSheet
+import pjs.dogbox.utils.fetchRemoteConfig
+import pjs.dogbox.utils.parseUpdateInfo
 
 private enum class UpdateCheckState {
     NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE
@@ -147,7 +147,8 @@ fun AboutMeScreen(
         },
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 12.dp)
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState()),
@@ -225,12 +226,14 @@ fun AboutMeScreen(
                                         SharedData.setCachedUpdateInfo(null)
                                         SharedData.setCachedUpToDate(true)
                                         manualOverride = null
-                                        Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT)
+                                            .show()
                                     } else {
                                         SharedData.setCachedUpdateInfo(null)
                                         SharedData.setCachedUpToDate(false)
                                         manualOverride = null
-                                        Toast.makeText(context, "检测更新失败", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "检测更新失败", Toast.LENGTH_SHORT)
+                                            .show()
                                     }
                                 }
                             }
@@ -261,18 +264,21 @@ fun AboutMeScreen(
                                 )
                             }
                         }
+
                         UpdateCheckState.UP_TO_DATE -> Text(
                             text = "已是最新版本",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 4.dp),
                         )
+
                         UpdateCheckState.CHECKING -> Text(
                             text = "检测中...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 4.dp),
                         )
+
                         UpdateCheckState.NOT_CHECKED -> Text(
                             text = "未检测或检测失败",
                             style = MaterialTheme.typography.bodyMedium,
@@ -303,7 +309,8 @@ fun AboutMeScreen(
                     )
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .clickable {
                             val newValue = !autoCheckUpdate
                             autoCheckUpdate = newValue
@@ -444,29 +451,47 @@ private fun openPermissionManager(context: Context) {
     when {
         manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> {
             candidates += Intent("miui.intent.action.APP_PERM_EDITOR")
-                .setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                .setClassName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                )
                 .putExtra("extra_pkgname", pkg)
             candidates += Intent("miui.intent.action.APP_PERM_EDITOR")
-                .setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditorActivity")
+                .setClassName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.AppPermissionsEditorActivity"
+                )
                 .putExtra("extra_pkgname", pkg)
         }
+
         manufacturer.contains("huawei") || manufacturer.contains("honor") -> {
             candidates += Intent("com.huawei.systemmanager.intent.action.MANAGE_APPLICATIONS_PERMISSION")
                 .setData(Uri.parse("package:$pkg"))
             candidates += Intent("huawei.intent.action.ACTION_APPLICATION_DETAILS")
                 .setData(Uri.parse("package:$pkg"))
         }
+
         manufacturer.contains("oppo") || manufacturer.contains("oneplus") || manufacturer.contains("realme") -> {
             candidates += Intent()
-                .setClassName("com.color.safecenter", "com.color.safecenter.permission.PermissionAppAllPermissionActivity")
+                .setClassName(
+                    "com.color.safecenter",
+                    "com.color.safecenter.permission.PermissionAppAllPermissionActivity"
+                )
                 .putExtra("packageName", pkg)
             candidates += Intent()
-                .setClassName("com.oppo.safe", "com.oppo.safe.permission.PermissionAppAllPermissionActivity")
+                .setClassName(
+                    "com.oppo.safe",
+                    "com.oppo.safe.permission.PermissionAppAllPermissionActivity"
+                )
                 .putExtra("packageName", pkg)
         }
+
         manufacturer.contains("vivo") -> {
             candidates += Intent()
-                .setClassName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity")
+                .setClassName(
+                    "com.vivo.permissionmanager",
+                    "com.vivo.permissionmanager.activity.PurviewTabActivity"
+                )
                 .putExtra("packagename", pkg)
         }
     }

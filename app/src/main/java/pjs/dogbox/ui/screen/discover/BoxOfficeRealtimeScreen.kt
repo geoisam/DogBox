@@ -62,7 +62,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.utils.HttpUtil
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -168,7 +168,7 @@ fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         while (true) {
             isLoading = true
             withContext(Dispatchers.IO) {
-                OkHttpUtil.get("$API_BASE?date=$selectedDate&withSvcFee=true")
+                HttpUtil.get("$API_BASE?date=$selectedDate&withSvcFee=true")
             }.onSuccess { response ->
                 try {
                     val json = Json.parseToJsonElement(response).jsonObject

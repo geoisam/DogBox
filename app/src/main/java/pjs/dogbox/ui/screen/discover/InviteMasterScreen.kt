@@ -5,18 +5,23 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,6 +52,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -66,7 +72,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.InviteExecutor
-import pjs.dogbox.util.CryptUtil
+import pjs.dogbox.utils.CryptUtil
+import pjs.dogbox.utils.SimpleDragHandle
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -79,7 +86,6 @@ fun InviteMasterScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     logs: SnapshotStateList<String> = mutableStateListOf(),
-    onNavigateToLogs: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val notice = "仅供测试使用，禁止用于非法用途"
@@ -113,6 +119,7 @@ fun InviteMasterScreen(
         )
     }
     var showTypeSheet by remember { mutableStateOf(false) }
+    var showLogSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
@@ -140,7 +147,10 @@ fun InviteMasterScreen(
                 },
                 actions = {
                     FilledTonalIconButton(
-                        onClick = onNavigateToLogs,
+                        onClick = {
+                            focusManager.clearFocus()
+                            showLogSheet = true
+                        },
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         )
@@ -228,8 +238,7 @@ fun InviteMasterScreen(
                 ModalBottomSheet(
                     onDismissRequest = { showTypeSheet = false },
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    dragHandle = { SimpleDragHandle() },
                 ) {
                     Column(
                         modifier = Modifier
@@ -373,7 +382,7 @@ fun InviteMasterScreen(
                         Toast.makeText(context, "邀请任务已停止", Toast.LENGTH_SHORT).show()
                     } else {
                         focusManager.clearFocus()
-                        onNavigateToLogs()
+                        showLogSheet = true
                         runningJob = scope.launch {
                             isRunning = true
                             try {
@@ -401,7 +410,8 @@ fun InviteMasterScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .height(56.dp)
             ) {
                 Text(
@@ -411,6 +421,105 @@ fun InviteMasterScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+
+    if (showLogSheet) {
+        InviteLogSheet(
+            logs = logs,
+            onDismiss = { showLogSheet = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InviteLogSheet(
+    logs: SnapshotStateList<String>,
+    onDismiss: () -> Unit,
+) {
+    val logScrollState = rememberScrollState()
+
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) {
+            logScrollState.animateScrollTo(logScrollState.maxValue)
+        }
+    }
+
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        dragHandle = null,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sheetMaxHeight)
+                .padding(horizontal = 12.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "日志",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                FilledTonalIconButton(
+                    onClick = onDismiss,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.close_outlined),
+                        contentDescription = "关闭",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 8.dp, bottom = 24.dp),
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (logs.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("暂无日志", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        SelectionContainer {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                                    .verticalScroll(logScrollState)
+                            ) {
+                                logs.forEach { log ->
+                                    Text(
+                                        text = log,
+                                        modifier = Modifier.padding(vertical = 2.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

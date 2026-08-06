@@ -30,9 +30,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -110,10 +110,18 @@ fun VideoPlayerScreen(
     var longPressSpeed by remember { mutableFloatStateOf(3.0f) }
     var isMuted by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape =
+        configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
-    var currentScaleModeIndex by remember(scaleModeIndex) { mutableIntStateOf(mapAllToPlayerScale(scaleModeIndex, isLandscape)) }
+    var currentScaleModeIndex by remember(scaleModeIndex) {
+        mutableIntStateOf(
+            mapAllToPlayerScale(
+                scaleModeIndex,
+                isLandscape
+            )
+        )
+    }
     val currentScaleMode = getScaleModes(isLandscape)[currentScaleModeIndex]
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var locked by remember { mutableStateOf(false) }
@@ -144,7 +152,8 @@ fun VideoPlayerScreen(
     @Suppress("DEPRECATION")
     var brightness by remember {
         mutableFloatStateOf(
-            (window?.attributes?.screenBrightness ?: -1f))
+            (window?.attributes?.screenBrightness ?: -1f)
+        )
     }
     var savedSystemBrightness by remember { mutableFloatStateOf(-1f) }
     var isRewinding by remember { mutableStateOf(false) }
@@ -242,7 +251,8 @@ fun VideoPlayerScreen(
                             exoPlayer.seekTo(0)
                             exoPlayer.play()
                         }
-                        PlaybackOrder.AUTO_NEXT, PlaybackOrder.STOP_AFTER -> { }
+
+                        PlaybackOrder.AUTO_NEXT, PlaybackOrder.STOP_AFTER -> {}
                     }
                 }
             }
@@ -261,8 +271,11 @@ fun VideoPlayerScreen(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT).show()
-                onBack()
+                Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT)
+                    .show()
+                if (isFullscreen) {
+                    onFullscreenChange(false)
+                }
             }
         }
     }
@@ -417,7 +430,8 @@ fun VideoPlayerScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
                                     .padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -522,7 +536,8 @@ fun VideoPlayerScreen(
                                     }
                                     lastTapTime = downTime
                                     var pastTouchSlop = false
-                                    var dragAxis = 0 // 0=none, 1=horizontal(seek), 2=vertical(volume/brightness)
+                                    var dragAxis =
+                                        0 // 0=none, 1=horizontal(seek), 2=vertical(volume/brightness)
                                     var lastPos = down.position
                                     while (true) {
                                         val event = awaitPointerEvent(PointerEventPass.Main)
@@ -560,10 +575,20 @@ fun VideoPlayerScreen(
                                                 val centerX = size.width / 2
                                                 val x = change.position.x
                                                 if (x > centerX) {
-                                                    val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                                    val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                                    val newVol = (curVol - (delta.y / 300f * maxVol).toInt()).coerceIn(0, maxVol)
-                                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                                    val maxVol =
+                                                        audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                                    val curVol =
+                                                        audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                                    val newVol =
+                                                        (curVol - (delta.y / 300f * maxVol).toInt()).coerceIn(
+                                                            0,
+                                                            maxVol
+                                                        )
+                                                    audioManager.setStreamVolume(
+                                                        AudioManager.STREAM_MUSIC,
+                                                        newVol,
+                                                        0
+                                                    )
                                                     volumePercent = (newVol * 100 / maxVol)
                                                     if (!isAdjustingVolume) {
                                                         isAdjustingVolume = true
@@ -571,7 +596,11 @@ fun VideoPlayerScreen(
                                                 } else {
                                                     @Suppress("DEPRECATION")
                                                     val lp = window?.attributes ?: continue
-                                                    val b = (lp.screenBrightness - delta.y / 300f).coerceIn(0f, 1f)
+                                                    val b =
+                                                        (lp.screenBrightness - delta.y / 300f).coerceIn(
+                                                            0f,
+                                                            1f
+                                                        )
                                                     lp.screenBrightness = b
                                                     window.attributes = lp
                                                     brightness = b
@@ -581,8 +610,13 @@ fun VideoPlayerScreen(
                                                     }
                                                 }
                                             } else if (dragAxis == 1 && playerDuration > 0) {
-                                                val seekDelta = (delta.x / size.width * playerDuration).toLong()
-                                                val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(0, playerDuration)
+                                                val seekDelta =
+                                                    (delta.x / size.width * playerDuration).toLong()
+                                                val newPos =
+                                                    (exoPlayer.currentPosition + seekDelta).coerceIn(
+                                                        0,
+                                                        playerDuration
+                                                    )
                                                 exoPlayer.seekTo(newPos)
                                                 seekPreviewPosition = newPos
                                             }
@@ -699,12 +733,17 @@ fun VideoPlayerScreen(
                         ) {
                             if (isVod) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
                                         .padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        text = "${formatTime(playerCurrentPosition)} / ${formatTime(playerDuration)}",
+                                        text = "${formatTime(playerCurrentPosition)} / ${
+                                            formatTime(
+                                                playerDuration
+                                            )
+                                        }",
                                         color = Color.White,
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
@@ -713,14 +752,22 @@ fun VideoPlayerScreen(
                                         icon = R.drawable.replay_10_outlined,
                                         text = "后退10s",
                                         onClick = {
-                                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0L))
+                                            exoPlayer.seekTo(
+                                                (exoPlayer.currentPosition - 10_000).coerceAtLeast(
+                                                    0L
+                                                )
+                                            )
                                         },
                                     )
                                     PlayerSeekButton(
                                         icon = R.drawable.forward_10_outlined,
                                         text = "前进10s",
                                         onClick = {
-                                            exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(playerDuration))
+                                            exoPlayer.seekTo(
+                                                (exoPlayer.currentPosition + 10_000).coerceAtMost(
+                                                    playerDuration
+                                                )
+                                            )
                                         },
                                     )
                                 }
@@ -841,7 +888,10 @@ fun VideoPlayerScreen(
                                         horizontalArrangement = Arrangement.Center,
                                     ) {
                                         Text(
-                                            text = getQualityLabel(playerVideoWidth, playerVideoHeight),
+                                            text = getQualityLabel(
+                                                playerVideoWidth,
+                                                playerVideoHeight
+                                            ),
                                             color = Color.White.copy(alpha = 0.5f),
                                             style = MaterialTheme.typography.titleSmall,
                                         )
@@ -957,18 +1007,28 @@ fun VideoPlayerScreen(
             if (showSpeedSheet) {
                 PlayerOverlay(isLandscape = isLandscape, onDismiss = { showSpeedSheet = false }) {
                     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
-                    var sliderLongPressSpeed by remember(longPressSpeed) { mutableFloatStateOf(longPressSpeed) }
+                    var sliderLongPressSpeed by remember(longPressSpeed) {
+                        mutableFloatStateOf(
+                            longPressSpeed
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("播放倍速", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(
+                                "播放倍速",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
                             IconButton(onClick = { showSpeedSheet = false }) {
                                 Icon(
                                     painter = painterResource(R.drawable.close_outlined),
@@ -995,7 +1055,9 @@ fun VideoPlayerScreen(
                             },
                             valueRange = 0.25f..5.0f,
                             steps = 18,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
                         )
                         Spacer(Modifier.height(8.dp))
                         SpeedResetButton(
@@ -1020,7 +1082,9 @@ fun VideoPlayerScreen(
                             onValueChangeFinished = { longPressSpeed = sliderLongPressSpeed },
                             valueRange = 0.25f..5.0f,
                             steps = 18,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
                         )
                         Spacer(Modifier.height(8.dp))
                         SpeedResetButton(
@@ -1041,11 +1105,17 @@ fun VideoPlayerScreen(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("视频画幅", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(
+                                "视频画幅",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
                             IconButton(onClick = { showScaleSheet = false }) {
                                 Icon(
                                     painter = painterResource(R.drawable.close_outlined),
@@ -1056,9 +1126,12 @@ fun VideoPlayerScreen(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        val selectedAllIndex = mapPlayerToAllScale(currentScaleModeIndex, isLandscape)
+                        val selectedAllIndex =
+                            mapPlayerToAllScale(currentScaleModeIndex, isLandscape)
                         androidx.compose.foundation.layout.FlowRow(
-                            modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -1069,7 +1142,8 @@ fun VideoPlayerScreen(
                                         val playerIndex = mapAllToPlayerScale(index, isLandscape)
                                         currentScaleModeIndex = playerIndex
                                         onScaleModeIndexChange?.invoke(index)
-                                        playerViewRef?.resizeMode = getScaleModes(isLandscape)[playerIndex].resizeMode
+                                        playerViewRef?.resizeMode =
+                                            getScaleModes(isLandscape)[playerIndex].resizeMode
                                     },
                                     label = { Text(scaleMode.label) },
                                     colors = FilterChipDefaults.filterChipColors(
@@ -1149,7 +1223,10 @@ fun VideoPlayerScreen(
             }
         } else {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(300.dp)
+            val sheetFixedHeight =
+                (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(
+                    300.dp
+                )
             ModalBottomSheet(
                 onDismissRequest = { showMoreSheet = false },
                 sheetState = sheetState,
@@ -1158,7 +1235,9 @@ fun VideoPlayerScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().height(sheetFixedHeight),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(sheetFixedHeight),
                 ) {
                     MoreSettingsContent(
                         flipHorizontal = flipHorizontal,

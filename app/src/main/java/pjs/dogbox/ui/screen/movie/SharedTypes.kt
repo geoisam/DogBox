@@ -29,8 +29,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +48,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -71,8 +70,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +82,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -93,6 +91,8 @@ import androidx.core.graphics.createBitmap
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 
@@ -105,7 +105,8 @@ fun getStatusBarHeight(): Dp {
 
 internal class ScaleMode(val label: String, val resizeMode: Int, val aspectRatio: Float? = null)
 
-internal fun getScaleModes(@Suppress("UNUSED_PARAMETER") isLandscape: Boolean): List<ScaleMode> = ALL_SCALE_MODES
+internal fun getScaleModes(@Suppress("UNUSED_PARAMETER") isLandscape: Boolean): List<ScaleMode> =
+    ALL_SCALE_MODES
 
 internal fun ScaleMode.computeSize(
     screenWidthDp: Int,
@@ -136,12 +137,14 @@ internal val SPEED_OPTIONS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f)
 
 internal fun mapAllToPlayerScale(allIndex: Int, isLandscape: Boolean): Int {
     val mode = ALL_SCALE_MODES.getOrNull(allIndex) ?: return 0
-    return getScaleModes(isLandscape).indexOfFirst { it.resizeMode == mode.resizeMode && it.aspectRatio == mode.aspectRatio }.coerceAtLeast(0)
+    return getScaleModes(isLandscape).indexOfFirst { it.resizeMode == mode.resizeMode && it.aspectRatio == mode.aspectRatio }
+        .coerceAtLeast(0)
 }
 
 internal fun mapPlayerToAllScale(playerIndex: Int, isLandscape: Boolean): Int {
     val mode = getScaleModes(isLandscape).getOrNull(playerIndex) ?: return 0
-    return ALL_SCALE_MODES.indexOfFirst { it.resizeMode == mode.resizeMode && it.aspectRatio == mode.aspectRatio }.coerceAtLeast(0)
+    return ALL_SCALE_MODES.indexOfFirst { it.resizeMode == mode.resizeMode && it.aspectRatio == mode.aspectRatio }
+        .coerceAtLeast(0)
 }
 
 internal fun formatTime(ms: Long): String {
@@ -361,7 +364,9 @@ internal fun SpeedBottomSheet(
                 .padding(bottom = 32.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -392,7 +397,9 @@ internal fun SpeedBottomSheet(
                 onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
                 valueRange = 0.25f..5.0f,
                 steps = 18,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
             )
             Spacer(Modifier.height(8.dp))
             SpeedResetButton(
@@ -415,7 +422,9 @@ internal fun SpeedBottomSheet(
                 onValueChangeFinished = { onLongPressSpeedConfirm(sliderLongPressSpeed) },
                 valueRange = 0.25f..5.0f,
                 steps = 18,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
             )
             Spacer(Modifier.height(8.dp))
             SpeedResetButton(
@@ -453,7 +462,9 @@ internal fun ScaleBottomSheet(
                 .padding(bottom = 32.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -473,7 +484,9 @@ internal fun ScaleBottomSheet(
             }
             Spacer(Modifier.height(8.dp))
             FlowRow(
-                modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -528,8 +541,12 @@ internal fun PlayerOverlay(
             Box(
                 modifier = Modifier
                     .then(
-                        if (isLandscape) Modifier.fillMaxHeight().width(LocalConfiguration.current.screenWidthDp.dp * 0.5f)
-                        else Modifier.fillMaxWidth().height(LocalConfiguration.current.screenHeightDp.dp * 0.5f)
+                        if (isLandscape) Modifier
+                            .fillMaxHeight()
+                            .width(LocalConfiguration.current.screenWidthDp.dp * 0.5f)
+                        else Modifier
+                            .fillMaxWidth()
+                            .height(LocalConfiguration.current.screenHeightDp.dp * 0.5f)
                     )
                     .background(Color.Black.copy(alpha = 0.85f))
                     .clip(MaterialTheme.shapes.medium)
@@ -567,10 +584,10 @@ internal fun MoreSettingsContent(
 ) {
     val chipSelectedColor = MaterialTheme.colorScheme.secondaryContainer
     val chipUnselectedColor = if (useFixedDarkColors) Color.Transparent
-        else MaterialTheme.colorScheme.surfaceContainerLow
+    else MaterialTheme.colorScheme.surfaceContainerLow
     val selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
     val unselectedLabelColor = if (useFixedDarkColors) Color.White
-        else MaterialTheme.colorScheme.onSurfaceVariant
+    else MaterialTheme.colorScheme.onSurfaceVariant
     val unselectedBorderColor = MaterialTheme.colorScheme.surfaceContainerHighest
     val chipBorder: (Boolean) -> BorderStroke? = { selected ->
         if (useFixedDarkColors) {
@@ -580,13 +597,15 @@ internal fun MoreSettingsContent(
         }
     }
     val sectionTitleColor = if (useFixedDarkColors) Color.White
-        else MaterialTheme.colorScheme.onSurface
+    else MaterialTheme.colorScheme.onSurface
     val titleColor = if (useFixedDarkColors) Color.White
-        else MaterialTheme.colorScheme.onSurface
+    else MaterialTheme.colorScheme.onSurface
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -634,7 +653,9 @@ internal fun MoreSettingsContent(
             )
             Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
@@ -673,7 +694,9 @@ internal fun MoreSettingsContent(
             )
             Spacer(Modifier.height(8.dp))
             FlowRow(
-                modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -703,7 +726,9 @@ internal fun MoreSettingsContent(
             )
             Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
@@ -782,7 +807,9 @@ internal fun PlayerCore(
     playerIsPlaying: Boolean = false,
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         AndroidView(
@@ -817,7 +844,9 @@ internal fun PlayerCore(
                     w = screenWidthDp.toFloat()
                     h = w / ratio
                 }
-                Modifier.width(w.dp).height(h.dp)
+                Modifier
+                    .width(w.dp)
+                    .height(h.dp)
             } ?: Modifier.fillMaxSize(),
         )
     }
@@ -870,7 +899,8 @@ internal fun PlayerCore(
             }
         }
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .clip(MaterialTheme.shapes.medium),
             contentAlignment = Alignment.Center,
         ) {
@@ -915,7 +945,8 @@ internal fun PlayerCore(
 
     if (isSeeking && playerDuration > 0) {
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .clip(MaterialTheme.shapes.medium),
             contentAlignment = Alignment.Center,
         ) {
@@ -984,7 +1015,9 @@ internal fun PlayerCore(
                             }
 
                             val remaining = if (!longPressFired && !pastTouchSlop) {
-                                (viewConfig.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)).coerceAtLeast(1L)
+                                (viewConfig.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)).coerceAtLeast(
+                                    1L
+                                )
                             } else 0L
 
                             val event = if (remaining > 0) {
@@ -1022,14 +1055,19 @@ internal fun PlayerCore(
                                 val dy = change.position.y - downPos.y
                                 if (kotlin.math.abs(dx) > viewConfig.touchSlop || kotlin.math.abs(dy) > viewConfig.touchSlop) {
                                     pastTouchSlop = true
-                                    dragAxis = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
-                                    if (dragAxis == 2) {
-                                        brightnessHideJob?.cancel()
-                                        isAdjustingBrightnessChange(true)
+                                    if (downPos.x < 32.dp.toPx() || downPos.y < 32.dp.toPx() || downPos.y > size.height - 32.dp.toPx()) {
+                                        dragAxis = 0
                                     } else {
-                                        seekHideJob?.cancel()
-                                        seekPreviewPositionChange(exoPlayer.currentPosition)
-                                        isSeekingChange(true)
+                                        dragAxis =
+                                            if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
+                                        if (dragAxis == 2) {
+                                            brightnessHideJob?.cancel()
+                                            isAdjustingBrightnessChange(true)
+                                        } else {
+                                            seekHideJob?.cancel()
+                                            seekPreviewPositionChange(exoPlayer.currentPosition)
+                                            isSeekingChange(true)
+                                        }
                                     }
                                 }
                             }
@@ -1046,7 +1084,10 @@ internal fun PlayerCore(
                                     onBrightnessChange(b)
                                 } else if (dragAxis == 1 && playerDuration > 0) {
                                     val seekDelta = (delta.x / w * playerDuration).toLong()
-                                    val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(0, playerDuration)
+                                    val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(
+                                        0,
+                                        playerDuration
+                                    )
                                     exoPlayer.seekTo(newPos)
                                     seekPreviewPositionChange(newPos)
                                 }
@@ -1057,7 +1098,8 @@ internal fun PlayerCore(
 
                         if (pastTouchSlop) {
                             if (dragAxis == 2) {
-                                val job = scope.launch { delay(1500); isAdjustingBrightnessChange(false) }
+                                val job =
+                                    scope.launch { delay(1500); isAdjustingBrightnessChange(false) }
                                 onBrightnessHideJobChange(job)
                             } else if (dragAxis == 1) {
                                 resetControlsTimer()
@@ -1114,7 +1156,9 @@ internal fun PlayerCore(
                             }
 
                             val remaining = if (!longPressFired && !pastTouchSlop) {
-                                (viewConfig.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)).coerceAtLeast(1L)
+                                (viewConfig.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)).coerceAtLeast(
+                                    1L
+                                )
                             } else 0L
 
                             val event = if (remaining > 0) {
@@ -1152,17 +1196,24 @@ internal fun PlayerCore(
                                 val dy = change.position.y - downPos.y
                                 if (kotlin.math.abs(dx) > viewConfig.touchSlop || kotlin.math.abs(dy) > viewConfig.touchSlop) {
                                     pastTouchSlop = true
-                                    dragAxis = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
-                                    if (dragAxis == 2) {
-                                        volumeHideJob?.cancel()
-                                        isAdjustingVolumeChange(true)
-                                        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                        val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                        onVolumePercentChange((curVol * 100 / maxVol))
+                                    if (downPos.x > size.width - 32.dp.toPx() || downPos.y < 32.dp.toPx() || downPos.y > size.height - 32.dp.toPx()) {
+                                        dragAxis = 0
                                     } else {
-                                        seekHideJob?.cancel()
-                                        seekPreviewPositionChange(exoPlayer.currentPosition)
-                                        isSeekingChange(true)
+                                        dragAxis =
+                                            if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
+                                        if (dragAxis == 2) {
+                                            volumeHideJob?.cancel()
+                                            isAdjustingVolumeChange(true)
+                                            val maxVol =
+                                                audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                            val curVol =
+                                                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                            onVolumePercentChange((curVol * 100 / maxVol))
+                                        } else {
+                                            seekHideJob?.cancel()
+                                            seekPreviewPositionChange(exoPlayer.currentPosition)
+                                            isSeekingChange(true)
+                                        }
                                     }
                                 }
                             }
@@ -1171,13 +1222,25 @@ internal fun PlayerCore(
                                 change.consume()
                                 val delta = change.position - lastPos
                                 if (dragAxis == 2) {
-                                    val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                    val newVol = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) - (delta.y / 300f * maxVol).toInt()).coerceIn(0, maxVol)
-                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                    val maxVol =
+                                        audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                    val newVol =
+                                        (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) - (delta.y / 300f * maxVol).toInt()).coerceIn(
+                                            0,
+                                            maxVol
+                                        )
+                                    audioManager.setStreamVolume(
+                                        AudioManager.STREAM_MUSIC,
+                                        newVol,
+                                        0
+                                    )
                                     onVolumePercentChange((newVol * 100 / maxVol))
                                 } else if (dragAxis == 1 && playerDuration > 0) {
                                     val seekDelta = (delta.x / w * playerDuration).toLong()
-                                    val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(0, playerDuration)
+                                    val newPos = (exoPlayer.currentPosition + seekDelta).coerceIn(
+                                        0,
+                                        playerDuration
+                                    )
                                     exoPlayer.seekTo(newPos)
                                     seekPreviewPositionChange(newPos)
                                 }
@@ -1188,7 +1251,8 @@ internal fun PlayerCore(
 
                         if (pastTouchSlop) {
                             if (dragAxis == 2) {
-                                val job = scope.launch { delay(1500); isAdjustingVolumeChange(false) }
+                                val job =
+                                    scope.launch { delay(1500); isAdjustingVolumeChange(false) }
                                 onVolumeHideJobChange(job)
                             } else if (dragAxis == 1) {
                                 resetControlsTimer()
@@ -1292,7 +1356,9 @@ internal fun NonFullscreenPlayer(
                 modifier = (currentScaleMode.aspectRatio?.let { ratio ->
                     val h = 240.dp
                     val w = (240f * ratio).dp
-                    Modifier.width(w).height(h)
+                    Modifier
+                        .width(w)
+                        .height(h)
                 } ?: Modifier.fillMaxSize()),
             )
         }
@@ -1417,12 +1483,17 @@ internal fun NonFullscreenPlayer(
                 ) {
                     if (isVod) {
                         Row(
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
                                 .padding(horizontal = 12.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "${formatTime(playerCurrentPosition)} / ${formatTime(playerDuration)}",
+                                text = "${formatTime(playerCurrentPosition)} / ${
+                                    formatTime(
+                                        playerDuration
+                                    )
+                                }",
                                 color = Color.White,
                                 style = MaterialTheme.typography.labelMedium,
                             )
@@ -1431,14 +1502,22 @@ internal fun NonFullscreenPlayer(
                                 icon = R.drawable.replay_10_outlined,
                                 text = "后退10s",
                                 onClick = {
-                                    exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0L))
+                                    exoPlayer.seekTo(
+                                        (exoPlayer.currentPosition - 10_000).coerceAtLeast(
+                                            0L
+                                        )
+                                    )
                                 },
                             )
                             PlayerSeekButton(
                                 icon = R.drawable.forward_10_outlined,
                                 text = "前进10s",
                                 onClick = {
-                                    exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(playerDuration))
+                                    exoPlayer.seekTo(
+                                        (exoPlayer.currentPosition + 10_000).coerceAtMost(
+                                            playerDuration
+                                        )
+                                    )
                                 },
                             )
                         }
@@ -1521,7 +1600,8 @@ internal fun EpisodeOverlayContent(
             .padding(bottom = 32.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -1608,7 +1688,8 @@ internal fun EpisodeOverlayContent(
             }
         } else {
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,

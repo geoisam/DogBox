@@ -65,7 +65,8 @@ fun SponsorScreen(
         },
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 12.dp)
                 .padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(16.dp),

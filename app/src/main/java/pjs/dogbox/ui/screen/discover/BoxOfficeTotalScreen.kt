@@ -5,9 +5,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -26,22 +29,26 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,7 +74,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SimpleDragHandle
 import java.util.Calendar
 
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getYearData"
@@ -86,6 +95,16 @@ private data class BoxOfficeData(
     val updateTimeDesc: String,
     val rankList: List<RankItem>,
 )
+
+private class BoxOfficeYearState {
+    var isLoading by mutableStateOf(true)
+    var isRefreshing by mutableStateOf(false)
+    var boxOfficeData by mutableStateOf<BoxOfficeData?>(null)
+    var refreshKey by mutableIntStateOf(0)
+    var prevRefreshKey by mutableIntStateOf(0)
+    var lastFetchKey by mutableStateOf("")
+    val scrollState = LazyListState()
+}
 
 @SuppressLint("DefaultLocale")
 private fun formatSales(salesInWan: String): String {
@@ -113,10 +132,13 @@ fun BoxOfficeTotalScreen(
         initialPage = if (yearOptions.size > 1) 1 else 0,
         pageCount = { yearOptions.size },
     )
+    val tabCache = rememberTabStateCache { BoxOfficeYearState() }
 
-    Box(modifier = modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.surface)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("中国票房", fontWeight = FontWeight.Bold) },
@@ -157,26 +179,33 @@ fun BoxOfficeTotalScreen(
                 BoxOfficeYearContent(
                     year = yearOptions[page].first,
                     onSearchMovie = onSearchMovie,
+                    tabState = tabCache.get(yearOptions[page].first.toString()),
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BoxOfficeYearContent(
     year: Int,
     onSearchMovie: (String) -> Unit = {},
+    tabState: BoxOfficeYearState,
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var boxOfficeData by remember { mutableStateOf<BoxOfficeData?>(null) }
-
-    LaunchedEffect(year) {
-        isLoading = true
-        boxOfficeData = null
+    LaunchedEffect(year, tabState.refreshKey) {
+        val fetchKey = "$year|${tabState.refreshKey}"
+        if (tabState.lastFetchKey == fetchKey && tabState.boxOfficeData != null) {
+            return@LaunchedEffect
+        }
+        tabState.lastFetchKey = fetchKey
+        val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
+        tabState.prevRefreshKey = tabState.refreshKey
+        tabState.isLoading = true
+        tabState.isRefreshing = isRefresh
         val yearParam = if (year == 1) 1 else year
         withContext(Dispatchers.IO) {
-            OkHttpUtil.get("$API_BASE?year=$yearParam")
+            HttpUtil.get("$API_BASE?year=$yearParam")
         }.onSuccess { response ->
             try {
                 val json = Json.parseToJsonElement(response).jsonObject
@@ -195,7 +224,7 @@ private fun BoxOfficeYearContent(
                         salesInWan = obj["salesInWan"]?.jsonPrimitive?.contentOrNull ?: "<0.1万",
                     )
                 }
-                boxOfficeData = BoxOfficeData(
+                tabState.boxOfficeData = BoxOfficeData(
                     title = title,
                     updateTimeDesc = updateTimeDesc,
                     rankList = items,
@@ -203,10 +232,11 @@ private fun BoxOfficeYearContent(
             } catch (_: Exception) {
             }
         }.onFailure { }
-        isLoading = false
+        tabState.isLoading = false
+        tabState.isRefreshing = false
     }
 
-    val scrollState = rememberLazyListState()
+    val scrollState = tabState.scrollState
 
     var showFab by remember { mutableStateOf(false) }
     val fabScope = rememberCoroutineScope()
@@ -226,7 +256,7 @@ private fun BoxOfficeYearContent(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading) {
+        if (tabState.isLoading && tabState.boxOfficeData == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
@@ -234,68 +264,75 @@ private fun BoxOfficeYearContent(
                 ChrysanthemumLoading()
             }
         } else {
-            val data = boxOfficeData
-            val hasData = data != null && data.rankList.isNotEmpty()
-            if (hasData && data != null) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    ) {
-                        Column(
+            PullToRefreshBox(
+                isRefreshing = tabState.isRefreshing,
+                onRefresh = { tabState.refreshKey++ },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val data = tabState.boxOfficeData
+                if (data != null && data.rankList.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                         ) {
-                            Text(
-                                text = data.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${data.updateTimeDesc} (万元)",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            ) {
+                                Text(
+                                    text = data.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${data.updateTimeDesc} (万元)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
-                    }
 
-                    LazyColumn(
-                        state = scrollState,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            end = 12.dp,
-                            top = 4.dp,
-                            bottom = 32.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(data.rankList, key = { it.rank }) { item ->
-                            RankListItem(
-                                item = item,
-                                onClick = { onSearchMovie(item.name) },
-                            )
+                        LazyColumn(
+                            state = scrollState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(
+                                start = 12.dp,
+                                end = 12.dp,
+                                top = 4.dp,
+                                bottom = 32.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(data.rankList, key = { it.rank }) { item ->
+                                RankListItem(
+                                    item = item,
+                                    onClick = { onSearchMovie(item.name) },
+                                )
+                            }
                         }
                     }
-                }
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "暂无数据",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "暂无数据",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -317,6 +354,7 @@ private fun BoxOfficeYearContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun YearSelector(
     options: List<Pair<Int, String>>,
@@ -324,6 +362,7 @@ private fun YearSelector(
     onSelect: (Int) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val tabScrollState = rememberLazyListState()
     PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
 
@@ -355,7 +394,7 @@ private fun YearSelector(
                         .clip(MaterialTheme.shapes.large)
                         .background(chipColor)
                         .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { onSelect(index) },
                         )
@@ -390,35 +429,67 @@ private fun YearSelector(
     }
 
     if (showDialog) {
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { showDialog = false },
-            title = {
+            sheetState = sheetState,
+            dragHandle = { SimpleDragHandle() },
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Text(
                     text = "选择年份",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-            },
-            text = {
                 FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     options.forEachIndexed { index, (_, label) ->
-                        FilterChip(
-                            selected = index == pagerState.currentPage,
-                            onClick = {
-                                onSelect(index)
-                                showDialog = false
-                            },
-                            label = { Text(text = label, maxLines = 1) },
+                        val isSelected = index == pagerState.currentPage
+                        val bgColor by animateColorAsState(
+                            targetValue = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(200),
                         )
+                        val txtColor by animateColorAsState(
+                            targetValue = if (isSelected)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSurface,
+                            animationSpec = tween(200),
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(bgColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        onSelect(index)
+                                        showDialog = false
+                                    },
+                                )
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = txtColor,
+                            )
+                        }
                     }
                 }
-            },
-            confirmButton = {},
-        )
+            }
+        }
     }
 }
 

@@ -1,9 +1,11 @@
 package pjs.dogbox.ui.screen.mine
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,9 +42,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,12 +62,13 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.SharedData
-import pjs.dogbox.util.WatchHistoryItem
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.WatchHistoryItem
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun WatchHistoryScreen(
     onBack: () -> Unit = {},
@@ -73,7 +78,8 @@ fun WatchHistoryScreen(
     var items by remember { mutableStateOf(SharedData.getWatchHistory(context)) }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<String>() }
-    var orientationFilter by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
     fun refresh() {
         items = SharedData.getWatchHistory(context)
@@ -146,7 +152,7 @@ fun WatchHistoryScreen(
                 ) {
                     FilledTonalButton(
                         onClick = {
-                            val filtered = items.filter { it.orientation == orientationFilter }
+                            val filtered = items.filter { it.orientation == pagerState.currentPage }
                             val allKeys = filtered.map { it.id }
                             selectedIds.clear()
                             selectedIds.addAll(allKeys)
@@ -158,11 +164,12 @@ fun WatchHistoryScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     FilledTonalButton(
                         onClick = {
-                            val filtered = items.filter { it.orientation == orientationFilter }
+                            val filtered = items.filter { it.orientation == pagerState.currentPage }
                             val allKeys = filtered.map { it.id }
                             val currentSelected = selectedIds.toSet()
                             selectedIds.clear()
-                            allKeys.filter { it !in currentSelected }.forEach { selectedIds.add(it) }
+                            allKeys.filter { it !in currentSelected }
+                                .forEach { selectedIds.add(it) }
                         },
                         modifier = Modifier.weight(1f),
                     ) {
@@ -203,7 +210,7 @@ fun WatchHistoryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 listOf(0 to "竖屏", 1 to "横屏").forEach { (value, label) ->
-                    val selected = orientationFilter == value
+                    val selected = pagerState.currentPage == value
                     Box(
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.medium)
@@ -211,7 +218,7 @@ fun WatchHistoryScreen(
                                 if (selected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.surfaceContainerHighest
                             )
-                            .clickable { orientationFilter = value }
+                            .clickable { scope.launch { pagerState.animateScrollToPage(value) } }
                             .padding(horizontal = 20.dp, vertical = 6.dp),
                     ) {
                         Text(
@@ -251,26 +258,39 @@ fun WatchHistoryScreen(
                     }
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    contentPadding = PaddingValues(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(items.filter { it.orientation == orientationFilter }, key = { it.id }) { item ->
-                        HistoryGridItem(
-                            item = item,
-                            isDeleteMode = isDeleteMode,
-                            isSelected = selectedIds.contains(item.id),
-                            onSelect = {
-                                if (selectedIds.contains(item.id)) selectedIds.remove(item.id)
-                                else selectedIds.add(item.id)
-                            },
-                            onClick = {
-                                onPlayMovie(item.url, item.progress)
-                            },
-                        )
+                    beyondViewportPageCount = 0,
+                ) { page ->
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        contentPadding = PaddingValues(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(items.filter { it.orientation == page }, key = { it.id }) { item ->
+                            HistoryGridItem(
+                                item = item,
+                                isDeleteMode = isDeleteMode,
+                                isSelected = selectedIds.contains(item.id),
+                                onSelect = {
+                                    if (selectedIds.contains(item.id)) selectedIds.remove(item.id)
+                                    else selectedIds.add(item.id)
+                                },
+                                onLongClick = {
+                                    if (!isDeleteMode) {
+                                        isDeleteMode = true
+                                        selectedIds.clear()
+                                        selectedIds.add(item.id)
+                                    }
+                                },
+                                onClick = {
+                                    onPlayMovie(item.url, item.progress)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -278,15 +298,18 @@ fun WatchHistoryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryGridItem(
     item: WatchHistoryItem,
     isDeleteMode: Boolean,
     isSelected: Boolean,
     onSelect: () -> Unit,
+    onLongClick: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val progressPercentText = if (item.duration > 0) "${item.progress * 100 / item.duration}%" else "0%"
+    val progressPercentText =
+        if (item.duration > 0) "${item.progress * 100 / item.duration}%" else "0%"
 
     Card(
         modifier = Modifier
@@ -294,7 +317,10 @@ private fun HistoryGridItem(
                 if (isDeleteMode) {
                     Modifier.clickable { onSelect() }
                 } else {
-                    Modifier.clickable { onClick() }
+                    Modifier.combinedClickable(
+                        onClick = { onClick() },
+                        onLongClick = { onLongClick() },
+                    )
                 }
             )
             .then(
@@ -366,7 +392,7 @@ private fun HistoryGridItem(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = item.formattedTime,
+                            text = item.episodeName,
                             color = Color.White,
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,

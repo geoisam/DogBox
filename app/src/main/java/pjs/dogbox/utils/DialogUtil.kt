@@ -1,4 +1,4 @@
-package pjs.dogbox.util
+package pjs.dogbox.utils
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -143,7 +142,7 @@ fun UpdateBottomSheet(
         ModalBottomSheet(
             onDismissRequest = {},
             sheetState = sheetState,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(
                 modifier = Modifier

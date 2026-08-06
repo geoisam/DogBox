@@ -36,7 +36,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -77,10 +76,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import kotlin.math.roundToInt
 import pjs.dogbox.R
 import pjs.dogbox.ui.theme.AppColorThemes
-import pjs.dogbox.util.SharedData
+import pjs.dogbox.utils.SharedData
+import kotlin.math.roundToInt
 
 private enum class ScrollDirection {
     RIGHT_TO_LEFT,
@@ -380,7 +379,8 @@ private fun SliderSetting(
         Slider(
             value = value.toFloat(),
             onValueChange = {
-                val snapped = ((it / increment).roundToInt() * increment).coerceIn(range.first, range.last)
+                val snapped =
+                    ((it / increment).roundToInt() * increment).coerceIn(range.first, range.last)
                 onValueChange(snapped)
             },
             valueRange = range.first.toFloat()..range.last.toFloat(),
@@ -652,8 +652,18 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var isBold by remember { mutableStateOf(savedConfig.isBold) }
     var isItalic by remember { mutableStateOf(savedConfig.isItalic) }
     var isUnderline by remember { mutableStateOf(savedConfig.isUnderline) }
-    var horizontalAlignment by remember { mutableStateOf(HorizontalPosition.entries.getOrElse(savedConfig.horizontalAlignment) { HorizontalPosition.CENTER }) }
-    var verticalAlignment by remember { mutableStateOf(VerticalPosition.entries.getOrElse(savedConfig.verticalAlignment) { VerticalPosition.CENTER }) }
+    var horizontalAlignment by remember {
+        mutableStateOf(
+            HorizontalPosition.entries.getOrElse(
+                savedConfig.horizontalAlignment
+            ) { HorizontalPosition.CENTER })
+    }
+    var verticalAlignment by remember {
+        mutableStateOf(
+            VerticalPosition.entries.getOrElse(
+                savedConfig.verticalAlignment
+            ) { VerticalPosition.CENTER })
+    }
     var bgColor by remember { mutableStateOf(Color(savedConfig.bgColor)) }
     var textColor by remember { mutableStateOf(Color(savedConfig.textColor)) }
     var showFullScreenPlayback by remember { mutableStateOf(false) }

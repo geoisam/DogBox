@@ -1,11 +1,25 @@
-package pjs.dogbox.util
+package pjs.dogbox.utils
 
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -29,9 +43,10 @@ data class WatchHistoryItem(
     val duration: Long,
     val timestamp: Long,
     val orientation: Int = 0,
+    val episodeName: String = "",
 ) {
     val formattedDate: String
-        get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp))
+        get() = SimpleDateFormat("yy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
     val formattedTime: String
         get() = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
 
@@ -51,7 +66,8 @@ data class WatchHistoryItem(
 }
 
 const val DISCLAIMER_TITLE = "免责声明"
-const val DISCLAIMER_MESSAGE = "欢迎您使用 DogBox 软件（以下简称“本软件”）。\n\n本软件只提供聚合展示功能，所有资源来自网络。本软件不参与任何制作、上传、储存、下载等内容。\n\n本软件仅供个人学习与研究参考，严禁用于非法用途，安装后请于 24 小时内删除。\n\n对于使用本软件产生的一切后果，使用者责任自负。"
+const val DISCLAIMER_MESSAGE =
+    "欢迎您使用 DogBox 软件（以下简称“本软件”）。\n\n本软件只提供聚合展示功能，所有资源来自网络。本软件不参与任何制作、上传、储存、下载等内容。\n\n本软件仅供个人学习与研究参考，严禁用于非法用途，安装后请于 24 小时内删除。\n\n对于使用本软件产生的一切后果，使用者责任自负。"
 const val DISCLAIMER_CONFIRM_TEXT = "知道了"
 
 @Composable
@@ -125,23 +141,30 @@ object SharedData {
                 title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
                 progress = obj["progress"]?.jsonPrimitive?.longOrNull ?: 0L,
                 duration = obj["duration"]?.jsonPrimitive?.longOrNull ?: 0L,
-                timestamp = obj["timestamp"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis(),
+                timestamp = obj["timestamp"]?.jsonPrimitive?.longOrNull
+                    ?: System.currentTimeMillis(),
                 orientation = obj["orientation"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0,
+                episodeName = obj["episodeName"]?.jsonPrimitive?.contentOrNull ?: "",
             )
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun watchItemToJson(item: WatchHistoryItem): JsonObject {
-        return JsonObject(mapOf(
-            "id" to JsonPrimitive(item.id),
-            "url" to JsonPrimitive(item.url),
-            "coverUrl" to JsonPrimitive(item.coverUrl),
-            "title" to JsonPrimitive(item.title),
-            "progress" to JsonPrimitive(item.progress),
-            "duration" to JsonPrimitive(item.duration),
-            "timestamp" to JsonPrimitive(item.timestamp),
-            "orientation" to JsonPrimitive(item.orientation.toLong()),
-        ))
+        return JsonObject(
+            mapOf(
+                "id" to JsonPrimitive(item.id),
+                "url" to JsonPrimitive(item.url),
+                "coverUrl" to JsonPrimitive(item.coverUrl),
+                "title" to JsonPrimitive(item.title),
+                "progress" to JsonPrimitive(item.progress),
+                "duration" to JsonPrimitive(item.duration),
+                "timestamp" to JsonPrimitive(item.timestamp),
+                "orientation" to JsonPrimitive(item.orientation.toLong()),
+                "episodeName" to JsonPrimitive(item.episodeName),
+            )
+        )
     }
 
     fun getWatchHistory(context: Context): List<WatchHistoryItem> {
@@ -150,7 +173,9 @@ object SharedData {
             val arr = Json.parseToJsonElement(jsonStr).jsonArray
             arr.mapNotNull { jsonToWatchItem(it.jsonObject) }
                 .sortedByDescending { it.timestamp }
-        } catch (_: Exception) { emptyList() }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun saveWatchHistory(context: Context, items: List<WatchHistoryItem>) {
@@ -167,7 +192,8 @@ object SharedData {
         } else {
             current.add(item)
         }
-        val trimmed = if (current.size > 200) current.sortedByDescending { it.timestamp }.take(200) else current
+        val trimmed = if (current.size > 200) current.sortedByDescending { it.timestamp }
+            .take(200) else current
         saveWatchHistory(context, trimmed)
     }
 
@@ -267,13 +293,17 @@ object SharedData {
                 fontSizeSp = obj["fontSizeSp"]?.jsonPrimitive?.longOrNull?.toInt() ?: 250,
                 letterSpacingSp = obj["letterSpacingSp"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0,
                 lineHeightSp = obj["lineHeightSp"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0,
-                horizontalAlignment = obj["horizontalAlignment"]?.jsonPrimitive?.longOrNull?.toInt() ?: 1,
-                verticalAlignment = obj["verticalAlignment"]?.jsonPrimitive?.longOrNull?.toInt() ?: 1,
+                horizontalAlignment = obj["horizontalAlignment"]?.jsonPrimitive?.longOrNull?.toInt()
+                    ?: 1,
+                verticalAlignment = obj["verticalAlignment"]?.jsonPrimitive?.longOrNull?.toInt()
+                    ?: 1,
                 isBold = obj["isBold"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: true,
                 isItalic = obj["isItalic"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
-                isUnderline = obj["isUnderline"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
+                isUnderline = obj["isUnderline"]?.jsonPrimitive?.contentOrNull?.toBoolean()
+                    ?: false,
                 bgColor = obj["bgColor"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0xFF000000.toInt(),
-                textColor = obj["textColor"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0xFFFFFFFF.toInt(),
+                textColor = obj["textColor"]?.jsonPrimitive?.longOrNull?.toInt()
+                    ?: 0xFFFFFFFF.toInt(),
             )
         } catch (_: Exception) {
             ScrollingTextConfig()
@@ -281,21 +311,23 @@ object SharedData {
     }
 
     fun saveScrollingTextConfig(context: Context, config: ScrollingTextConfig) {
-        val obj = JsonObject(mapOf(
-            "text" to JsonPrimitive(config.text),
-            "direction" to JsonPrimitive(config.direction.toLong()),
-            "speedSeconds" to JsonPrimitive(config.speedSeconds.toLong()),
-            "fontSizeSp" to JsonPrimitive(config.fontSizeSp.toLong()),
-            "letterSpacingSp" to JsonPrimitive(config.letterSpacingSp.toLong()),
-            "lineHeightSp" to JsonPrimitive(config.lineHeightSp.toLong()),
-            "horizontalAlignment" to JsonPrimitive(config.horizontalAlignment.toLong()),
-            "verticalAlignment" to JsonPrimitive(config.verticalAlignment.toLong()),
-            "isBold" to JsonPrimitive(config.isBold),
-            "isItalic" to JsonPrimitive(config.isItalic),
-            "isUnderline" to JsonPrimitive(config.isUnderline),
-            "bgColor" to JsonPrimitive(config.bgColor.toLong()),
-            "textColor" to JsonPrimitive(config.textColor.toLong()),
-        ))
+        val obj = JsonObject(
+            mapOf(
+                "text" to JsonPrimitive(config.text),
+                "direction" to JsonPrimitive(config.direction.toLong()),
+                "speedSeconds" to JsonPrimitive(config.speedSeconds.toLong()),
+                "fontSizeSp" to JsonPrimitive(config.fontSizeSp.toLong()),
+                "letterSpacingSp" to JsonPrimitive(config.letterSpacingSp.toLong()),
+                "lineHeightSp" to JsonPrimitive(config.lineHeightSp.toLong()),
+                "horizontalAlignment" to JsonPrimitive(config.horizontalAlignment.toLong()),
+                "verticalAlignment" to JsonPrimitive(config.verticalAlignment.toLong()),
+                "isBold" to JsonPrimitive(config.isBold),
+                "isItalic" to JsonPrimitive(config.isItalic),
+                "isUnderline" to JsonPrimitive(config.isUnderline),
+                "bgColor" to JsonPrimitive(config.bgColor.toLong()),
+                "textColor" to JsonPrimitive(config.textColor.toLong()),
+            )
+        )
         getPrefs(context).edit { putString(KEY_SCROLL_TEXT_CONFIG, obj.toString()) }
     }
 
@@ -322,5 +354,28 @@ object SharedData {
 
     fun setCachedUpToDate(value: Boolean) {
         cachedUpToDateState = value
+    }
+}
+
+
+@Composable
+fun SimpleDragHandle() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {}
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(56.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.Gray.copy(alpha = 0.5f))
+        )
     }
 }

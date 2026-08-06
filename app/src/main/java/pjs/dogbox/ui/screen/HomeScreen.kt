@@ -29,15 +29,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +47,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -93,12 +93,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.OkHttpUtil
-import pjs.dogbox.util.SharedData
-import pjs.dogbox.util.UpdateBottomSheet
-import pjs.dogbox.util.fetchRemoteConfig
-import pjs.dogbox.util.parseUpdateInfo
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.utils.UpdateBottomSheet
+import pjs.dogbox.utils.fetchRemoteConfig
+import pjs.dogbox.utils.parseUpdateInfo
 import java.net.URLEncoder
 
 internal data class HomeItem(
@@ -120,6 +121,31 @@ private data class TabDef(
     val categories: List<String>,
     val useSuggestionApi: Boolean = false,
 )
+
+internal class FilterableTabState {
+    var itemList by mutableStateOf(emptyList<HomeItem>())
+    var isLoading by mutableStateOf(false)
+    var hasMore by mutableStateOf(true)
+    var loadPage by mutableIntStateOf(0)
+    var isRefreshing by mutableStateOf(false)
+    var refreshKey by mutableIntStateOf(0)
+    var prevRefreshKey by mutableIntStateOf(0)
+    var lastReloadKey by mutableStateOf("")
+    var lastLoadPage by mutableIntStateOf(-1)
+    var firstApiLoaded by mutableStateOf(false)
+
+    var selectedSort by mutableStateOf("U")
+    var selectedYear by mutableStateOf("")
+    var selectedMovieType by mutableStateOf("")
+    var selectedMovieArea by mutableStateOf("")
+    var selectedTvType by mutableStateOf("")
+    var selectedTvArea by mutableStateOf("")
+    var selectedTvForm by mutableStateOf("")
+    var selectedShowType by mutableStateOf("")
+    var showFilters by mutableStateOf(true)
+
+    val gridState = LazyGridState()
+}
 
 private val tabs = listOf(
     TabDef("推荐", "movie", null, emptyList(), useSuggestionApi = true),
@@ -176,14 +202,42 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { tabs.size })
 
+    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
+    var filterData by remember { mutableStateOf<HomeFilterData?>(null) }
+
+    LaunchedEffect(Unit) {
+        var attempts = 0
+        while (attempts < 2) {
+            attempts++
+            val text = withContext(Dispatchers.IO) {
+                try {
+                    context.assets.open("json/douban.json")
+                        .bufferedReader().use { it.readText() }
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            if (text != null) {
+                filterData = parseHomeFilters(text)
+                filterState = STATE_LOADED
+                break
+            } else if (attempts >= 2) {
+                filterState = STATE_ERROR
+            }
+        }
+    }
+
+    val tabCache = rememberTabStateCache { FilterableTabState() }
 
     var showTabSheet by remember { mutableStateOf(false) }
     val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var firstTabLoaded by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.surface)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
         if (!firstTabLoaded) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 ChrysanthemumLoading()
@@ -223,7 +277,13 @@ fun HomeScreen(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                        onClick = {
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(
+                                                    index
+                                                )
+                                            }
+                                        },
                                     )
                                     .padding(horizontal = 14.dp, vertical = 7.dp),
                             ) {
@@ -248,7 +308,8 @@ fun HomeScreen(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = {
-                                        val intent = Intent(Intent.ACTION_VIEW, AppData.GITHUB_REPO.toUri())
+                                        val intent =
+                                            Intent(Intent.ACTION_VIEW, AppData.GITHUB_REPO.toUri())
                                         context.startActivity(intent)
                                     },
                                 )
@@ -280,21 +341,47 @@ fun HomeScreen(
                 }
             }
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                beyondViewportPageCount = 0,
-            ) { page ->
-                FilterableContent(
-                    tab = tabs[page],
-                    context = LocalContext.current,
-                    onItemClick = { title ->
-                        onSearchMovie(title)
-                    },
-                    onDataLoaded = { firstTabLoaded = true },
-                )
+            when (filterState) {
+                STATE_LOADING -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        ChrysanthemumLoading()
+                    }
+                }
+
+                STATE_ERROR -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                STATE_LOADED -> {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        beyondViewportPageCount = 0,
+                    ) { page ->
+                        FilterableTabContent(
+                            tab = tabs[page],
+                            filterData = filterData ?: HomeFilterData(
+                                sortOptions = emptyList(),
+                                yearOptions = emptyList(),
+                                movieTypeOptions = emptyList(),
+                                movieAreaOptions = emptyList(),
+                                tvTypeOptions = emptyList(),
+                                tvAreaOptions = emptyList(),
+                                tvFormOptions = emptyList(),
+                                showTypeOptions = emptyList(),
+                            ),
+                            tabState = tabCache.get(tabs[page].label),
+                            onItemClick = { title ->
+                                onSearchMovie(title)
+                            },
+                            onDataLoaded = { firstTabLoaded = true },
+                        )
+                    }
+                }
             }
         }
 
@@ -302,8 +389,7 @@ fun HomeScreen(
             ModalBottomSheet(
                 onDismissRequest = { showTabSheet = false },
                 sheetState = tabSheetState,
-                containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                dragHandle = { SimpleDragHandle() },
             ) {
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                     FlowRow(
@@ -360,70 +446,15 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun FilterableContent(
-    tab: TabDef,
-    context: android.content.Context,
-    onItemClick: (String) -> Unit,
-    onDataLoaded: () -> Unit = {},
-) {
-    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
-    var filterData by remember { mutableStateOf<HomeFilterData?>(null) }
-
-    LaunchedEffect(Unit) {
-        var attempts = 0
-        while (attempts < 2) {
-            attempts++
-            val text = withContext(Dispatchers.IO) {
-                try {
-                    context.assets.open("json/douban.json")
-                        .bufferedReader().use { it.readText() }
-                } catch (_: Exception) { null }
-            }
-            if (text != null) {
-                filterData = parseHomeFilters(text)
-                filterState = STATE_LOADED
-                onDataLoaded()
-                break
-            } else if (attempts >= 2) {
-                filterState = STATE_ERROR
-            }
-        }
-    }
-
-    when (filterState) {
-        STATE_LOADING -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                ChrysanthemumLoading()
-            }
-        }
-
-        STATE_ERROR -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        STATE_LOADED -> {
-            filterData?.let { data ->
-                FilterableTabContent(
-                    tab = tab,
-                    filterData = data,
-                    onItemClick = onItemClick,
-                    onFirstApiLoaded = onDataLoaded,
-                )
-            }
-        }
-    }
-}
-
 @SuppressLint("DefaultLocale")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterableTabContent(
     tab: TabDef,
     filterData: HomeFilterData,
+    tabState: FilterableTabState,
     onItemClick: (String) -> Unit,
-    onFirstApiLoaded: () -> Unit = {},
+    onDataLoaded: () -> Unit = {},
 ) {
     val categoryFilterMap = mapOf(
         "sort" to filterData.sortOptions,
@@ -436,25 +467,6 @@ private fun FilterableTabContent(
         "show-type" to filterData.showTypeOptions,
     )
 
-    val initialSort = filterData.sortOptions.firstOrNull()?.first ?: "U"
-    var selectedSort by remember { mutableStateOf(initialSort) }
-
-    var selectedYear by remember { mutableStateOf("") }
-    var selectedMovieType by remember { mutableStateOf("") }
-    var selectedMovieArea by remember { mutableStateOf("") }
-    var selectedTvType by remember { mutableStateOf("") }
-    var selectedTvArea by remember { mutableStateOf("") }
-    var selectedTvForm by remember { mutableStateOf("") }
-    var selectedShowType by remember { mutableStateOf("") }
-
-    var itemList by remember { mutableStateOf(emptyList<HomeItem>()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var firstApiLoaded by remember { mutableStateOf(false) }
-
-    var loadPage by remember { mutableIntStateOf(0) }
-    val prevFilterKey = remember { mutableStateOf("") }
-
     val maxPages = if (tab.useSuggestionApi) 2 else Int.MAX_VALUE
 
     suspend fun fetchPage(page: Int): List<HomeItem> {
@@ -464,32 +476,34 @@ private fun FilterableTabContent(
         } else {
             val tagParts = mutableListOf<String>()
             if (tab.fixedTag != null) tagParts.add(tab.fixedTag)
-            if (!selectedYear.contains("不限") && !selectedYear.contains("全部") && selectedYear.isNotEmpty()) tagParts.add(
-                selectedYear
+            if (!tabState.selectedYear.contains("不限") && !tabState.selectedYear.contains("全部") && tabState.selectedYear.isNotEmpty()) tagParts.add(
+                tabState.selectedYear
             )
-            if (tab.categories.contains("movie-type") && !selectedMovieType.contains("全部") && selectedMovieType.isNotEmpty()) tagParts.add(
-                selectedMovieType
+            if (tab.categories.contains("movie-type") && !tabState.selectedMovieType.contains("全部") && tabState.selectedMovieType.isNotEmpty()) tagParts.add(
+                tabState.selectedMovieType
             )
-            if (tab.categories.contains("movie-area") && !selectedMovieArea.contains("全部") && selectedMovieArea.isNotEmpty()) tagParts.add(
-                selectedMovieArea
+            if (tab.categories.contains("movie-area") && !tabState.selectedMovieArea.contains("全部") && tabState.selectedMovieArea.isNotEmpty()) tagParts.add(
+                tabState.selectedMovieArea
             )
-            if (tab.categories.contains("tv-type") && !selectedTvType.contains("全部") && selectedTvType.isNotEmpty()) tagParts.add(
-                selectedTvType
+            if (tab.categories.contains("tv-type") && !tabState.selectedTvType.contains("全部") && tabState.selectedTvType.isNotEmpty()) tagParts.add(
+                tabState.selectedTvType
             )
-            if (tab.categories.contains("tv-area") && !selectedTvArea.contains("全部") && selectedTvArea.isNotEmpty()) tagParts.add(
-                selectedTvArea
+            if (tab.categories.contains("tv-area") && !tabState.selectedTvArea.contains("全部") && tabState.selectedTvArea.isNotEmpty()) tagParts.add(
+                tabState.selectedTvArea
             )
-            if (tab.categories.contains("tv-form") && !selectedTvForm.contains("全部") && selectedTvForm.isNotEmpty()) tagParts.add(
-                selectedTvForm
+            if (tab.categories.contains("tv-form") && !tabState.selectedTvForm.contains("全部") && tabState.selectedTvForm.isNotEmpty()) tagParts.add(
+                tabState.selectedTvForm
             )
-            if (tab.categories.contains("show-type") && !selectedShowType.contains("全部") && selectedShowType.isNotEmpty()) tagParts.add(
-                selectedShowType
+            if (tab.categories.contains("show-type") && !tabState.selectedShowType.contains("全部") && tabState.selectedShowType.isNotEmpty()) tagParts.add(
+                tabState.selectedShowType
             )
-            val tags = URLEncoder.encode(tagParts.joinToString(","), "UTF-8")
-            "$DOUBAN_API/${tab.apiType}/recommend${APIKEY}&sort=$selectedSort&tags=$tags&start=$start&count=32"
+            val tags = withContext(Dispatchers.IO) {
+                URLEncoder.encode(tagParts.joinToString(","), "UTF-8")
+            }
+            "$DOUBAN_API/${tab.apiType}/recommend${APIKEY}&sort=${tabState.selectedSort}&tags=$tags&start=$start&count=32"
         }
         return withContext(Dispatchers.IO) {
-            OkHttpUtil.get(
+            HttpUtil.get(
                 url, mapOf(
                     "User-Agent" to AppData.UA_WECHAT_PC,
                     "Referer" to "https://servicewechat.com/wx2f9b06c1de1ccfca/99/page-frame.html",
@@ -532,47 +546,56 @@ private fun FilterableTabContent(
     }
 
     val currentFilterKey =
-        "$selectedSort|$selectedYear|$selectedMovieType|$selectedMovieArea|$selectedTvType|$selectedTvArea|$selectedTvForm|$selectedShowType"
+        "${tabState.selectedSort}|${tabState.selectedYear}|${tabState.selectedMovieType}|${tabState.selectedMovieArea}|${tabState.selectedTvType}|${tabState.selectedTvArea}|${tabState.selectedTvForm}|${tabState.selectedShowType}"
 
-    LaunchedEffect(currentFilterKey) {
-        if (currentFilterKey != prevFilterKey.value) {
-            prevFilterKey.value = currentFilterKey
-            loadPage = 0
+    val reloadKey = "$currentFilterKey|${tabState.refreshKey}"
+
+    LaunchedEffect(reloadKey) {
+        if (tabState.lastReloadKey == reloadKey && tabState.itemList.isNotEmpty()) {
+            return@LaunchedEffect
         }
-        isLoading = true
-        itemList = emptyList()
+        tabState.lastReloadKey = reloadKey
+        val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
+        tabState.prevRefreshKey = tabState.refreshKey
+        tabState.loadPage = 0
+        tabState.lastLoadPage = 0
+        if (!isRefresh) tabState.itemList = emptyList()
+        tabState.isLoading = true
+        tabState.isRefreshing = isRefresh
         val result = fetchPage(0)
-        itemList = result
-        hasMore = result.isNotEmpty() && 0 < maxPages - 1
-        isLoading = false
-        if (!firstApiLoaded) {
-            firstApiLoaded = true
-            onFirstApiLoaded()
+        tabState.itemList = result
+        tabState.hasMore = result.isNotEmpty()
+        tabState.isLoading = false
+        tabState.isRefreshing = false
+        if (!tabState.firstApiLoaded) {
+            tabState.firstApiLoaded = true
+            onDataLoaded()
         }
     }
 
-    LaunchedEffect(loadPage) {
-        if (loadPage == 0) return@LaunchedEffect
-        isLoading = true
-        val result = fetchPage(loadPage)
-        itemList += result
-        hasMore = result.isNotEmpty() && loadPage < maxPages - 1
-        isLoading = false
+    LaunchedEffect(tabState.loadPage) {
+        if (tabState.loadPage == 0 || tabState.lastLoadPage == tabState.loadPage) return@LaunchedEffect
+        tabState.lastLoadPage = tabState.loadPage
+        tabState.isLoading = true
+        val result = fetchPage(tabState.loadPage)
+        tabState.itemList += result
+        tabState.hasMore = result.isNotEmpty() && tabState.loadPage < maxPages - 1
+        tabState.isLoading = false
     }
 
     fun triggerLoadMore() {
-        if (hasMore && !isLoading) {
-            loadPage++
+        if (tabState.hasMore && !tabState.isLoading) {
+            tabState.loadPage++
         }
     }
 
-    val gridState = rememberLazyGridState()
+    val gridState = tabState.gridState
     val shouldLoadMore by remember {
         derivedStateOf {
             val total = gridState.layoutInfo.totalItemsCount
             if (total == 0) return@derivedStateOf false
             val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= total - 5 && hasMore && !isLoading
+            lastVisible >= total - 5 && tabState.hasMore && !tabState.isLoading
         }
     }
     LaunchedEffect(shouldLoadMore) {
@@ -586,7 +609,6 @@ private fun FilterableTabContent(
     }
     var lastKnownOffset by remember { mutableIntStateOf(0) }
     var isScrollingDown by remember { mutableStateOf(false) }
-    var showFilters by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
         snapshotFlow {
             gridState.isScrollInProgress to (gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset)
@@ -597,7 +619,7 @@ private fun FilterableTabContent(
                 isScrollingDown = currentTotal > lastKnownOffset
                 lastKnownOffset = currentTotal
                 if (isScrollingDown) {
-                    showFilters = false
+                    tabState.showFilters = false
                 }
             }
         }
@@ -606,8 +628,8 @@ private fun FilterableTabContent(
     val overscrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y > 0f && isAtTop && !showFilters) {
-                    showFilters = true
+                if (available.y > 0f && isAtTop && !tabState.showFilters) {
+                    tabState.showFilters = true
                 }
                 return Offset.Zero
             }
@@ -617,14 +639,16 @@ private fun FilterableTabContent(
     val showFab by remember { derivedStateOf { !isAtTop && !isScrollingDown } }
     val scope = rememberCoroutineScope()
 
-    val isDataEmpty = itemList.isEmpty()
+    val isDataEmpty = tabState.itemList.isEmpty()
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.surface)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
         if (!isDataEmpty) {
             AnimatedVisibility(
-                visible = showFilters,
+                visible = tabState.showFilters,
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
@@ -632,25 +656,25 @@ private fun FilterableTabContent(
                     tab.categories.forEach { category ->
                         val options = categoryFilterMap[category] ?: return@forEach
                         val selectedVal = when (category) {
-                            "sort" -> selectedSort
-                            "year" -> selectedYear
-                            "movie-type" -> selectedMovieType
-                            "movie-area" -> selectedMovieArea
-                            "tv-type" -> selectedTvType
-                            "tv-area" -> selectedTvArea
-                            "tv-form" -> selectedTvForm
-                            "show-type" -> selectedShowType
+                            "sort" -> tabState.selectedSort
+                            "year" -> tabState.selectedYear
+                            "movie-type" -> tabState.selectedMovieType
+                            "movie-area" -> tabState.selectedMovieArea
+                            "tv-type" -> tabState.selectedTvType
+                            "tv-area" -> tabState.selectedTvArea
+                            "tv-form" -> tabState.selectedTvForm
+                            "show-type" -> tabState.selectedShowType
                             else -> ""
                         }
                         val onSelect: (String) -> Unit = when (category) {
-                            "sort" -> { v -> selectedSort = v }
-                            "year" -> { v -> selectedYear = v }
-                            "movie-type" -> { v -> selectedMovieType = v }
-                            "movie-area" -> { v -> selectedMovieArea = v }
-                            "tv-type" -> { v -> selectedTvType = v }
-                            "tv-area" -> { v -> selectedTvArea = v }
-                            "tv-form" -> { v -> selectedTvForm = v }
-                            "show-type" -> { v -> selectedShowType = v }
+                            "sort" -> { v -> tabState.selectedSort = v }
+                            "year" -> { v -> tabState.selectedYear = v }
+                            "movie-type" -> { v -> tabState.selectedMovieType = v }
+                            "movie-area" -> { v -> tabState.selectedMovieArea = v }
+                            "tv-type" -> { v -> tabState.selectedTvType = v }
+                            "tv-area" -> { v -> tabState.selectedTvArea = v }
+                            "tv-form" -> { v -> tabState.selectedTvForm = v }
+                            "show-type" -> { v -> tabState.selectedShowType = v }
                             else -> { _ -> }
                         }
 
@@ -667,21 +691,21 @@ private fun FilterableTabContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showFilters = !showFilters }
+                        .clickable { tabState.showFilters = !tabState.showFilters }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        painter = painterResource(if (showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
-                        contentDescription = if (showFilters) "收起" else "展开",
+                        painter = painterResource(if (tabState.showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
+                        contentDescription = if (tabState.showFilters) "收起" else "展开",
                         modifier = Modifier
                             .size(20.dp)
                             .padding(end = 4.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = if (showFilters) "收起筛选" else "展开筛选",
+                        text = if (tabState.showFilters) "收起筛选" else "展开筛选",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -689,14 +713,18 @@ private fun FilterableTabContent(
             }
         }
 
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(overscrollConnection)) {
-            if (isLoading && itemList.isEmpty()) {
+        PullToRefreshBox(
+            isRefreshing = tabState.isRefreshing,
+            onRefresh = { tabState.refreshKey++ },
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(overscrollConnection),
+        ) {
+            if (tabState.isLoading && tabState.itemList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     ChrysanthemumLoading()
                 }
-            } else if (itemList.isEmpty()) {
+            } else if (tabState.itemList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -709,10 +737,10 @@ private fun FilterableTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(itemList, key = { "${it.id}_${it.title}_${it.year}" }) { item ->
+                    items(tabState.itemList, key = { "${it.id}_${it.title}_${it.year}" }) { item ->
                         HomeGridItem(item = item, onClick = { onItemClick(item.title) })
                     }
-                    if (isLoading) {
+                    if (tabState.isLoading) {
                         item(span = { GridItemSpan(3) }) {
                             Box(
                                 modifier = Modifier
@@ -730,7 +758,7 @@ private fun FilterableTabContent(
                     FloatingActionButton(
                         onClick = {
                             scope.launch {
-                                gridState.animateScrollToItem(0); showFilters = true
+                                gridState.animateScrollToItem(0); tabState.showFilters = true
                             }
                         },
                         modifier = Modifier
@@ -943,8 +971,7 @@ private fun <T> FilterRowWithDialog(
         ModalBottomSheet(
             onDismissRequest = { showDialog = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 FlowRow(
@@ -1011,7 +1038,8 @@ private fun parseHomeFilters(text: String): HomeFilterData {
         val json = Json.parseToJsonElement(text).jsonObject
         fun parsePairs(arr: JsonArray) = arr.map { e ->
             val o = e.jsonObject
-            (o["v"]?.jsonPrimitive?.contentOrNull ?: "") to (o["n"]?.jsonPrimitive?.contentOrNull ?: "")
+            (o["v"]?.jsonPrimitive?.contentOrNull ?: "") to (o["n"]?.jsonPrimitive?.contentOrNull
+                ?: "")
         }
         HomeFilterData(
             sortOptions = parsePairs(json["sort"]?.jsonArray ?: JsonArray(emptyList())),

@@ -1,5 +1,6 @@
 package pjs.dogbox.ui.screen.mine
 
+import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -22,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import android.os.Build
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -58,12 +57,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.ui.theme.AppColorThemes
-import pjs.dogbox.util.SharedData
+import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.SimpleDragHandle
 
 data class ColorStyle(
     val id: String,
@@ -287,7 +286,8 @@ fun MyThemeScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    val currentStyleName = ColorStyles.find { it.id == dynamicColorStyle }?.name ?: "经典色调"
+                    val currentStyleName =
+                        ColorStyles.find { it.id == dynamicColorStyle }?.name ?: "经典色调"
                     Text(
                         text = currentStyleName,
                         style = MaterialTheme.typography.bodyMedium,
@@ -359,13 +359,13 @@ fun MyThemeScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             if (isSelected) {
-                                    Text(
-                                        text = "✓",
-                                        color = bgColor,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                            }else{
+                                Text(
+                                    text = "✓",
+                                    color = bgColor,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            } else {
                                 Box(
                                     modifier = Modifier
                                         .size(20.dp)
@@ -392,8 +392,7 @@ private fun ColorStyleBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier

@@ -25,8 +25,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.LunarUtil
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.LunarUtil
 
 @Composable
 fun SplashScreen(

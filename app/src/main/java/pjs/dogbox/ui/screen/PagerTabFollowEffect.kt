@@ -24,6 +24,7 @@ fun PagerTabFollowEffect(
                 target.offset < viewportStart -> (target.offset - viewportStart).toFloat()
                 target.offset + target.size > viewportEnd ->
                     (target.offset + target.size - viewportEnd).toFloat()
+
                 else -> 0f
             }
             if (delta != 0f) {

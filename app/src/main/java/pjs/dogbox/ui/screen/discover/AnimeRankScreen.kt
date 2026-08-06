@@ -29,16 +29,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +51,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -98,8 +99,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SimpleDragHandle
 
 internal data class AnimeItem(
     val cover: String,
@@ -118,6 +121,19 @@ private data class FilterData(
     val yearOptions: List<Pair<String, String>>,
     val styleOptions: List<Pair<Int, String>>,
 )
+
+private class AnimeRankOrderState {
+    var currentPage by mutableIntStateOf(1)
+    var animeList by mutableStateOf(emptyList<AnimeItem>())
+    var isLoading by mutableStateOf(false)
+    var hasMore by mutableStateOf(true)
+    var isRefreshing by mutableStateOf(false)
+    var refreshKey by mutableIntStateOf(0)
+    var prevRefreshKey by mutableIntStateOf(0)
+    var lastFetchKey by mutableStateOf("")
+    var showFilters by mutableStateOf(true)
+    val gridState = LazyGridState()
+}
 
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
@@ -191,6 +207,7 @@ fun AnimeRankScreen(
     val pagerState = rememberPagerState(
         pageCount = { filterData?.orderOptions?.size ?: 1 }
     )
+    val tabCache = rememberTabStateCache { AnimeRankOrderState() }
 
     Column(
         modifier = modifier
@@ -218,8 +235,8 @@ fun AnimeRankScreen(
             },
         )
 
-        when {
-            filterState == STATE_LOADING -> {
+        when (filterState) {
+            STATE_LOADING -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -228,7 +245,7 @@ fun AnimeRankScreen(
                 }
             }
 
-            filterState == STATE_ERROR -> {
+            STATE_ERROR -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -269,6 +286,9 @@ fun AnimeRankScreen(
                                 onYearChange = { selectedYear = it },
                                 onStyleIdChange = { selectedStyleId = it },
                                 onSearchMovie = onSearchMovie,
+                                tabState = tabCache.get(
+                                    (data.orderOptions.getOrNull(page)?.first ?: 1).toString()
+                                ),
                             )
                         }
                     }
@@ -278,6 +298,7 @@ fun AnimeRankScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AnimeRankOrderContent(
     order: Int,
@@ -291,27 +312,40 @@ private fun AnimeRankOrderContent(
     onYearChange: (String) -> Unit,
     onStyleIdChange: (Int) -> Unit,
     onSearchMovie: (String) -> Unit = {},
+    tabState: AnimeRankOrderState,
 ) {
-    var currentPage by remember { mutableIntStateOf(1) }
-    var animeList by remember { mutableStateOf(emptyList<AnimeItem>()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-
-    LaunchedEffect(order, currentPage, isFinish, selectedYear, selectedStyleId, sortMode) {
-        if (currentPage == 1) {
-            animeList = emptyList()
+    LaunchedEffect(
+        order,
+        tabState.currentPage,
+        isFinish,
+        selectedYear,
+        selectedStyleId,
+        sortMode,
+        tabState.refreshKey
+    ) {
+        val fetchKey =
+            "$order|${tabState.currentPage}|$isFinish|$selectedYear|$selectedStyleId|$sortMode|${tabState.refreshKey}"
+        if (tabState.lastFetchKey == fetchKey && tabState.animeList.isNotEmpty()) {
+            return@LaunchedEffect
         }
-        isLoading = true
+        tabState.lastFetchKey = fetchKey
+        val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
+        tabState.prevRefreshKey = tabState.refreshKey
+        if (tabState.currentPage == 1 && !isRefresh) {
+            tabState.animeList = emptyList()
+        }
+        tabState.isLoading = true
+        tabState.isRefreshing = isRefresh
         val url = buildUrl(
             order = order,
             sort = sortMode,
-            page = currentPage,
+            page = tabState.currentPage,
             isFinish = isFinish,
             year = selectedYear,
             styleId = selectedStyleId,
         )
         withContext(Dispatchers.IO) {
-            OkHttpUtil.get(url, mapOf("User-Agent" to AppData.UA_CHROME_PC))
+            HttpUtil.get(url, mapOf("User-Agent" to AppData.UA_CHROME_PC))
         }.onSuccess { response ->
             try {
                 val json = Json.parseToJsonElement(response).jsonObject
@@ -337,34 +371,36 @@ private fun AnimeRankOrderContent(
                             seasonId = obj["season_id"]?.jsonPrimitive?.int ?: 0,
                         )
                     }
-                    if (currentPage == 1) animeList = items else animeList += items
-                    hasMore = items.size >= 20 && list.size >= 20
+                    if (tabState.currentPage == 1) tabState.animeList =
+                        items else tabState.animeList += items
+                    tabState.hasMore = items.size >= 20 && list.size >= 20
                 } else {
-                    hasMore = false
+                    tabState.hasMore = false
                 }
             } catch (_: Exception) {
-                hasMore = false
+                tabState.hasMore = false
             }
         }.onFailure {
-            hasMore = false
+            tabState.hasMore = false
         }
-        isLoading = false
+        tabState.isLoading = false
+        tabState.isRefreshing = false
     }
 
-    val lazyGridState = rememberLazyGridState()
+    val lazyGridState = tabState.gridState
 
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = lazyGridState.layoutInfo.totalItemsCount
             if (totalItems == 0) return@derivedStateOf false
             val lastVisible = lazyGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= totalItems - 5 && hasMore && !isLoading
+            lastVisible >= totalItems - 5 && tabState.hasMore && !tabState.isLoading
         }
     }
 
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && hasMore && !isLoading) {
-            currentPage++
+        if (shouldLoadMore && tabState.hasMore && !tabState.isLoading) {
+            tabState.currentPage++
         }
     }
 
@@ -378,7 +414,6 @@ private fun AnimeRankOrderContent(
 
     var lastKnownOffset by remember { mutableIntStateOf(0) }
     var isScrollingDown by remember { mutableStateOf(false) }
-    var showFilters by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         snapshotFlow {
@@ -391,7 +426,7 @@ private fun AnimeRankOrderContent(
                 isScrollingDown = currentTotal > lastKnownOffset
                 lastKnownOffset = currentTotal
                 if (isScrollingDown) {
-                    showFilters = false
+                    tabState.showFilters = false
                 }
             }
         }
@@ -400,8 +435,8 @@ private fun AnimeRankOrderContent(
     val overscrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y > 0f && isAtTop && !showFilters) {
-                    showFilters = true
+                if (available.y > 0f && isAtTop && !tabState.showFilters) {
+                    tabState.showFilters = true
                 }
                 return Offset.Zero
             }
@@ -414,12 +449,12 @@ private fun AnimeRankOrderContent(
         }
     }
 
-    val isDataEmpty = animeList.isEmpty()
+    val isDataEmpty = tabState.animeList.isEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (!isDataEmpty) {
             AnimatedVisibility(
-                visible = showFilters,
+                visible = tabState.showFilters,
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
@@ -439,32 +474,39 @@ private fun AnimeRankOrderContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showFilters = !showFilters }
+                    .clickable { tabState.showFilters = !tabState.showFilters }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    painter = painterResource(if (showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
-                    contentDescription = if (showFilters) "收起" else "展开",
+                    painter = painterResource(if (tabState.showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
+                    contentDescription = if (tabState.showFilters) "收起" else "展开",
                     modifier = Modifier
                         .size(20.dp)
                         .padding(end = 4.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = if (showFilters) "收起筛选" else "展开筛选",
+                    text = if (tabState.showFilters) "收起筛选" else "展开筛选",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
 
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(overscrollConnection)) {
+        PullToRefreshBox(
+            isRefreshing = tabState.isRefreshing,
+            onRefresh = {
+                tabState.currentPage = 1
+                tabState.refreshKey++
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(overscrollConnection),
+        ) {
             when {
-                animeList.isEmpty() && isLoading -> {
+                tabState.animeList.isEmpty() && tabState.isLoading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
@@ -473,9 +515,11 @@ private fun AnimeRankOrderContent(
                     }
                 }
 
-                animeList.isEmpty() -> {
+                tabState.animeList.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -494,14 +538,14 @@ private fun AnimeRankOrderContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(animeList, key = { it.seasonId }) { item ->
+                        items(tabState.animeList, key = { it.seasonId }) { item ->
                             AnimeGridItem(
                                 item = item,
                                 onClick = { onSearchMovie(item.title) },
                             )
                         }
 
-                        if (isLoading) {
+                        if (tabState.isLoading) {
                             item(span = { GridItemSpan(3) }) {
                                 Box(
                                     modifier = Modifier
@@ -522,7 +566,7 @@ private fun AnimeRankOrderContent(
                     onClick = {
                         scope.launch {
                             lazyGridState.animateScrollToItem(0)
-                            showFilters = true
+                            tabState.showFilters = true
                         }
                     },
                     modifier = Modifier
@@ -735,8 +779,7 @@ private fun <T> FilterRowWithDialog(
         ModalBottomSheet(
             onDismissRequest = { showDialog = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 FlowRow(
@@ -865,8 +908,7 @@ private fun OrderTabBar(
         ModalBottomSheet(
             onDismissRequest = { showSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 FlowRow(

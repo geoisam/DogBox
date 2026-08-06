@@ -3,7 +3,6 @@ import com.android.build.api.variant.impl.VariantOutputImpl
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.gradle.proguard)
 }
 
 android {
@@ -16,8 +15,8 @@ android {
         applicationId = "pjs.dogbox"
         minSdk = 28
         targetSdk = 37
-        versionCode = 26080306
-        versionName = "0.2.0"
+        versionCode = 26080411
+        versionName = "0.2.1"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a"))
@@ -80,24 +79,6 @@ androidComponents {
     }
 }
 
-proguardDictionaries {
-    dictionaryNames = listOf(
-        "build/class-dictionary.txt",
-        "build/package-dictionary.txt",
-        "build/obfuscation-dictionary.txt"
-    )
-    minLineLength = 3
-    maxLineLength = 11
-    linesCountInDictionary = 100000
-}
-
-afterEvaluate {
-    tasks.matching {
-        it.name.startsWith("minify") && it.name.endsWith("WithR8")
-    }.configureEach {
-        dependsOn("generateProguardDictionaries")
-    }
-}
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
@@ -114,16 +95,23 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
     implementation(libs.kotlinx.coroutines)
     implementation(libs.kotlinx.json)
 
-    implementation(libs.squareup.okhttp)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.network)
+    implementation(libs.ktor.client.negotiation)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.network)
+    implementation(libs.ktor.server.negotiation)
+    implementation(libs.ktor.kotlinx.json)
 
     implementation(libs.coil3.coil)
     implementation(libs.coil3.compose)
-    implementation(libs.coil3.okhttp)
+    implementation(libs.coil3.network)
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.hls)
@@ -131,7 +119,6 @@ dependencies {
     implementation(libs.androidx.media3.rtmp)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.compose)
-    implementation(libs.androidx.media3.okhttp)
     implementation(libs.androidx.media3.transformer)
 
     implementation(libs.materialKolor)

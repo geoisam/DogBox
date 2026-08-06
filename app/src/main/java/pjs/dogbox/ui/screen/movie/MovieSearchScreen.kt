@@ -79,8 +79,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.HttpUtil
 import java.net.URLEncoder
 
 private data class SearchItem(
@@ -157,7 +157,7 @@ private suspend fun fetchPage(keyword: String, page: Int): Pair<List<SearchItem>
     withContext(Dispatchers.IO) {
         val encoded = URLEncoder.encode(keyword, "UTF-8")
         val url = "${AppData.NIVOD_SEARCH}$encoded&page=$page"
-        OkHttpUtil.get(
+        HttpUtil.get(
             url, mapOf(
                 "User-Agent" to AppData.UA_CHROME_PC,
                 "Referer" to AppData.NIVOD_HOST,
@@ -355,9 +355,10 @@ fun MovieSearchScreen(
             )
         },
     ) { paddingValues ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
             if (isLoading && itemList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -375,7 +376,12 @@ fun MovieSearchScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     state = gridState,
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 32.dp),
+                    contentPadding = PaddingValues(
+                        start = 8.dp,
+                        end = 8.dp,
+                        top = 12.dp,
+                        bottom = 32.dp
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -383,7 +389,10 @@ fun MovieSearchScreen(
                     items(itemList, key = { it.link }) { item ->
                         SearchGridItem(
                             item = item,
-                            onClick = { onPlayVideo(item.link) },
+                            onClick = {
+                                focusManager.clearFocus()
+                                onPlayVideo(item.link)
+                            },
                         )
                     }
                     if (isLoading) {

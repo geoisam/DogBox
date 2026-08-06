@@ -4,10 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,11 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,14 +50,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.util.AppData
-import pjs.dogbox.util.LunarSnapshot
-import pjs.dogbox.util.LunarUtil
+import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.LunarSnapshot
+import pjs.dogbox.utils.LunarUtil
+import pjs.dogbox.utils.SimpleDragHandle
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +75,7 @@ fun MineScreen(
     val scope = rememberCoroutineScope()
     val dateState = remember { mutableStateMapOf<String, String>() }
     var showSheet by remember { mutableStateOf(false) }
-    val nextFestival = remember { mutableStateOf(emptyList<pjs.dogbox.util.FestivalItem>()) }
+    val nextFestival = remember { mutableStateOf(emptyList<pjs.dogbox.utils.FestivalItem>()) }
 
     fun applySnapshot(snapshot: LunarSnapshot) {
         dateState["YearMonth"] = snapshot.yearMonth
@@ -142,7 +136,12 @@ fun MineScreen(
             addAction(Intent.ACTION_DATE_CHANGED)
         }
         runCatching {
-            ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         }
         onDispose {
             runCatching { context.unregisterReceiver(receiver) }
@@ -258,7 +257,13 @@ fun MineScreen(
                 MineCard(
                     iconRes = R.drawable.kid_star_outlined,
                     text = "收藏夹",
-                    onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                    onClick = {
+                        android.widget.Toast.makeText(
+                            context,
+                            "功能开发中",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    },
                     modifier = Modifier.weight(1f),
                 )
                 MineCard(
@@ -270,7 +275,13 @@ fun MineScreen(
                 MineCard(
                     iconRes = R.drawable.cloud_download_outlined,
                     text = "离线缓存",
-                    onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                    onClick = {
+                        android.widget.Toast.makeText(
+                            context,
+                            "功能开发中",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -289,25 +300,49 @@ fun MineScreen(
                     MineItem(
                         iconRes = R.drawable.database_outlined,
                         text = "订阅管理",
-                        onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                        onClick = {
+                            android.widget.Toast.makeText(
+                                context,
+                                "功能开发中",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
                         modifier = Modifier.weight(1f),
                     )
                     MineItem(
                         iconRes = R.drawable.video_library_outlined,
                         text = "本地视频",
-                        onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                        onClick = {
+                            android.widget.Toast.makeText(
+                                context,
+                                "功能开发中",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
                         modifier = Modifier.weight(1f),
                     )
                     MineItem(
                         iconRes = R.drawable.dataset_linked_outlined,
                         text = "数据推送",
-                        onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                        onClick = {
+                            android.widget.Toast.makeText(
+                                context,
+                                "功能开发中",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
                         modifier = Modifier.weight(1f),
                     )
                     MineItem(
                         iconRes = R.drawable.home_storage_outlined,
                         text = "备份与恢复",
-                        onClick = { android.widget.Toast.makeText(context, "功能开发中", android.widget.Toast.LENGTH_SHORT).show() },
+                        onClick = {
+                            android.widget.Toast.makeText(
+                                context,
+                                "功能开发中",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -349,24 +384,7 @@ fun MineScreen(
         ModalBottomSheet(
             onDismissRequest = { showSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            dragHandle = {
-                TooltipBox(
-                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-                        TooltipAnchorPosition.Above
-                    ),
-                    tooltip = {},
-                    state = rememberTooltipState(),
-                    content = {
-                        BottomSheetDefaults.DragHandle(
-                            modifier = Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {}
-                        )
-                    }
-                )
-            },
+            dragHandle = { SimpleDragHandle() },
         ) {
             Column(
                 modifier = Modifier

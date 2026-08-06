@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,9 +30,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,7 +53,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.util.OkHttpUtil
+import pjs.dogbox.utils.HttpUtil
 import java.nio.charset.Charset
 
 private data class GlobalBoxOfficeItem(
@@ -71,9 +75,8 @@ private fun formatBoxOffice(raw: Long): String {
 private fun parsePiaofangHtml(html: String): List<GlobalBoxOfficeItem> {
     val doc = Ksoup.parse(html)
     val items = mutableListOf<GlobalBoxOfficeItem>()
-    var rank = -1
+    var rank = 0
     for (row in doc.select("tr")) {
-        rank++
         val titleTd = row.select("td.title").first() ?: continue
         titleTd.select("span").remove()
         val yearTd = row.select("td.year").first() ?: continue
@@ -84,6 +87,7 @@ private fun parsePiaofangHtml(html: String): List<GlobalBoxOfficeItem> {
         val director = directorTd.text().trim()
         val boxOfficeStr = piaofangTd.text().trim().replace(",", "")
         val boxOffice = boxOfficeStr.toLongOrNull() ?: 0L
+        rank++
         items.add(GlobalBoxOfficeItem(rank, name, year, director, boxOffice))
     }
     return items
@@ -97,18 +101,22 @@ fun MovieWorldScreen(
     onSearchMovie: (String) -> Unit = {}
 ) {
     var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<GlobalBoxOfficeItem>>(emptyList()) }
+    var refreshKey by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
+    LaunchedEffect(refreshKey) {
+        val isPull = refreshKey > 0
+        if (isPull) isRefreshing = true else isLoading = true
         val result = withContext(Dispatchers.IO) {
-            OkHttpUtil.getBytes(SCRAPE_URL, connectTimeout = 10, readTimeout = 10)
+            HttpUtil.getBytes(SCRAPE_URL, connectTimeout = 10, readTimeout = 10)
         }
         result.onSuccess { bytes ->
             val html = String(bytes, Charset.forName("gb2312"))
             items = parsePiaofangHtml(html)
         }
         isLoading = false
+        isRefreshing = false
     }
 
     val scrollState = rememberLazyListState()
@@ -154,60 +162,79 @@ fun MovieWorldScreen(
                 },
             )
 
-            if (isLoading && items.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    ChrysanthemumLoading()
-                }
-            } else if (items.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    ) {
-                        Text(
-                            text = "全球票房影史榜",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = $$"汇率采用固定汇率，$1 USD≈￥7 CNY (仅供参考)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { refreshKey++ },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when {
+                    isLoading && items.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            ChrysanthemumLoading()
+                        }
                     }
-                }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = scrollState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            end = 12.dp,
-                            top = 4.dp,
-                            bottom = 32.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(items, key = { it.rank }) { item ->
-                            GlobalBoxOfficeItemCard(
-                                item = item,
-                                onClick = { onSearchMovie(item.name) },
-                            )
+                    items.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    else -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                ),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                ) {
+                                    Text(
+                                        text = "全球票房影史榜",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = $$"汇率采用固定汇率，$1 USD≈￥7 CNY (仅供参考)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                LazyColumn(
+                                    state = scrollState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(
+                                        start = 12.dp,
+                                        end = 12.dp,
+                                        top = 4.dp,
+                                        bottom = 32.dp
+                                    ),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    items(items, key = { it.rank }) { item ->
+                                        GlobalBoxOfficeItemCard(
+                                            item = item,
+                                            onClick = { onSearchMovie(item.name) },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

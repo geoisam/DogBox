@@ -1,4 +1,4 @@
-package pjs.dogbox.util
+package pjs.dogbox.utils
 
 import java.nio.charset.Charset
 import java.security.MessageDigest

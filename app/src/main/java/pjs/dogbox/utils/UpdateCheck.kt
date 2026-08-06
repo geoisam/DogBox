@@ -1,4 +1,4 @@
-package pjs.dogbox.util
+package pjs.dogbox.utils
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +29,7 @@ suspend fun fetchRemoteConfig(): kotlinx.serialization.json.JsonObject? {
         val deferreds = urls.map { url ->
             async(Dispatchers.IO) {
                 val bytes =
-                    OkHttpUtil.getBytes(url).getOrNull()
+                    HttpUtil.getBytes(url).getOrNull()
                 bytes?.let { parseRemoteConfig(it) }
             }
         }

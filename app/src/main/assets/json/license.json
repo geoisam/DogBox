@@ -56,6 +56,13 @@
     "homepage": "https://developer.android.com/jetpack/androidx/releases/compose-foundation"
   },
   {
+    "name": "Compose Navigation",
+    "module": "androidx.navigation:navigation-compose",
+    "version": "2.9.8",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/navigation"
+  },
+  {
     "name": "Compose Animation",
     "module": "androidx.compose.animation:animation",
     "version": "1.11.4",
@@ -112,11 +119,53 @@
     "homepage": "https://github.com/Kotlin/kotlinx.serialization"
   },
   {
-    "name": "OkHttp",
-    "module": "com.squareup.okhttp3:okhttp",
-    "version": "5.4.0",
+    "name": "Ktor Client Core",
+    "module": "io.ktor:ktor-client-core",
+    "version": "3.5.2",
     "license": "Apache 2.0",
-    "homepage": "https://github.com/square/okhttp"
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Client Android",
+    "module": "io.ktor:ktor-client-android",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Client Content Negotiation",
+    "module": "io.ktor:ktor-client-content-negotiation",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Server Core",
+    "module": "io.ktor:ktor-server-core",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Server CIO",
+    "module": "io.ktor:ktor-server-cio",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Server Content Negotiation",
+    "module": "io.ktor:ktor-server-content-negotiation",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
+  },
+  {
+    "name": "Ktor Serialization Kotlinx JSON",
+    "module": "io.ktor:ktor-serialization-kotlinx-json",
+    "version": "3.5.2",
+    "license": "Apache 2.0",
+    "homepage": "https://github.com/ktorio/ktor"
   },
   {
     "name": "Coil",
@@ -133,8 +182,8 @@
     "homepage": "https://github.com/coil-kt/coil"
   },
   {
-    "name": "Coil Network OkHttp",
-    "module": "io.coil-kt.coil3:coil-network-okhttp",
+    "name": "Coil Network Ktor",
+    "module": "io.coil-kt.coil3:coil-network-ktor3",
     "version": "3.5.0",
     "license": "Apache 2.0",
     "homepage": "https://github.com/coil-kt/coil"
@@ -182,13 +231,6 @@
     "homepage": "https://github.com/androidx/media"
   },
   {
-    "name": "Media3 OkHttp DataSource Module",
-    "module": "androidx.media3:media3-datasource-okhttp",
-    "version": "1.10.1",
-    "license": "Apache 2.0",
-    "homepage": "https://github.com/androidx/media"
-  },
-  {
     "name": "Media3 Transformer Module",
     "module": "androidx.media3:media3-transformer",
     "version": "1.10.1",
@@ -215,13 +257,6 @@
     "version": "1.5.1",
     "license": "MIT",
     "homepage": "https://github.com/6tail/tyme4j"
-  },
-  {
-    "name": "Maxr1998 ProGuard Dictionaries Generator",
-    "module": "de.maxr1998.proguard-dictionaries-generator",
-    "version": "1.1.0",
-    "license": "MIT",
-    "homepage": "https://github.com/Maxr1998/Proguard-Dictionaries-Generator"
   },
   {
     "name": "Android Application",

@@ -124,15 +124,20 @@ fun LicenseScreen(
         when (loadState) {
             STATE_LOADING -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
                     ChrysanthemumLoading()
                 }
             }
+
             STATE_ERROR -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -142,9 +147,11 @@ fun LicenseScreen(
                     )
                 }
             }
+
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
                         .padding(horizontal = 12.dp)
                         .padding(paddingValues),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -183,7 +190,9 @@ private fun LicenseCard(item: LicenseItem) {
         ),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
         ) {
             Text(
                 text = item.name,

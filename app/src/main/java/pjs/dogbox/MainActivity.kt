@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,11 +11,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.ui.navigation.BaseScreen
 import pjs.dogbox.ui.screen.SplashScreen
 import pjs.dogbox.ui.theme.DogBoxTheme
-import pjs.dogbox.util.SharedData
+import pjs.dogbox.utils.SharedData
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +28,13 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableIntStateOf(SharedData.getThemeMode(context)) }
             var dynamicColor by remember { mutableStateOf(SharedData.getDynamicColor(context)) }
             var colorTheme by remember { mutableIntStateOf(SharedData.getColorTheme(context)) }
-            var dynamicColorStyle by remember { mutableStateOf(SharedData.getDynamicColorStyle(context)) }
+            var dynamicColorStyle by remember {
+                mutableStateOf(
+                    SharedData.getDynamicColorStyle(
+                        context
+                    )
+                )
+            }
             val isSystemDark = isSystemInDarkTheme()
             var showSplash by remember { mutableStateOf(true) }
 
