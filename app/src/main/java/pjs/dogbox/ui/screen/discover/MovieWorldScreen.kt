@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -278,7 +279,12 @@ private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Un
                 text = "${item.rank}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = when (item.rank - 1) {
+                    0 -> Color(0xFFFF3B30)
+                    1 -> Color(0xFFFF8A00)
+                    2 -> Color(0xFFFFB224)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 modifier = Modifier.width(36.dp),
                 textAlign = TextAlign.Center,
             )

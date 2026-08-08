@@ -930,7 +930,7 @@ private fun <T> FilterRowWithDialog(
 
                 Box(
                     modifier = Modifier
-                        .clip(MaterialTheme.shapes.medium)
+                        .clip(MaterialTheme.shapes.large)
                         .background(chipColor)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },

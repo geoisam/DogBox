@@ -214,7 +214,7 @@ fun MineScreen(
                                 ) {
                                     Text(
                                         text = dateState["JieQi"] ?: "大寒",
-                                        style = MaterialTheme.typography.labelLarge,
+                                        style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onTertiary,
                                     )
                                 }

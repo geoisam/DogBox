@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 26080411,
+      "versionCode": 26080816,
       "versionName": "0.2.1",
-      "outputFile": "DogBox_v0.2.1-26080411.apk"
+      "outputFile": "DogBox_v0.2.1-26080816.apk"
     }
   ],
   "elementType": "File",
@@ -22,14 +22,14 @@
       "minApi": 28,
       "maxApi": 30,
       "baselineProfiles": [
-        "baselineProfiles/1/DogBox_v0.2.1-26080411.dm"
+        "baselineProfiles/1/DogBox_v0.2.1-26080816.dm"
       ]
     },
     {
       "minApi": 31,
       "maxApi": 2147483647,
       "baselineProfiles": [
-        "baselineProfiles/0/DogBox_v0.2.1-26080411.dm"
+        "baselineProfiles/0/DogBox_v0.2.1-26080816.dm"
       ]
     }
   ],

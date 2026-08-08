@@ -565,8 +565,14 @@ private fun RankCell(rank: Int) {
     ) {
         Text(
             text = "$rank",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = when (rank - 1) {
+                0 -> Color(0xFFFF3B30)
+                1 -> Color(0xFFFF8A00)
+                2 -> Color(0xFFFFB224)
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
         )
     }
 }
