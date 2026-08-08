@@ -113,7 +113,7 @@ private val hotPlatforms = listOf(
         element.jsonObject["data"]?.jsonObject?.get("realtime")?.jsonArray?.mapNotNull { e ->
             val o = e.jsonObject
             val word = o["word"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-            HotItem(word, "https://s.weibo.com/weibo?q=%23${URLEncoder.encode(word, "UTF-8")}%23&Refer=top")
+            HotItem(word, "https://m.weibo.cn/search?containerid=100103type%3D1%26q%3D%23${URLEncoder.encode(word, "UTF-8")}%23")
         } ?: emptyList()
     }),
     // 抖音
@@ -196,7 +196,7 @@ private val hotPlatforms = listOf(
         } ?: emptyList()
     }),
     // 新浪
-    HotPlatform("新浪", "https://interface.sina.cn/app.news/today_news.d.json?conf=page&order=desc&page=1&custom=%7B%22content_tag_id%22:%22%E5%9B%BD%E9%99%85,%E6%97%B6%E6%94%BF,%E7%A4%BE%E4%BC%9A,%E8%B4%A2%E7%BB%8F,%E7%A7%91%E6%8A%80,AI,%E7%83%AD%E9%97%A8,%E5%86%9B%E4%BA%8B%22%7D", "https://sinanews.sina.cn/today/24news.d.html", { element ->
+    HotPlatform("新浪", "https://interface.sina.cn/app.news/today_news.d.json?conf=page&order=desc&page=1&custom=%7B%22content_tag_id%22:%22%E7%83%AD%E9%97%A8,%E5%9B%BD%E9%99%85,%E6%97%B6%E6%94%BF,%E8%B4%A2%E7%BB%8F,%E7%A7%91%E6%8A%80,%E5%86%9B%E4%BA%8B,AI%22%7D&pageType=newsFlashv2", "https://sinanews.sina.cn/today/24news.d.html", { element ->
         element.jsonObject["data"]?.jsonObject?.get("components")?.jsonArray?.firstOrNull { it.jsonObject["type"]?.jsonPrimitive?.contentOrNull == "timeline_list" }
             ?.jsonObject?.get("data")?.jsonArray?.mapNotNull { e ->
                 val si = e.jsonObject["item"]?.jsonObject?.get("info")?.jsonObject?.get("interactionInfo")?.jsonObject?.get("shareInfo")?.jsonObject
@@ -252,8 +252,8 @@ private val hotPlatforms = listOf(
         } ?: emptyList()
     }),
     // 搜狗
-    HotPlatform("搜狗", "https://hotlist.imtt.qq.com/Fetch", "https://123.sogou.com/", { element ->
-        element.jsonObject["main"]?.jsonArray?.mapNotNull { e ->
+    HotPlatform("搜狗", "https://so.html5.qq.com/landingpage/api/hotlist", "https://m.sogou.com/", { element ->
+        element.jsonObject["data"]?.jsonObject?.get("mainBandData")?.jsonArray?.mapNotNull { e ->
             val o = e.jsonObject
             if (o["badge"]?.jsonPrimitive?.contentOrNull == "adv") return@mapNotNull null
             val title = o["title"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
