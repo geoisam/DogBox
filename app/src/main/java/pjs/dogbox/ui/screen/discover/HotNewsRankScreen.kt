@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -117,12 +119,12 @@ private val hotPlatforms = listOf(
         } ?: emptyList()
     }),
     // 抖音
-    HotPlatform("抖音", "https://aweme-hl.snssdk.com/aweme/v1/hot/search/list/", "https://www.douyin.com/", { element ->
+    HotPlatform("抖音", "https://aweme.snssdk.com/aweme/v1/hot/search/list/?&source=3", "https://so-landing.douyin.com/landings/hotlist/", { element ->
         element.jsonObject["data"]?.jsonObject?.get("word_list")?.jsonArray?.mapNotNull { e ->
             val o = e.jsonObject
             val word = o["word"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-            val sentenceId = o["sentence_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-            HotItem(word, "https://www.douyin.com/hot/$sentenceId")
+            val groupId = o["group_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            HotItem(word, "https://so.douyin.com/s?hideMiddlePage=1&keyword=${URLEncoder.encode(word, "UTF-8")}&from=hot_list_page&gid=$groupId")
         } ?: emptyList()
     }),
     // 必应
@@ -521,7 +523,12 @@ private fun HotTabContent(
                     ChrysanthemumLoading()
                 }
             } else if (currentItems.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {

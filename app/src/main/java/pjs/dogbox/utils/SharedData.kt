@@ -263,6 +263,14 @@ object SharedData {
         getPrefs(context).edit { putBoolean(KEY_AUTO_CHECK_UPDATE, enabled) }
     }
 
+    private var autoCheckDoneState: Boolean = false
+
+    fun isAutoCheckDoneThisLaunch(): Boolean = autoCheckDoneState
+
+    fun markAutoCheckDone() {
+        autoCheckDoneState = true
+    }
+
     // === Scrolling Text Config ===
 
     data class ScrollingTextConfig(

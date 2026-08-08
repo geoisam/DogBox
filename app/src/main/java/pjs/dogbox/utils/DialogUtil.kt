@@ -1,6 +1,7 @@
 package pjs.dogbox.utils
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -144,6 +145,9 @@ fun UpdateBottomSheet(
             sheetState = sheetState,
             dragHandle = { SimpleDragHandle() },
         ) {
+            BackHandler(enabled = true) {
+                onDismiss()
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

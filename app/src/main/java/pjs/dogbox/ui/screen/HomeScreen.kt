@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -170,16 +171,16 @@ fun HomeScreen(
     var updateNote by remember { mutableStateOf("修复了一些已知问题") }
     var updateDown by remember { mutableStateOf(AppData.GITHUB_REPO) }
     var dismissedUpdateCode by rememberSaveable { mutableIntStateOf(0) }
-    var hasUpdate by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         if (!SharedData.isAutoCheckUpdate(context)) return@LaunchedEffect
+        if (SharedData.isAutoCheckDoneThisLaunch()) return@LaunchedEffect
+        SharedData.markAutoCheckDone()
         val configJson = fetchRemoteConfig()
         val updateInfo = parseUpdateInfo(configJson)
         if (updateInfo != null) {
             if (updateInfo.code > BuildConfig.VERSION_CODE) {
-                hasUpdate = true
                 SharedData.setCachedUpdateInfo(
                     SharedData.CachedUpdateInfo(
                         versionCode = updateInfo.code,
@@ -295,31 +296,6 @@ fun HomeScreen(
                                     maxLines = 1,
                                 )
                             }
-                        }
-                    }
-
-                    AnimatedVisibility(visible = hasUpdate) {
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 4.dp)
-                                .clip(MaterialTheme.shapes.large)
-                                .background(MaterialTheme.colorScheme.errorContainer)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        val intent =
-                                            Intent(Intent.ACTION_VIEW, AppData.GITHUB_REPO.toUri())
-                                        context.startActivity(intent)
-                                    },
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        ) {
-                            Text(
-                                text = "有新版本",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                            )
                         }
                     }
 
@@ -725,7 +701,12 @@ private fun FilterableTabContent(
                     ChrysanthemumLoading()
                 }
             } else if (tabState.itemList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
