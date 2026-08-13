@@ -1,13 +1,17 @@
 package pjs.dogbox.ui.screen.movie
 
-import android.annotation.SuppressLint
 import android.content.Intent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,11 +23,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -35,12 +41,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -73,6 +81,7 @@ import coil3.request.crossfade
 import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Document
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -81,7 +90,17 @@ import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.SimpleDragHandle
 import java.net.URLEncoder
+
+private enum class SearchSource(
+    val label: String,
+    val host: String,
+    val searchUrl: String,
+) {
+    YXXQ("映像星球", AppData.YXXQ_HOST, AppData.YXXQ_SEARCH),
+    NIVOD("泥视频", AppData.NIVOD_HOST, AppData.NIVOD_SEARCH),
+}
 
 private data class SearchItem(
     val link: String,
@@ -90,6 +109,7 @@ private data class SearchItem(
     val note: String,
     val year: String,
     val subtitle: String,
+    val host: String,
 )
 
 private data class PageInfo(
@@ -98,38 +118,34 @@ private data class PageInfo(
 )
 
 private fun checkPageInfo(doc: Document, currentPage: Int): PageInfo {
-    val lastEl = doc.select("#page a[title=尾页]").first()
-    if (lastEl != null) {
-        val lastHref = lastEl.attr("href")
-        val regex = Regex("""(\d+)---/?$""")
-        val match = regex.find(lastHref)
-        if (match != null) {
-            val lastPage = match.groupValues[1].toIntOrNull() ?: 0
-            return PageInfo(
-                hasNext = currentPage < lastPage,
-                nextUrl = null,
-            )
+    var lastPage = doc.select("#page a[title=尾页]").firstOrNull()?.attr("href")?.let { href ->
+        Regex("""(\d+)\D*$""").find(href)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    } ?: 0
+    if (lastPage <= 0) {
+        for (a in doc.select("#page a.page-number")) {
+            val num = a.text().trim().toIntOrNull() ?: continue
+            if (num > lastPage) lastPage = num
         }
     }
-    return PageInfo(hasNext = false, nextUrl = null)
+    return PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
 }
 
 private fun parseSearchResults(
     html: String,
-    currentPage: Int = 1
+    host: String,
+    currentPage: Int = 1,
 ): Pair<List<SearchItem>, PageInfo> {
     val doc = Ksoup.parse(html)
-    val cardElements = doc.select("div.module-card-item")
+    val cardElements = doc.select("div.module-card-item").filterNot { it.hasClass("mac-ad-card") }
     val items = cardElements.mapNotNull { card ->
         val linkEl = card.select("a.play-btn").first() ?: return@mapNotNull null
         val imgEl = card.select("img[data-original]").first() ?: return@mapNotNull null
         val titleEl = card.select("div.module-card-item-title").first() ?: return@mapNotNull null
 
         val linkText = linkEl.attr("href")
-        val link = if (linkText.startsWith("http")) linkText else "${AppData.NIVOD_HOST}$linkText"
+        val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
         val coverText = imgEl.attr("data-original")
-        val cover =
-            if (coverText.startsWith("http")) coverText else "${AppData.NIVOD_HOST}$coverText"
+        val cover = if (coverText.startsWith("http")) coverText else "$host$coverText"
         val title = titleEl.text().trim()
         val note = card.select("div.module-item-note").firstOrNull()?.text()?.trim() ?: ""
 
@@ -146,29 +162,56 @@ private fun parseSearchResults(
             title = title,
             note = note,
             year = year,
-            subtitle = subtitle
+            subtitle = subtitle,
+            host = host,
         )
     }
     val pageInfo = checkPageInfo(doc, currentPage)
     return items to pageInfo
 }
 
-private suspend fun fetchPage(keyword: String, page: Int): Pair<List<SearchItem>, PageInfo> =
-    withContext(Dispatchers.IO) {
-        val encoded = URLEncoder.encode(keyword, "UTF-8")
-        val url = "${AppData.NIVOD_SEARCH}$encoded&page=$page"
-        HttpUtil.get(
-            url, mapOf(
-                "User-Agent" to AppData.UA_CHROME_PC,
-                "Referer" to AppData.NIVOD_HOST,
-            )
-        ).fold(
-            onSuccess = { html -> parseSearchResults(html, page) },
-            onFailure = { emptyList<SearchItem>() to PageInfo(hasNext = false, nextUrl = null) },
-        )
+private suspend fun fetchPage(
+    source: SearchSource,
+    keyword: String,
+    page: Int,
+): Result<Pair<List<SearchItem>, PageInfo>> = withContext(Dispatchers.IO) {
+    val encoded = URLEncoder.encode(keyword, "UTF-8")
+    val url = when {
+        source == SearchSource.NIVOD -> "${source.searchUrl}$encoded&page=$page"
+        page <= 1 -> "${source.searchUrl}$encoded"
+        else -> "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
     }
+    HttpUtil.get(
+        url, mapOf(
+            "User-Agent" to AppData.UA_CHROME_PC,
+            "Referer" to "${source.host}/",
+        )
+    ).fold(
+        onSuccess = { html -> Result.success(parseSearchResults(html, source.host, page)) },
+        onFailure = { Result.failure(it) },
+    )
+}
 
-@OptIn(ExperimentalMaterial3Api::class)
+private class SourceState {
+    var itemList by mutableStateOf<List<SearchItem>>(emptyList())
+    var isLoading by mutableStateOf(false)
+    var currentPage by mutableIntStateOf(1)
+    var hasMore by mutableStateOf(true)
+    var hasSearched by mutableStateOf(false)
+    var loadError by mutableStateOf(false)
+    val gridState = LazyGridState()
+
+    fun reset() {
+        itemList = emptyList()
+        currentPage = 1
+        hasMore = true
+        isLoading = false
+        hasSearched = false
+        loadError = false
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MovieSearchScreen(
     initialQuery: String = "",
@@ -179,36 +222,48 @@ fun MovieSearchScreen(
     var searchText by remember { mutableStateOf(initialQuery) }
     var activeQuery by remember { mutableStateOf(initialQuery) }
 
-    var itemList by remember { mutableStateOf<List<SearchItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var currentPage by remember { mutableIntStateOf(1) }
-    var hasMore by remember { mutableStateOf(true) }
-
-    LaunchedEffect(activeQuery) {
-        if (activeQuery.isNotEmpty()) {
-            isLoading = true
-            currentPage = 1
-            itemList = emptyList()
-            val (items, pageInfo) = fetchPage(activeQuery, 1)
-            itemList = items
-            hasMore = pageInfo.hasNext
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(currentPage) {
-        if (currentPage <= 1 || activeQuery.isEmpty()) return@LaunchedEffect
-        isLoading = true
-        val (items, pageInfo) = fetchPage(activeQuery, currentPage)
-        itemList += items
-        hasMore = pageInfo.hasNext
-        isLoading = false
-    }
-
+    val sources = remember { SearchSource.entries }
+    val sourceStates = remember { sources.associateWith { SourceState() } }
+    var selectedSource by remember { mutableStateOf(SearchSource.YXXQ) }
+    var showSourceSheet by remember { mutableStateOf(false) }
+    val sourceSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+
+    val currentState = sourceStates.getValue(selectedSource)
+
+    var retryKey by remember { mutableIntStateOf(0) }
+    var loadMoreRetryKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
+    }
+
+    LaunchedEffect(activeQuery, retryKey) {
+        if (activeQuery.isNotEmpty()) {
+            sourceStates.values.forEach { it.reset() }
+            coroutineScope {
+                sources.forEach { source ->
+                    launch {
+                        val state = sourceStates.getValue(source)
+                        state.isLoading = true
+                        fetchPage(source, activeQuery, 1).fold(
+                            onSuccess = { (items, pageInfo) ->
+                                state.itemList = items
+                                state.hasMore = pageInfo.hasNext
+                            },
+                            onFailure = {
+                                state.itemList = emptyList()
+                                state.hasMore = false
+                                state.loadError = true
+                            },
+                        )
+                        state.isLoading = false
+                        state.hasSearched = true
+                    }
+                }
+            }
+        }
     }
 
     fun triggerSearch(query: String) {
@@ -218,19 +273,52 @@ fun MovieSearchScreen(
         }
     }
 
-    fun loadMore() {
-        if (hasMore && !isLoading) {
-            currentPage++
+    fun retrySearch() {
+        if (activeQuery.isNotBlank()) {
+            retryKey++
         }
     }
 
-    val gridState = rememberLazyGridState()
-    LaunchedEffect(Unit) {
+    fun retryLoadMore() {
+        val state = sourceStates.getValue(selectedSource)
+        if (activeQuery.isNotEmpty() && state.itemList.isNotEmpty() && !state.isLoading) {
+            state.loadError = false
+            loadMoreRetryKey++
+        }
+    }
+
+    fun loadMore() {
+        val state = sourceStates.getValue(selectedSource)
+        if (state.hasMore && !state.isLoading) {
+            state.currentPage++
+        }
+    }
+
+    LaunchedEffect(selectedSource, currentState.currentPage, activeQuery, loadMoreRetryKey) {
+        if (activeQuery.isEmpty() || currentState.currentPage <= 1) return@LaunchedEffect
+        currentState.isLoading = true
+        fetchPage(selectedSource, activeQuery, currentState.currentPage).fold(
+            onSuccess = { (items, pageInfo) ->
+                currentState.itemList += items
+                currentState.hasMore = pageInfo.hasNext
+            },
+            onFailure = {
+                currentState.hasMore = false
+                currentState.loadError = true
+            },
+        )
+        currentState.isLoading = false
+    }
+
+    val currentGridState = currentState.gridState
+
+    LaunchedEffect(selectedSource) {
+        currentGridState.scrollToItem(0)
         snapshotFlow {
-            val total = gridState.layoutInfo.totalItemsCount
+            val total = currentGridState.layoutInfo.totalItemsCount
             if (total == 0) return@snapshotFlow false
-            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= total - 5 && hasMore && !isLoading
+            val lastVisible = currentGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= total - 5 && currentState.hasMore && !currentState.isLoading
         }
             .distinctUntilChanged()
             .filter { it }
@@ -240,10 +328,12 @@ fun MovieSearchScreen(
     var lastKnownOffset by remember { mutableIntStateOf(0) }
     var isScrollingDown by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedSource) {
+        isScrollingDown = false
+        lastKnownOffset = 0
         snapshotFlow {
-            gridState.isScrollInProgress to
-                    (gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset)
+            currentGridState.isScrollInProgress to
+                    (currentGridState.firstVisibleItemIndex to currentGridState.firstVisibleItemScrollOffset)
         }.collect { (isScrolling, state) ->
             if (isScrolling) {
                 val (index, offset) = state
@@ -254,19 +344,18 @@ fun MovieSearchScreen(
         }
     }
 
-    val isAtTop by remember {
+    val isAtTop by remember(selectedSource) {
         derivedStateOf {
-            gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset < 50
+            currentGridState.firstVisibleItemIndex == 0 &&
+                    currentGridState.firstVisibleItemScrollOffset < 50
         }
     }
 
-    val showFab by remember {
+    val showFab by remember(selectedSource) {
         derivedStateOf {
             !isAtTop && !isScrollingDown
         }
     }
-
-    val fabScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -355,80 +444,238 @@ fun MovieSearchScreen(
             )
         },
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
         ) {
-            if (isLoading && itemList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    ChrysanthemumLoading()
-                }
-            } else if (itemList.isEmpty() && activeQuery.isNotEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("未找到相关结果", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else if (itemList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    state = gridState,
-                    contentPadding = PaddingValues(
-                        start = 8.dp,
-                        end = 8.dp,
-                        top = 12.dp,
-                        bottom = 32.dp
-                    ),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LazyRow(
+                    modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(itemList, key = { it.link }) { item ->
-                        SearchGridItem(
-                            item = item,
-                            onClick = {
-                                focusManager.clearFocus()
-                                onPlayVideo(item.link)
-                            },
+                    itemsIndexed(sources) { _, source ->
+                        val selected = source == selectedSource
+                        val chipColor by animateColorAsState(
+                            targetValue = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            animationSpec = tween(200),
                         )
+                        val textColor by animateColorAsState(
+                            targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = tween(200),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.large)
+                                .background(chipColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { selectedSource = source },
+                                )
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) {
+                            Text(
+                                text = source.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = textColor,
+                                maxLines = 1,
+                            )
+                        }
                     }
-                    if (isLoading) {
-                        item(span = { GridItemSpan(3) }) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                ChrysanthemumLoading(size = 36.dp)
+                }
+
+                FilledTonalIconButton(
+                    onClick = { showSourceSheet = true },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(32.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
+                        contentDescription = "展开",
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                if (currentState.isLoading && currentState.itemList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        ChrysanthemumLoading()
+                    }
+                } else if (currentState.loadError && currentState.itemList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .clickable { retrySearch() }
+                                .padding(horizontal = 24.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = "点击重试",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                } else if (currentState.itemList.isEmpty() && currentState.hasSearched) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("未找到相关结果", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (currentState.itemList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        state = currentGridState,
+                        contentPadding = PaddingValues(
+                            start = 8.dp,
+                            end = 8.dp,
+                            top = 12.dp,
+                            bottom = 32.dp,
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(currentState.itemList, key = { it.link }) { item ->
+                            SearchGridItem(
+                                item = item,
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    onPlayVideo(item.link)
+                                },
+                            )
+                        }
+                        if (currentState.isLoading) {
+                            item(span = { GridItemSpan(3) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    ChrysanthemumLoading(size = 36.dp)
+                                }
+                            }
+                        } else if (currentState.loadError) {
+                            item(span = { GridItemSpan(3) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(MaterialTheme.shapes.large)
+                                            .background(MaterialTheme.colorScheme.primaryContainer)
+                                            .clickable { retryLoadMore() }
+                                            .padding(horizontal = 24.dp, vertical = 10.dp),
+                                    ) {
+                                        Text(
+                                            text = "点击重试",
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (showFab) {
-                FloatingActionButton(
-                    onClick = { fabScope.launch { gridState.animateScrollToItem(0) } },
+                if (showFab) {
+                    FloatingActionButton(
+                        onClick = { scope.launch { currentGridState.animateScrollToItem(0) } },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(24.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.arrow_upward_outlined),
+                            contentDescription = "回到顶部",
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSourceSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSourceSheet = false },
+            sheetState = sourceSheetState,
+            dragHandle = { SimpleDragHandle() },
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                FlowRow(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(24.dp),
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_upward_outlined),
-                        contentDescription = "回到顶部",
-                        modifier = Modifier.size(28.dp)
-                    )
+                    sources.forEach { source ->
+                        val isSelected = source == selectedSource
+                        val bgColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        )
+                        val txtColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(bgColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        selectedSource = source
+                                        showSourceSheet = false
+                                    },
+                                )
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = source.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = txtColor,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@SuppressLint("DefaultLocale")
 @Composable
 private fun SearchGridItem(item: SearchItem, onClick: () -> Unit) {
     val context = LocalContext.current
@@ -452,7 +699,7 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit) {
                         .crossfade(true)
                         .httpHeaders(
                             NetworkHeaders.Builder()
-                                .set("Referer", AppData.NIVOD_HOST)
+                                .set("Referer", item.host)
                                 .set("User-Agent", AppData.UA_CHROME_M)
                                 .build()
                         ).build(),

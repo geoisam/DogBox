@@ -72,7 +72,7 @@ import pjs.dogbox.utils.WatchHistoryItem
 @Composable
 fun WatchHistoryScreen(
     onBack: () -> Unit = {},
-    onPlayMovie: (url: String, initialPosition: Long) -> Unit = { _, _ -> },
+    onPlayMovie: (url: String, initialPosition: Long, host: String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(SharedData.getWatchHistory(context)) }
@@ -153,7 +153,7 @@ fun WatchHistoryScreen(
                     FilledTonalButton(
                         onClick = {
                             val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { it.id }
+                            val allKeys = filtered.map { "${it.host}|${it.id}" }
                             selectedIds.clear()
                             selectedIds.addAll(allKeys)
                         },
@@ -165,7 +165,7 @@ fun WatchHistoryScreen(
                     FilledTonalButton(
                         onClick = {
                             val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { it.id }
+                            val allKeys = filtered.map { "${it.host}|${it.id}" }
                             val currentSelected = selectedIds.toSet()
                             selectedIds.clear()
                             allKeys.filter { it !in currentSelected }
@@ -270,24 +270,26 @@ fun WatchHistoryScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(items.filter { it.orientation == page }, key = { it.id }) { item ->
+                        items(items.filter { it.orientation == page },
+                            key = { "${it.host}|${it.id}" }) { item ->
                             HistoryGridItem(
                                 item = item,
                                 isDeleteMode = isDeleteMode,
-                                isSelected = selectedIds.contains(item.id),
+                                isSelected = selectedIds.contains("${item.host}|${item.id}"),
                                 onSelect = {
-                                    if (selectedIds.contains(item.id)) selectedIds.remove(item.id)
-                                    else selectedIds.add(item.id)
+                                    val key = "${item.host}|${item.id}"
+                                    if (selectedIds.contains(key)) selectedIds.remove(key)
+                                    else selectedIds.add(key)
                                 },
                                 onLongClick = {
                                     if (!isDeleteMode) {
                                         isDeleteMode = true
                                         selectedIds.clear()
-                                        selectedIds.add(item.id)
+                                        selectedIds.add("${item.host}|${item.id}")
                                     }
                                 },
                                 onClick = {
-                                    onPlayMovie(item.url, item.progress)
+                                    onPlayMovie(item.url, item.progress, item.host)
                                 },
                             )
                         }
@@ -346,7 +348,7 @@ private fun HistoryGridItem(
                             .crossfade(true)
                             .httpHeaders(
                                 NetworkHeaders.Builder()
-                                    .set("Referer", AppData.NIVOD_SEARCH)
+                                    .set("Referer", item.host)
                                     .set("User-Agent", AppData.UA_CHROME_M)
                                     .build()
                             ).build(),

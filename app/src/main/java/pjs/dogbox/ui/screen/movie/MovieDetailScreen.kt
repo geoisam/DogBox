@@ -121,9 +121,15 @@ private data class PageData(
     val m3u8Url: String,
 )
 
-private fun extractVideoId(url: String): String {
-    val regex = Regex("""/(\d+)[-/]""")
-    return regex.find(url)?.groupValues?.getOrNull(1) ?: ""
+internal fun extractVideoId(url: String): String {
+    val uri = url.toUri()
+    val last = uri.pathSegments.lastOrNull() ?: return ""
+    return last.substringBefore(".").substringBefore("-")
+}
+
+internal fun extractHost(url: String): String {
+    val idx = url.indexOf("/", 8)
+    return if (idx > 0) url.substring(0, idx) else url
 }
 
 private fun saveWatchHistory(
@@ -157,6 +163,7 @@ private fun saveWatchHistory(
             timestamp = System.currentTimeMillis(),
             orientation = 0,
             episodeName = episodeName,
+            host = extractHost(videoUrl),
         ),
     )
 }
@@ -292,6 +299,7 @@ fun MovieDetailScreen(
     var currentEpisodeUrl by remember { mutableStateOf(videoUrl) }
     var targetPosition by remember { mutableStateOf(0L) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var retryKey by remember { mutableIntStateOf(0) }
     var fetchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var isSwitchingEpisode by remember { mutableStateOf(false) }
     var pendingSwitchTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -436,16 +444,13 @@ fun MovieDetailScreen(
         }
     }
 
-    fun buildBaseUrl(url: String): String {
-        val idx = url.indexOf("/", 8)
-        return if (idx > 0) url.substring(0, idx) else url
-    }
+    fun buildBaseUrl(url: String): String = extractHost(url)
 
     suspend fun fetchEpisodeM3u8(episodeLink: String): String = withContext(Dispatchers.IO) {
         HttpUtil.get(
             episodeLink, mapOf(
                 "User-Agent" to AppData.UA_CHROME_PC,
-                "Referer" to AppData.NIVOD_SEARCH,
+                "Referer" to buildBaseUrl(videoUrl),
             )
         ).fold(
             onSuccess = { epHtml ->
@@ -527,14 +532,14 @@ fun MovieDetailScreen(
         }
     }
 
-    LaunchedEffect(videoUrl) {
+    LaunchedEffect(videoUrl, retryKey) {
         isLoading = true
         errorMsg = null
         val result = withContext(Dispatchers.IO) {
             HttpUtil.get(
                 videoUrl, mapOf(
                     "User-Agent" to AppData.UA_CHROME_PC,
-                    "Referer" to AppData.NIVOD_SEARCH,
+                    "Referer" to buildBaseUrl(videoUrl),
                 )
             ).fold(
                 onSuccess = { html -> parseInitialPage(html, buildBaseUrl(videoUrl)) },
@@ -587,6 +592,8 @@ fun MovieDetailScreen(
                     if (initialPosition > 0L) {
                         targetPosition = initialPosition
                     }
+                } else {
+                    errorMsg = "无法加载播放地址"
                 }
             }
         } else {
@@ -649,18 +656,8 @@ fun MovieDetailScreen(
                     PlayerPlaceholder(
                         onBack = wrappedOnBack,
                         isLoading = isLoading,
+                        onRetry = if (!isLoading) ({ retryKey++ }) else null,
                     )
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (!isLoading) {
-                            Text(
-                                text = errorMsg ?: "未知错误",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
                 }
             } else {
                 val data = pageData!!
@@ -720,7 +717,7 @@ fun MovieDetailScreen(
                                         .crossfade(true)
                                         .httpHeaders(
                                             NetworkHeaders.Builder()
-                                                .set("Referer", AppData.NIVOD_SEARCH)
+                                                .set("Referer", buildBaseUrl(videoUrl))
                                                 .set("User-Agent", AppData.UA_CHROME_M)
                                                 .build()
                                         ).build(),
@@ -1017,6 +1014,7 @@ fun MovieDetailScreen(
 private fun PlayerPlaceholder(
     onBack: () -> Unit,
     isLoading: Boolean = true,
+    onRetry: (() -> Unit)? = null,
 ) {
     Box(
         modifier = Modifier
@@ -1041,10 +1039,23 @@ private fun PlayerPlaceholder(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            if (isLoading) {
-                ChrysanthemumLoading()
-            } else {
-                Icon(
+            when {
+                isLoading -> ChrysanthemumLoading()
+                onRetry != null -> Box(
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { onRetry() }
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                ) {
+                    Text(
+                        text = "点击重试",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                else -> Icon(
                     painter = painterResource(R.drawable.autoplay_outlined),
                     contentDescription = null,
                     tint = Color.White,

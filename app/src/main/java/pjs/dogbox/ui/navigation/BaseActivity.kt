@@ -66,7 +66,8 @@ import pjs.dogbox.ui.screen.mine.SponsorScreen
 import pjs.dogbox.ui.screen.mine.WatchHistoryScreen
 import pjs.dogbox.ui.screen.movie.MovieDetailScreen
 import pjs.dogbox.ui.screen.movie.MovieSearchScreen
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.ui.screen.movie.extractHost
+import pjs.dogbox.ui.screen.movie.extractVideoId
 import pjs.dogbox.utils.DisclaimerDialog
 import pjs.dogbox.utils.SharedData
 
@@ -159,11 +160,12 @@ fun BaseScreen(
                 initialQuery = query,
                 onBack = { navController.popBackStack() },
                 onPlayVideo = { url ->
-                    val regex = Regex("""/(\d+)[-/]""")
-                    val videoId = regex.find(url)?.groupValues?.getOrNull(1) ?: ""
-                    val historyItem = SharedData.getWatchHistory(context).find { it.id == videoId }
+                    val videoId = extractVideoId(url)
+                    val host = extractHost(url)
+                    val historyItem = SharedData.getWatchHistory(context)
+                        .find { it.id == videoId && it.host == host }
                     val episodeUrl = historyItem?.let {
-                        if (it.url.startsWith("http")) it.url else "${AppData.NIVOD_HOST}${it.url}"
+                        if (it.url.startsWith("http")) it.url else "${it.host}${it.url}"
                     }
                     navController.navigate(
                         AppRoutes.play(url, historyItem?.progress ?: 0L, episodeUrl)
@@ -194,8 +196,8 @@ fun BaseScreen(
         composable(AppRoutes.WATCH_HISTORY) {
             WatchHistoryScreen(
                 onBack = { navController.popBackStack() },
-                onPlayMovie = { url, pos ->
-                    val absUrl = if (url.startsWith("http")) url else "${AppData.NIVOD_HOST}$url"
+                onPlayMovie = { url, pos, host ->
+                    val absUrl = if (url.startsWith("http")) url else "$host$url"
                     navController.navigate(AppRoutes.play(absUrl, pos, absUrl))
                 },
             )

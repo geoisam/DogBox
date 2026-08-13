@@ -1,0 +1,16 @@
+{
+  "sites": [
+    {
+      "key": "YXXQ",
+      "host": "https://www.yxxq41.cc",
+      "search": "https://www.yxxq41.cc/search/-------------.html?wd=",
+      "name": "映像星球"
+    },
+    {
+      "key": "NIVOD",
+      "host": "https://www.nivod.vip",
+      "search": "https://www.nivod.vip/s/-------------/?wd=",
+      "name": "泥视频"
+    }
+  ]
+}
