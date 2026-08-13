@@ -126,8 +126,8 @@
     "homepage": "https://github.com/ktorio/ktor"
   },
   {
-    "name": "Ktor Client Android",
-    "module": "io.ktor:ktor-client-android",
+    "name": "Ktor Client OkHttp",
+    "module": "io.ktor:ktor-client-okhttp",
     "version": "3.5.2",
     "license": "Apache 2.0",
     "homepage": "https://github.com/ktorio/ktor"

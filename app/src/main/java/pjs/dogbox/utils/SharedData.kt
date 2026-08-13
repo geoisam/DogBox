@@ -370,6 +370,14 @@ object SharedData {
     fun setCachedUpToDate(value: Boolean) {
         cachedUpToDateState = value
     }
+
+    private var cachedCheckFailedState: Boolean by mutableStateOf(false)
+
+    fun isCachedCheckFailed(): Boolean = cachedCheckFailedState
+
+    fun setCachedCheckFailed(value: Boolean) {
+        cachedCheckFailedState = value
+    }
 }
 
 

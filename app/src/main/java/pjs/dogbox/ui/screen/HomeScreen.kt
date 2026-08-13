@@ -176,11 +176,12 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         if (!SharedData.isAutoCheckUpdate(context)) return@LaunchedEffect
         if (SharedData.isAutoCheckDoneThisLaunch()) return@LaunchedEffect
-        SharedData.markAutoCheckDone()
         val configJson = fetchRemoteConfig()
         val updateInfo = parseUpdateInfo(configJson)
         if (updateInfo != null) {
             if (updateInfo.code > BuildConfig.VERSION_CODE) {
+                SharedData.setCachedCheckFailed(false)
+                SharedData.setCachedUpToDate(false)
                 SharedData.setCachedUpdateInfo(
                     SharedData.CachedUpdateInfo(
                         versionCode = updateInfo.code,
@@ -196,9 +197,16 @@ fun HomeScreen(
                     showUpdateDialog = true
                 }
             } else {
+                SharedData.setCachedUpdateInfo(null)
+                SharedData.setCachedCheckFailed(false)
                 SharedData.setCachedUpToDate(true)
             }
+        } else {
+            SharedData.setCachedUpdateInfo(null)
+            SharedData.setCachedUpToDate(false)
+            SharedData.setCachedCheckFailed(true)
         }
+        SharedData.markAutoCheckDone()
     }
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { tabs.size })

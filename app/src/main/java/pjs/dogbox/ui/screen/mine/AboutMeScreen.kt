@@ -69,7 +69,7 @@ import pjs.dogbox.utils.fetchRemoteConfig
 import pjs.dogbox.utils.parseUpdateInfo
 
 private enum class UpdateCheckState {
-    NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE
+    NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE, CHECK_FAILED
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,10 +88,12 @@ fun AboutMeScreen(
     var autoCheckUpdate by remember { mutableStateOf(SharedData.isAutoCheckUpdate(context)) }
     val cachedInfo = SharedData.getCachedUpdateInfo()
     val upToDate = SharedData.isCachedUpToDate()
+    val checkFailed = SharedData.isCachedCheckFailed()
     var manualOverride by remember { mutableStateOf<UpdateCheckState?>(null) }
     val checkState = manualOverride ?: when {
         cachedInfo != null -> UpdateCheckState.HAS_UPDATE
         upToDate -> UpdateCheckState.UP_TO_DATE
+        checkFailed -> UpdateCheckState.CHECK_FAILED
         else -> UpdateCheckState.NOT_CHECKED
     }
     val checking = checkState == UpdateCheckState.CHECKING
@@ -220,19 +222,22 @@ fun AboutMeScreen(
                                             )
                                         )
                                         SharedData.setCachedUpToDate(false)
+                                        SharedData.setCachedCheckFailed(false)
                                         manualOverride = null
                                         showUpdateDialog = true
                                     } else if (updateInfo != null && updateInfo.code <= BuildConfig.VERSION_CODE) {
                                         SharedData.setCachedUpdateInfo(null)
                                         SharedData.setCachedUpToDate(true)
+                                        SharedData.setCachedCheckFailed(false)
                                         manualOverride = null
                                         Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT)
                                             .show()
                                     } else {
                                         SharedData.setCachedUpdateInfo(null)
                                         SharedData.setCachedUpToDate(false)
+                                        SharedData.setCachedCheckFailed(true)
                                         manualOverride = null
-                                        Toast.makeText(context, "检测更新失败", Toast.LENGTH_SHORT)
+                                        Toast.makeText(context, "更新检测失败", Toast.LENGTH_SHORT)
                                             .show()
                                     }
                                 }
@@ -272,6 +277,13 @@ fun AboutMeScreen(
                             modifier = Modifier.padding(end = 4.dp),
                         )
 
+                        UpdateCheckState.CHECK_FAILED -> Text(
+                            text = "检测失败",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+
                         UpdateCheckState.CHECKING -> Text(
                             text = "检测中...",
                             style = MaterialTheme.typography.bodyMedium,
@@ -280,7 +292,7 @@ fun AboutMeScreen(
                         )
 
                         UpdateCheckState.NOT_CHECKED -> Text(
-                            text = "未检测或检测失败",
+                            text = "尚未检测",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 4.dp),

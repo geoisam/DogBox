@@ -1,7 +1,7 @@
 package pjs.dogbox.utils
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
@@ -27,10 +27,14 @@ object HttpUtil {
     private val JSON_CONTENT_TYPE = ContentType.parse("application/json; charset=utf-8")
 
     private val client: HttpClient by lazy {
-        HttpClient(Android) {
+        HttpClient(OkHttp) {
             engine {
-                connectTimeout = 15_000
-                socketTimeout = 15_000
+                config {
+                    retryOnConnectionFailure(true)
+                    connectTimeout(15_000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    readTimeout(15_000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    writeTimeout(15_000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                }
             }
             install(HttpTimeout) {
                 requestTimeoutMillis = 15_000
@@ -47,8 +51,9 @@ object HttpUtil {
         }
     }
 
-    private fun HttpResponse.requireSuccess() {
+    private suspend fun HttpResponse.requireSuccess() {
         if (status.value !in 200..299) {
+            bodyAsBytes() // consume/drain body so the connection is released back to the pool cleanly
             throw HttpException(status.value, "HTTP ${status.value}: ${status.description}")
         }
     }
