@@ -86,6 +86,7 @@ private class HotTabState {
     var items by mutableStateOf(emptyList<HotItem>())
     var isLoading by mutableStateOf(false)
     var isRefreshing by mutableStateOf(false)
+    var loadError by mutableStateOf(false)
     val listState = LazyListState()
 }
 
@@ -96,16 +97,16 @@ private class HotPlatform(
     val parse: (JsonElement) -> List<HotItem>,
 )
 
-private suspend fun HotPlatform.fetchItems(): List<HotItem> = withContext(Dispatchers.IO) {
+private suspend fun HotPlatform.fetchItems(): Result<List<HotItem>> = withContext(Dispatchers.IO) {
     HttpUtil.get(url, mapOf("Referer" to referer)).fold(
         onSuccess = { text ->
             try {
-                parse(Json.parseToJsonElement(text))
+                Result.success(parse(Json.parseToJsonElement(text)))
             } catch (_: Exception) {
-                emptyList()
+                Result.success(emptyList())
             }
         },
-        onFailure = { emptyList() },
+        onFailure = { Result.failure(it) },
     )
 }
 
@@ -230,7 +231,10 @@ private val hotPlatforms = listOf(
     HotPlatform("财联社", "https://www.cls.cn/api/cache?name=telegraph", "https://www.cls.cn/", { element ->
         element.jsonObject["data"]?.jsonObject?.get("roll_data")?.jsonArray?.mapNotNull { e ->
             val o = e.jsonObject
-            val title = o["title"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val title = o["title"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: o["brief"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: o["content"]?.jsonPrimitive?.contentOrNull
+                ?: return@mapNotNull null
             val id = o["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             HotItem(title, "https://www.cls.cn/detail/$id")
         } ?: emptyList()
@@ -290,8 +294,19 @@ private suspend fun HotTabState.refresh(platform: HotPlatform) {
     } else {
         isRefreshing = true
     }
-    val newItems = platform.fetchItems()
-    items = newItems
+    loadError = false
+    var result = platform.fetchItems()
+    if (result.isFailure) {
+        result = platform.fetchItems()
+    }
+    result.fold(
+        onSuccess = {
+            items = it
+        },
+        onFailure = {
+            if (items.isEmpty()) loadError = true
+        },
+    )
     isLoading = false
     isRefreshing = false
 }
@@ -521,6 +536,28 @@ private fun HotTabContent(
             if (tabState.isLoading && currentItems.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     ChrysanthemumLoading()
+                }
+            } else if (tabState.loadError && currentItems.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.large)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable {
+                                scope.launch { tabState.refresh(platform) }
+                            }
+                            .padding(horizontal = 24.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            text = "点击重试",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             } else if (currentItems.isEmpty()) {
                 Box(

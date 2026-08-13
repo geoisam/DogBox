@@ -271,6 +271,10 @@ object SharedData {
         autoCheckDoneState = true
     }
 
+    fun resetAutoCheckDone() {
+        autoCheckDoneState = false
+    }
+
     // === Scrolling Text Config ===
 
     data class ScrollingTextConfig(

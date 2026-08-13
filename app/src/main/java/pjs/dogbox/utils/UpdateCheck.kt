@@ -1,10 +1,10 @@
 package pjs.dogbox.utils
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -19,29 +19,32 @@ data class UpdateInfo(
 
 suspend fun fetchRemoteConfig(): kotlinx.serialization.json.JsonObject? {
     val urls = listOf(
-        "https://gh-proxy.com/",
-        "https://ghproxy.net/",
-        "https://ghfast.top/",
-    ).map { it + AppData.BASE_URL } + AppData.BASE_URL
+        "https://cdn.jsdelivr.net/gh/geoisam/geoisam/data/base.json",
+        "https://ghfast.top/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
+        "https://ghproxy.net/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
+        "https://githubdog.com/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
+    )
 
     var result: kotlinx.serialization.json.JsonObject? = null
     coroutineScope {
-        val deferreds = urls.map { url ->
+        val deferred = urls.map { url ->
             async(Dispatchers.IO) {
                 val bytes =
                     HttpUtil.getBytes(url).getOrNull()
                 bytes?.let { parseRemoteConfig(it) }
             }
-        }
-        for (deferred in deferreds) {
-            try {
-                val r = deferred.await()
-                if (r != null) {
-                    result = r
-                    coroutineContext.cancelChildren()
-                    break
+        }.toMutableList()
+        while (deferred.isNotEmpty()) {
+            val winner = select {
+                deferred.forEach { deferred ->
+                    deferred.onAwait { deferred }
                 }
-            } catch (_: CancellationException) {
+            }
+            deferred.remove(winner)
+            val r = winner.await()
+            if (r != null) {
+                result = r
+                coroutineContext.cancelChildren()
                 break
             }
         }
