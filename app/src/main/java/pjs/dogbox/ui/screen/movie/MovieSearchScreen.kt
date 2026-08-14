@@ -24,7 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -88,6 +91,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.ui.screen.PagerTabFollowEffect
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SimpleDragHandle
@@ -199,6 +203,7 @@ private class SourceState {
     var hasMore by mutableStateOf(true)
     var hasSearched by mutableStateOf(false)
     var loadError by mutableStateOf(false)
+    var loadMoreRetryKey by mutableIntStateOf(0)
     val gridState = LazyGridState()
 
     fun reset() {
@@ -208,6 +213,7 @@ private class SourceState {
         isLoading = false
         hasSearched = false
         loadError = false
+        loadMoreRetryKey = 0
     }
 }
 
@@ -224,16 +230,15 @@ fun MovieSearchScreen(
 
     val sources = remember { SearchSource.entries }
     val sourceStates = remember { sources.associateWith { SourceState() } }
-    var selectedSource by remember { mutableStateOf(SearchSource.YXXQ) }
+    var orderedSources by remember { mutableStateOf<List<SearchSource>>(sources) }
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { orderedSources.size })
+    val tabScrollState = rememberLazyListState()
     var showSourceSheet by remember { mutableStateOf(false) }
     val sourceSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
-    val currentState = sourceStates.getValue(selectedSource)
-
     var retryKey by remember { mutableIntStateOf(0) }
-    var loadMoreRetryKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
@@ -242,6 +247,8 @@ fun MovieSearchScreen(
     LaunchedEffect(activeQuery, retryKey) {
         if (activeQuery.isNotEmpty()) {
             sourceStates.values.forEach { it.reset() }
+            orderedSources = sources
+            val completed = mutableListOf<SearchSource>()
             coroutineScope {
                 sources.forEach { source ->
                     launch {
@@ -260,6 +267,8 @@ fun MovieSearchScreen(
                         )
                         state.isLoading = false
                         state.hasSearched = true
+                        completed += source
+                        orderedSources = completed + sources.filterNot { it in completed }
                     }
                 }
             }
@@ -279,81 +288,18 @@ fun MovieSearchScreen(
         }
     }
 
-    fun retryLoadMore() {
-        val state = sourceStates.getValue(selectedSource)
+    fun retryLoadMore(source: SearchSource) {
+        val state = sourceStates.getValue(source)
         if (activeQuery.isNotEmpty() && state.itemList.isNotEmpty() && !state.isLoading) {
             state.loadError = false
-            loadMoreRetryKey++
+            state.loadMoreRetryKey++
         }
     }
 
-    fun loadMore() {
-        val state = sourceStates.getValue(selectedSource)
+    fun loadMore(source: SearchSource) {
+        val state = sourceStates.getValue(source)
         if (state.hasMore && !state.isLoading) {
             state.currentPage++
-        }
-    }
-
-    LaunchedEffect(selectedSource, currentState.currentPage, activeQuery, loadMoreRetryKey) {
-        if (activeQuery.isEmpty() || currentState.currentPage <= 1) return@LaunchedEffect
-        currentState.isLoading = true
-        fetchPage(selectedSource, activeQuery, currentState.currentPage).fold(
-            onSuccess = { (items, pageInfo) ->
-                currentState.itemList += items
-                currentState.hasMore = pageInfo.hasNext
-            },
-            onFailure = {
-                currentState.hasMore = false
-                currentState.loadError = true
-            },
-        )
-        currentState.isLoading = false
-    }
-
-    val currentGridState = currentState.gridState
-
-    LaunchedEffect(selectedSource) {
-        currentGridState.scrollToItem(0)
-        snapshotFlow {
-            val total = currentGridState.layoutInfo.totalItemsCount
-            if (total == 0) return@snapshotFlow false
-            val lastVisible = currentGridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= total - 5 && currentState.hasMore && !currentState.isLoading
-        }
-            .distinctUntilChanged()
-            .filter { it }
-            .collect { loadMore() }
-    }
-
-    var lastKnownOffset by remember { mutableIntStateOf(0) }
-    var isScrollingDown by remember { mutableStateOf(false) }
-
-    LaunchedEffect(selectedSource) {
-        isScrollingDown = false
-        lastKnownOffset = 0
-        snapshotFlow {
-            currentGridState.isScrollInProgress to
-                    (currentGridState.firstVisibleItemIndex to currentGridState.firstVisibleItemScrollOffset)
-        }.collect { (isScrolling, state) ->
-            if (isScrolling) {
-                val (index, offset) = state
-                val currentTotal = index * 10000 + offset
-                isScrollingDown = currentTotal > lastKnownOffset
-                lastKnownOffset = currentTotal
-            }
-        }
-    }
-
-    val isAtTop by remember(selectedSource) {
-        derivedStateOf {
-            currentGridState.firstVisibleItemIndex == 0 &&
-                    currentGridState.firstVisibleItemScrollOffset < 50
-        }
-    }
-
-    val showFab by remember(selectedSource) {
-        derivedStateOf {
-            !isAtTop && !isScrollingDown
         }
     }
 
@@ -449,6 +395,7 @@ fun MovieSearchScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
+            PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -456,11 +403,12 @@ fun MovieSearchScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LazyRow(
+                    state = tabScrollState,
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    itemsIndexed(sources) { _, source ->
-                        val selected = source == selectedSource
+                    itemsIndexed(orderedSources) { index, source ->
+                        val selected = pagerState.currentPage == index
                         val chipColor by animateColorAsState(
                             targetValue = if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -478,7 +426,11 @@ fun MovieSearchScreen(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = { selectedSource = source },
+                                    onClick = {
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    },
                                 )
                                 .padding(horizontal = 14.dp, vertical = 7.dp),
                         ) {
@@ -515,110 +467,21 @@ fun MovieSearchScreen(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                if (currentState.isLoading && currentState.itemList.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        ChrysanthemumLoading()
-                    }
-                } else if (currentState.loadError && currentState.itemList.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.large)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .clickable { retrySearch() }
-                                .padding(horizontal = 24.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = "点击重试",
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                } else if (currentState.itemList.isEmpty() && currentState.hasSearched) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("未找到相关结果", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else if (currentState.itemList.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        state = currentGridState,
-                        contentPadding = PaddingValues(
-                            start = 8.dp,
-                            end = 8.dp,
-                            top = 12.dp,
-                            bottom = 32.dp,
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(currentState.itemList, key = { it.link }) { item ->
-                            SearchGridItem(
-                                item = item,
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    onPlayVideo(item.link)
-                                },
-                            )
-                        }
-                        if (currentState.isLoading) {
-                            item(span = { GridItemSpan(3) }) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    ChrysanthemumLoading(size = 36.dp)
-                                }
-                            }
-                        } else if (currentState.loadError) {
-                            item(span = { GridItemSpan(3) }) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(MaterialTheme.shapes.large)
-                                            .background(MaterialTheme.colorScheme.primaryContainer)
-                                            .clickable { retryLoadMore() }
-                                            .padding(horizontal = 24.dp, vertical = 10.dp),
-                                    ) {
-                                        Text(
-                                            text = "点击重试",
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (showFab) {
-                    FloatingActionButton(
-                        onClick = { scope.launch { currentGridState.animateScrollToItem(0) } },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(24.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_upward_outlined),
-                            contentDescription = "回到顶部",
-                            modifier = Modifier.size(28.dp),
-                        )
-                    }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 0,
+                ) { page ->
+                    val source = orderedSources[page]
+                    SourceTabContent(
+                        source = source,
+                        state = sourceStates.getValue(source),
+                        activeQuery = activeQuery,
+                        retrySearch = { retrySearch() },
+                        onRetryLoadMore = { retryLoadMore(source) },
+                        onLoadMore = { loadMore(source) },
+                        onPlayVideo = onPlayVideo,
+                    )
                 }
             }
         }
@@ -639,7 +502,8 @@ fun MovieSearchScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     sources.forEach { source ->
-                        val isSelected = source == selectedSource
+                        val pageIndex = orderedSources.indexOf(source)
+                        val isSelected = pageIndex == pagerState.currentPage
                         val bgColor by animateColorAsState(
                             targetValue = if (isSelected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -656,7 +520,9 @@ fun MovieSearchScreen(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = {
-                                        selectedSource = source
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(pageIndex)
+                                        }
                                         showSourceSheet = false
                                     },
                                 )
@@ -671,6 +537,193 @@ fun MovieSearchScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceTabContent(
+    source: SearchSource,
+    state: SourceState,
+    activeQuery: String,
+    retrySearch: () -> Unit,
+    onRetryLoadMore: () -> Unit,
+    onLoadMore: () -> Unit,
+    onPlayVideo: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val gridState = state.gridState
+
+    LaunchedEffect(source, state.currentPage, activeQuery, state.loadMoreRetryKey) {
+        if (activeQuery.isEmpty() || state.currentPage <= 1) return@LaunchedEffect
+        state.isLoading = true
+        fetchPage(source, activeQuery, state.currentPage).fold(
+            onSuccess = { (items, pageInfo) ->
+                state.itemList += items
+                state.hasMore = pageInfo.hasNext
+            },
+            onFailure = {
+                state.hasMore = false
+                state.loadError = true
+            },
+        )
+        state.isLoading = false
+    }
+
+    LaunchedEffect(source) {
+        gridState.scrollToItem(0)
+        snapshotFlow {
+            val total = gridState.layoutInfo.totalItemsCount
+            if (total == 0) return@snapshotFlow false
+            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= total - 5 && state.hasMore && !state.isLoading
+        }
+            .distinctUntilChanged()
+            .filter { it }
+            .collect { onLoadMore() }
+    }
+
+    var lastKnownOffset by remember(source) { mutableIntStateOf(0) }
+    var isScrollingDown by remember(source) { mutableStateOf(false) }
+
+    LaunchedEffect(source) {
+        isScrollingDown = false
+        lastKnownOffset = 0
+        snapshotFlow {
+            gridState.isScrollInProgress to
+                    (gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset)
+        }.collect { (isScrolling, offsetState) ->
+            if (isScrolling) {
+                val (index, offset) = offsetState
+                val currentTotal = index * 10000 + offset
+                isScrollingDown = currentTotal > lastKnownOffset
+                lastKnownOffset = currentTotal
+            }
+        }
+    }
+
+    val isAtTop by remember(source) {
+        derivedStateOf {
+            gridState.firstVisibleItemIndex == 0 &&
+                    gridState.firstVisibleItemScrollOffset < 50
+        }
+    }
+
+    val showFab by remember(source) {
+        derivedStateOf {
+            !isAtTop && !isScrollingDown
+        }
+    }
+
+    Box(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        if (state.isLoading && state.itemList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ChrysanthemumLoading()
+            }
+        } else if (state.loadError && state.itemList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { retrySearch() }
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                ) {
+                    Text(
+                        text = "点击重试",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        } else if (state.itemList.isEmpty() && state.hasSearched) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("未找到相关结果", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else if (state.itemList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                state = gridState,
+                contentPadding = PaddingValues(
+                    start = 8.dp,
+                    end = 8.dp,
+                    top = 12.dp,
+                    bottom = 32.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(state.itemList, key = { it.link }) { item ->
+                    SearchGridItem(
+                        item = item,
+                        onClick = {
+                            focusManager.clearFocus()
+                            onPlayVideo(item.link)
+                        },
+                    )
+                }
+                if (state.isLoading) {
+                    item(span = { GridItemSpan(3) }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ChrysanthemumLoading(size = 36.dp)
+                        }
+                    }
+                } else if (state.loadError) {
+                    item(span = { GridItemSpan(3) }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.large)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .clickable { onRetryLoadMore() }
+                                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                            ) {
+                                Text(
+                                    text = "点击重试",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showFab) {
+            FloatingActionButton(
+                onClick = { scope.launch { gridState.animateScrollToItem(0) } },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_upward_outlined),
+                    contentDescription = "回到顶部",
+                    modifier = Modifier.size(28.dp),
+                )
             }
         }
     }

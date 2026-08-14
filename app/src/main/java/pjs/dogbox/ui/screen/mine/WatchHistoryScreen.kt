@@ -153,7 +153,7 @@ fun WatchHistoryScreen(
                     FilledTonalButton(
                         onClick = {
                             val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { "${it.host}|${it.id}" }
+                            val allKeys = filtered.map { "${it.key}|${it.id}" }
                             selectedIds.clear()
                             selectedIds.addAll(allKeys)
                         },
@@ -165,7 +165,7 @@ fun WatchHistoryScreen(
                     FilledTonalButton(
                         onClick = {
                             val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { "${it.host}|${it.id}" }
+                            val allKeys = filtered.map { "${it.key}|${it.id}" }
                             val currentSelected = selectedIds.toSet()
                             selectedIds.clear()
                             allKeys.filter { it !in currentSelected }
@@ -271,13 +271,13 @@ fun WatchHistoryScreen(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         items(items.filter { it.orientation == page },
-                            key = { "${it.host}|${it.id}" }) { item ->
+                            key = { "${it.key}|${it.id}" }) { item ->
                             HistoryGridItem(
                                 item = item,
                                 isDeleteMode = isDeleteMode,
-                                isSelected = selectedIds.contains("${item.host}|${item.id}"),
+                                isSelected = selectedIds.contains("${item.key}|${item.id}"),
                                 onSelect = {
-                                    val key = "${item.host}|${item.id}"
+                                    val key = "${item.key}|${item.id}"
                                     if (selectedIds.contains(key)) selectedIds.remove(key)
                                     else selectedIds.add(key)
                                 },
@@ -285,7 +285,7 @@ fun WatchHistoryScreen(
                                     if (!isDeleteMode) {
                                         isDeleteMode = true
                                         selectedIds.clear()
-                                        selectedIds.add("${item.host}|${item.id}")
+                                        selectedIds.add("${item.key}|${item.id}")
                                     }
                                 },
                                 onClick = {

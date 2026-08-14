@@ -68,6 +68,7 @@ import pjs.dogbox.ui.screen.movie.MovieDetailScreen
 import pjs.dogbox.ui.screen.movie.MovieSearchScreen
 import pjs.dogbox.ui.screen.movie.extractHost
 import pjs.dogbox.ui.screen.movie.extractVideoId
+import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.DisclaimerDialog
 import pjs.dogbox.utils.SharedData
 
@@ -163,7 +164,7 @@ fun BaseScreen(
                     val videoId = extractVideoId(url)
                     val host = extractHost(url)
                     val historyItem = SharedData.getWatchHistory(context)
-                        .find { it.id == videoId && it.host == host }
+                        .find { it.id == videoId && it.key == AppData.sourceKey(host) }
                     val episodeUrl = historyItem?.let {
                         if (it.url.startsWith("http")) it.url else "${it.host}${it.url}"
                     }

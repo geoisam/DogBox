@@ -7,9 +7,16 @@ object AppData {
 
     const val NIVOD_HOST = "https://www.nivod.vip"
     const val NIVOD_SEARCH = "https://www.nivod.vip/s/-------------/?wd="
+    const val NIVOD_KEY = "NIVOD"
 
     const val YXXQ_HOST = "https://www.yxxq41.cc"
     const val YXXQ_SEARCH = "https://www.yxxq41.cc/search/-------------.html?wd="
+    const val YXXQ_KEY = "YXXQ"
+
+    fun sourceKey(host: String): String = when {
+        host.contains("yxxq") -> YXXQ_KEY
+        else -> NIVOD_KEY
+    }
 
     const val UA_CHROME_PC =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/169.0.0.0 Safari/537.36"

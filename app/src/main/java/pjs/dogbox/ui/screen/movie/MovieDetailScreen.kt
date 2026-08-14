@@ -164,6 +164,7 @@ private fun saveWatchHistory(
             orientation = 0,
             episodeName = episodeName,
             host = extractHost(videoUrl),
+            key = AppData.sourceKey(extractHost(videoUrl)),
         ),
     )
 }

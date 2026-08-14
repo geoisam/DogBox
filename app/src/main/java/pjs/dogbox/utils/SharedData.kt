@@ -45,6 +45,7 @@ data class WatchHistoryItem(
     val orientation: Int = 0,
     val episodeName: String = "",
     val host: String = AppData.NIVOD_HOST,
+    val key: String = AppData.NIVOD_KEY,
 ) {
     val formattedDate: String
         get() = SimpleDateFormat("yy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
@@ -147,6 +148,9 @@ object SharedData {
                 orientation = obj["orientation"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0,
                 episodeName = obj["episodeName"]?.jsonPrimitive?.contentOrNull ?: "",
                 host = obj["host"]?.jsonPrimitive?.contentOrNull ?: AppData.NIVOD_HOST,
+                key = obj["key"]?.jsonPrimitive?.contentOrNull ?: AppData.sourceKey(
+                    obj["host"]?.jsonPrimitive?.contentOrNull ?: ""
+                ),
             )
         } catch (_: Exception) {
             null
@@ -166,6 +170,7 @@ object SharedData {
                 "orientation" to JsonPrimitive(item.orientation.toLong()),
                 "episodeName" to JsonPrimitive(item.episodeName),
                 "host" to JsonPrimitive(item.host),
+                "key" to JsonPrimitive(item.key),
             )
         )
     }
@@ -189,7 +194,7 @@ object SharedData {
     @Synchronized
     fun addOrUpdateWatchHistory(context: Context, item: WatchHistoryItem) {
         val current = getWatchHistory(context).toMutableList()
-        val existingIdx = current.indexOfFirst { it.id == item.id && it.host == item.host }
+        val existingIdx = current.indexOfFirst { it.id == item.id && it.key == item.key }
         if (existingIdx >= 0) {
             current[existingIdx] = item
         } else {
@@ -202,7 +207,7 @@ object SharedData {
 
     @Synchronized
     fun removeWatchHistory(context: Context, ids: Set<String>) {
-        val current = getWatchHistory(context).filter { "${it.host}|${it.id}" !in ids }
+        val current = getWatchHistory(context).filter { "${it.key}|${it.id}" !in ids }
         saveWatchHistory(context, current)
     }
 
