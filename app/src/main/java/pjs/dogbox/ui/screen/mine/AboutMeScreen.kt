@@ -1,6 +1,7 @@
 package pjs.dogbox.ui.screen.mine
 
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -15,6 +16,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,37 +158,71 @@ fun AboutMeScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Card(
-                modifier = Modifier.size(100.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(
-                    containerColor = bgColor,
-                ),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.dogbox_logo_fill),
-                    tint = fgColor,
-                    contentDescription = "LOGO",
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                fontFamily = scienceGothic,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "version ${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Card(
+                        modifier = Modifier.size(100.dp)
+                            .combinedClickable(
+                                onClick = {
+                                    try {
+                                        val intent = Intent().apply {
+                                            component = ComponentName(
+                                                "com.android.settings",
+                                                $$"com.android.settings.Settings$AppDashboardActivity"
+                                            )
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                                    }
+                                },
+                                onLongClick = {
+                                    try {
+                                        val intent = Intent().apply {
+                                            component = ComponentName(
+                                                "com.android.settings.intelligence",
+                                                $$"com.android.settings.intelligence.search.SearchActivity"
+                                            )
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: ActivityNotFoundException) {
+                                        context.startActivity(Intent(Settings.ACTION_SEARCH_SETTINGS))
+                                    }
+                                },
+                            ),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(
+                            containerColor = bgColor,
+                        ),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.dogbox_logo_fill),
+                            tint = fgColor,
+                            contentDescription = "LOGO",
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        fontFamily = scienceGothic,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "version ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -356,7 +393,7 @@ fun AboutMeScreen(
                 }
 
             }
-            Spacer(modifier = Modifier.height(16.dp))
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -404,12 +441,6 @@ fun AboutMeScreen(
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "愿你一生欢喜，不为世俗所及",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
@@ -455,7 +486,7 @@ fun AboutListItem(
     }
 }
 
-private fun openPermissionManager(context: Context) {
+internal fun openPermissionManager(context: Context) {
     val pkg = context.packageName
     val manufacturer = Build.MANUFACTURER.lowercase()
     val candidates = mutableListOf<Intent>()

@@ -75,7 +75,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.ui.screen.TabStateCache
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SimpleDragHandle
 import java.util.Calendar
@@ -83,7 +83,7 @@ import java.util.Calendar
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getYearData"
 private const val MIN_YEAR = 2017
 
-private data class RankItem(
+internal data class RankItem(
     val rank: Int,
     val name: String,
     val premiereDate: String,
@@ -91,13 +91,13 @@ private data class RankItem(
     val salesInWan: String,
 )
 
-private data class BoxOfficeData(
+internal data class BoxOfficeData(
     val title: String,
     val updateTimeDesc: String,
     val rankList: List<RankItem>,
 )
 
-private class BoxOfficeYearState {
+internal class BoxOfficeYearState {
     var isLoading by mutableStateOf(true)
     var isRefreshing by mutableStateOf(false)
     var boxOfficeData by mutableStateOf<BoxOfficeData?>(null)
@@ -105,6 +105,11 @@ private class BoxOfficeYearState {
     var prevRefreshKey by mutableIntStateOf(0)
     var lastFetchKey by mutableStateOf("")
     val scrollState = LazyListState()
+}
+
+internal class BoxOfficeTotalScreenState {
+    val tabCache = TabStateCache { BoxOfficeYearState() }
+    var currentYearIndex by mutableIntStateOf(-1)
 }
 
 @SuppressLint("DefaultLocale")
@@ -119,10 +124,11 @@ private fun formatSales(salesInWan: String): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BoxOfficeTotalScreen(
+internal fun BoxOfficeTotalScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onSearchMovie: (String) -> Unit = {}
+    onSearchMovie: (String) -> Unit = {},
+    state: BoxOfficeTotalScreenState = remember { BoxOfficeTotalScreenState() },
 ) {
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val yearOptions = remember(currentYear) {
@@ -130,10 +136,14 @@ fun BoxOfficeTotalScreen(
     }
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
-        initialPage = if (yearOptions.size > 1) 1 else 0,
+        initialPage = if (state.currentYearIndex in yearOptions.indices) state.currentYearIndex
+        else if (yearOptions.size > 1) 1 else 0,
         pageCount = { yearOptions.size },
     )
-    val tabCache = rememberTabStateCache { BoxOfficeYearState() }
+    LaunchedEffect(pagerState.currentPage) {
+        state.currentYearIndex = pagerState.currentPage
+    }
+    val tabCache = state.tabCache
 
     Box(
         modifier = modifier

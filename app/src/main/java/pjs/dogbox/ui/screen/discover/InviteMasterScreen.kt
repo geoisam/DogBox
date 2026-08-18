@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -447,12 +446,12 @@ private fun InviteLogSheet(
     }
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop)
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 20.dp)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = null,
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
@@ -460,31 +459,6 @@ private fun InviteLogSheet(
                 .height(sheetMaxHeight)
                 .padding(horizontal = 12.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "日志",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,

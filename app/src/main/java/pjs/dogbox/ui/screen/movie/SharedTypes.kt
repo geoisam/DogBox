@@ -32,6 +32,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -66,6 +67,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -95,6 +97,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.utils.SheetSectionTitle
 
 @Composable
 fun getStatusBarHeight(): Dp {
@@ -167,6 +171,15 @@ internal fun getQualityLabel(width: Int, height: Int): String {
         h >= 480 -> "480P"
         h >= 360 -> "360P"
         else -> "270P"
+    }
+}
+
+internal fun refreshEndedFrame(exoPlayer: ExoPlayer) {
+    if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED) {
+        val pos = exoPlayer.duration
+        if (pos > 0) {
+            exoPlayer.seekTo((pos - 1).coerceAtLeast(0L))
+        }
     }
 }
 
@@ -343,8 +356,9 @@ internal fun SpeedBottomSheet(
     onSpeedSelect: (Float) -> Unit,
     onLongPressSpeedConfirm: (Float) -> Unit,
     onDismiss: () -> Unit,
-    fixedHeight: Dp,
 ) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
     var sliderLongPressSpeed by remember(longPressSpeed) { mutableFloatStateOf(longPressSpeed) }
@@ -352,38 +366,19 @@ internal fun SpeedBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = null,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fixedHeight)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 32.dp),
+                .height(sheetMaxHeight),
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .verticalScroll(rememberScrollState()),
             ) {
-                Text("播放倍速", style = MaterialTheme.typography.titleMedium)
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
+            SheetSectionTitle("播放倍速")
             Spacer(Modifier.height(16.dp))
             Text(
                 "固定倍速：${"%.2f".format(sliderSpeed)}X",
@@ -435,6 +430,7 @@ internal fun SpeedBottomSheet(
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
             Spacer(Modifier.height(16.dp))
+            }
         }
     }
 }
@@ -444,44 +440,27 @@ internal fun ScaleBottomSheet(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
-    fixedHeight: Dp,
 ) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = null,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fixedHeight)
-                .padding(bottom = 32.dp),
+                .height(sheetMaxHeight),
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .verticalScroll(rememberScrollState()),
             ) {
-                Text("视频画幅", style = MaterialTheme.typography.titleMedium)
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
+            SheetSectionTitle("视频画幅")
             Spacer(Modifier.height(8.dp))
             FlowRow(
                 modifier = Modifier
@@ -499,6 +478,7 @@ internal fun ScaleBottomSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            }
         }
     }
 }
@@ -602,15 +582,15 @@ internal fun MoreSettingsContent(
     else MaterialTheme.colorScheme.onSurface
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("更多设置", style = MaterialTheme.typography.titleMedium, color = titleColor)
-            if (useFixedDarkColors) {
+        if (useFixedDarkColors) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("更多设置", style = MaterialTheme.typography.titleMedium, color = titleColor)
                 IconButton(onClick = onDismiss) {
                     Icon(
                         painter = painterResource(R.drawable.close_outlined),
@@ -619,26 +599,13 @@ internal fun MoreSettingsContent(
                         modifier = Modifier.size(24.dp),
                     )
                 }
-            } else {
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        tint = titleColor,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
             }
+        } else {
+            SheetSectionTitle("更多设置")
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp),
         ) {
@@ -823,6 +790,7 @@ internal fun PlayerCore(
                     )
                     player = exoPlayer
                     resizeMode = currentScaleMode.resizeMode
+                    refreshEndedFrame(exoPlayer)
                 }.also {
                     onPlayerViewRef(it)
                 }
@@ -1325,11 +1293,13 @@ internal fun NonFullscreenPlayer(
     playerBufferedPercentage: Int = 0,
     modifier: Modifier = Modifier,
 ) {
+    var bgColorIndex by remember { mutableIntStateOf(0) }
+    val bgColors = listOf(Color.Black, Color.White, Color.Gray)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(240.dp)
-            .background(Color.Black),
+            .background(bgColors[bgColorIndex]),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -1346,6 +1316,7 @@ internal fun NonFullscreenPlayer(
                         )
                         player = exoPlayer
                         resizeMode = currentScaleMode.resizeMode
+                        refreshEndedFrame(exoPlayer)
                     }.also { onPlayerViewRef(it) }
                 },
                 update = { playerView ->
@@ -1438,10 +1409,13 @@ internal fun NonFullscreenPlayer(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     if (onAudioPlay != null) {
-                        IconButton(onClick = onAudioPlay) {
+                        IconButton(onClick = {
+                            bgColorIndex = (bgColorIndex + 1) % bgColors.size
+                            onAudioPlay()
+                        }) {
                             Icon(
-                                painter = painterResource(R.drawable.headphones_outlined),
-                                contentDescription = "音频播放",
+                                painter = painterResource(R.drawable.sync_alt_outlined),
+                                contentDescription = "切换背景色",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp),
                             )
@@ -1561,6 +1535,11 @@ internal fun NonFullscreenPlayer(
                             )
                         }
                         Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = getQualityLabel(playerVideoWidth, playerVideoHeight),
+                            color = Color.White.copy(alpha = 0.5f),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
                         IconButton(onClick = onFullscreen) {
                             Icon(
                                 painter = painterResource(R.drawable.fullscreen_filled),

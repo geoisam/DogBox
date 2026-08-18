@@ -1,6 +1,5 @@
 package pjs.dogbox.utils
 
-import com.tyme.festival.SolarFestival
 import com.tyme.lunar.LunarDay
 import com.tyme.sixtycycle.HeavenStem
 import com.tyme.solar.SolarDay
@@ -268,7 +267,7 @@ object LunarUtil {
                 ""
             },
             festivals = try {
-                getNextFestivals(now)
+                getNextFestivals()
             } catch (_: Exception) {
                 emptyList()
             }
@@ -287,71 +286,60 @@ object LunarUtil {
         return solarTime.getLunarHour().getLunarDay()
     }
 
-    private fun getNextFestivals(now: ZonedDateTime): List<FestivalItem> {
+    private fun getNextFestivals(): List<FestivalItem> {
         val today = LocalDate.now()
-        val zone = ZoneId.systemDefault()
         val maxDays = 99
 
-        var nearestJieQi: FestivalItem? = null
-        var nearestFestivalDay: Long? = null
-        var nearestFestivalName: String? = null
+        val festivals = mutableListOf<FestivalItem>()
+        val jieQiList = mutableListOf<FestivalItem>()
 
         for (i in 0 until maxDays) {
             val date = today.plusDays(i.toLong())
             val solarDay = SolarDay.fromYmd(date.year, date.monthValue, date.dayOfMonth)
 
-            if (nearestJieQi == null) {
-                val term = solarDay.getTerm()
-                if (term != null) {
-                    val termSolarDay = term.getSolarDay()
-                    if (termSolarDay.getYear() == solarDay.getYear()
-                        && termSolarDay.getMonth() == solarDay.getMonth()
-                        && termSolarDay.getDay() == solarDay.getDay()
-                    ) {
-                        nearestJieQi = FestivalItem(
+            val term = solarDay.getTerm()
+            if (term != null) {
+                val termSolarDay = term.getSolarDay()
+                if (termSolarDay.getYear() == solarDay.getYear()
+                    && termSolarDay.getMonth() == solarDay.getMonth()
+                    && termSolarDay.getDay() == solarDay.getDay()
+                ) {
+                    jieQiList.add(
+                        FestivalItem(
                             name = term.getName(),
                             date = date,
                             weekday = solarDay.getWeek().getName(),
                             daysLeft = i.toLong()
                         )
-                    }
+                    )
                 }
             }
 
-            if (nearestFestivalDay == null) {
-                val festival = SolarFestival.fromYmd(
-                    solarDay.getYear(),
-                    solarDay.getMonth(),
-                    solarDay.getDay()
-                )
-                if (festival != null) {
-                    nearestFestivalDay = i.toLong()
-                    nearestFestivalName = festival.getName()
-                }
-            }
-
-            if (nearestJieQi != null && nearestFestivalDay != null) break
-        }
-
-        val result = mutableListOf<FestivalItem>()
-
-        nearestJieQi?.let { result.add(it) }
-
-        nearestFestivalDay?.let { days ->
-            val date = today.plusDays(days)
-            val solarDay = SolarDay.fromYmd(date.year, date.monthValue, date.dayOfMonth)
-            nearestFestivalName?.let { name ->
-                result.add(
+            solarDay.getFestival()?.let { f ->
+                festivals.add(
                     FestivalItem(
-                        name = name,
+                        name = f.getName(),
                         date = date,
                         weekday = solarDay.getWeek().getName(),
-                        daysLeft = days
+                        daysLeft = i.toLong()
+                    )
+                )
+            }
+
+            solarDay.getLunarDay().getFestival()?.let { f ->
+                festivals.add(
+                    FestivalItem(
+                        name = f.getName(),
+                        date = date,
+                        weekday = solarDay.getWeek().getName(),
+                        daysLeft = i.toLong()
                     )
                 )
             }
         }
 
-        return result.sortedBy { it.daysLeft }
+        return (festivals.distinctBy { it.name to it.date }.sortedBy { it.daysLeft }.take(2) +
+            jieQiList.distinctBy { it.name to it.date }.sortedBy { it.daysLeft }.take(1))
+            .sortedBy { it.daysLeft }
     }
 }

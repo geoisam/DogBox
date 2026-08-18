@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -91,9 +92,6 @@ fun MediaLinkTestScreen(
 
     val activity = context as? android.app.Activity
 
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp)
-
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build()
     }
@@ -120,10 +118,10 @@ fun MediaLinkTestScreen(
         focusManager.clearFocus()
         val controller = WindowInsetsControllerCompat(act.window, act.window.decorView)
         if (fullscreen) {
-            act.requestedOrientation = if (playerVideoWidth > playerVideoHeight)
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            act.requestedOrientation = if (playerVideoWidth >= playerVideoHeight)
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             else
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -334,8 +332,10 @@ fun MediaLinkTestScreen(
                             onValueChange = { url = it },
                             label = { Text("播放链接") },
                             placeholder = { Text("请输入播放链接") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 120.dp),
+                            maxLines = 100,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Uri,
                                 imeAction = ImeAction.Go,
@@ -438,7 +438,6 @@ fun MediaLinkTestScreen(
                 longPressSpeed = speed
             },
             onDismiss = { showSpeedSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 
@@ -449,7 +448,6 @@ fun MediaLinkTestScreen(
                 currentScaleModeIndex = index
             },
             onDismiss = { showScaleSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 }

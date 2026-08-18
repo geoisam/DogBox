@@ -1,6 +1,5 @@
 package pjs.dogbox.ui.screen.movie
 
-import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -30,15 +29,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -70,7 +66,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
@@ -94,10 +89,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.ui.screen.DisposableState
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SharedData
+import pjs.dogbox.utils.SimpleDragHandle
 import pjs.dogbox.utils.WatchHistoryItem
+import pjs.dogbox.utils.SheetSectionTitle
 import kotlin.math.roundToInt
 
 data class EpisodeInfo(
@@ -110,7 +108,7 @@ data class RouteInfo(
     val episodes: List<EpisodeInfo>,
 )
 
-private data class PageData(
+internal data class PageData(
     val routes: List<RouteInfo>,
     val title: String,
     val type: String,
@@ -120,6 +118,66 @@ private data class PageData(
     val coverUrl: String,
     val m3u8Url: String,
 )
+
+internal class MovieDetailScreenState(
+    private val appContext: android.content.Context,
+    videoUrl: String,
+    initialPosition: Long,
+    initialEpisodeUrl: String?,
+) : DisposableState {
+    val initialPosition: Long = initialPosition
+    val initialEpisodeUrl: String? = initialEpisodeUrl
+
+    val isLoading = mutableStateOf(true)
+    val pageData = mutableStateOf<PageData?>(null)
+    val selectedRouteIndex = mutableIntStateOf(0)
+    val selectedEpisodeIndex = mutableIntStateOf(0)
+    val currentM3u8Url = mutableStateOf("")
+    val currentEpisodeUrl = mutableStateOf(videoUrl)
+    val targetPosition = mutableStateOf(0L)
+    val errorMsg = mutableStateOf<String?>(null)
+    val retryKey = mutableIntStateOf(0)
+    val fetchJob = mutableStateOf<kotlinx.coroutines.Job?>(null)
+    val isSwitchingEpisode = mutableStateOf(false)
+    val pendingSwitchTarget = mutableStateOf<Pair<Int, Int>?>(null)
+    val pendingSwitchBack = mutableStateOf<(() -> Unit)?>(null)
+
+    val showIntroSheet = mutableStateOf(false)
+    val showRouteSheet = mutableStateOf(false)
+    val showEpisodeSheet = mutableStateOf(false)
+    val isFullscreen = mutableStateOf(false)
+
+    val currentSpeed = mutableStateOf(1.0f)
+    val longPressSpeed = mutableStateOf(3.0f)
+    val currentScaleModeIndex = mutableIntStateOf(0)
+    val showSpeedSheet = mutableStateOf(false)
+    val showScaleSheet = mutableStateOf(false)
+
+    val playerVideoWidth = mutableIntStateOf(0)
+    val playerVideoHeight = mutableIntStateOf(0)
+    val wasPlayingBeforePause = mutableStateOf(false)
+
+    val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext).build()
+
+    fun saveCurrentToHistory() {
+        val epName = pageData.value?.routes?.getOrNull(selectedRouteIndex.value)
+            ?.episodes?.getOrNull(selectedEpisodeIndex.value)?.name ?: ""
+        saveWatchHistory(
+            appContext,
+            currentEpisodeUrl.value,
+            pageData.value?.title ?: "",
+            pageData.value?.coverUrl ?: "",
+            epName,
+            exoPlayer,
+        )
+    }
+
+    override fun dispose() {
+        saveCurrentToHistory()
+        SharedData.flushWatchHistory(appContext)
+        exoPlayer.release()
+    }
+}
 
 internal fun extractVideoId(url: String): String {
     val uri = url.toUri()
@@ -282,49 +340,47 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MovieDetailScreen(
+internal fun MovieDetailScreen(
+    state: MovieDetailScreenState,
     videoUrl: String,
-    initialPosition: Long = 0L,
-    initialEpisodeUrl: String? = null,
     onBack: () -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var isLoading by remember { mutableStateOf(true) }
-    var pageData by remember { mutableStateOf<PageData?>(null) }
-    var selectedRouteIndex by remember { mutableIntStateOf(0) }
-    var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
-    var currentM3u8Url by remember { mutableStateOf("") }
-    var currentEpisodeUrl by remember { mutableStateOf(videoUrl) }
-    var targetPosition by remember { mutableStateOf(0L) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    var fetchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    var isSwitchingEpisode by remember { mutableStateOf(false) }
-    var pendingSwitchTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var pendingSwitchBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var isLoading by state.isLoading
+    var pageData by state.pageData
+    var selectedRouteIndex by state.selectedRouteIndex
+    var selectedEpisodeIndex by state.selectedEpisodeIndex
+    var currentM3u8Url by state.currentM3u8Url
+    var currentEpisodeUrl by state.currentEpisodeUrl
+    var targetPosition by state.targetPosition
+    var errorMsg by state.errorMsg
+    var retryKey by state.retryKey
+    var fetchJob by state.fetchJob
+    var isSwitchingEpisode by state.isSwitchingEpisode
+    var pendingSwitchTarget by state.pendingSwitchTarget
+    var pendingSwitchBack by state.pendingSwitchBack
 
-    var showIntroSheet by remember { mutableStateOf(false) }
-    var showRouteSheet by remember { mutableStateOf(false) }
-    var showEpisodeSheet by remember { mutableStateOf(false) }
-    var isFullscreen by remember { mutableStateOf(false) }
+    var showIntroSheet by state.showIntroSheet
+    var showRouteSheet by state.showRouteSheet
+    var showEpisodeSheet by state.showEpisodeSheet
+    var isFullscreen by state.isFullscreen
 
-    var currentSpeed by remember { mutableStateOf(1.0f) }
-    var longPressSpeed by remember { mutableStateOf(3.0f) }
-    var currentScaleModeIndex by remember { mutableIntStateOf(0) }
-    var showSpeedSheet by remember { mutableStateOf(false) }
-    var showScaleSheet by remember { mutableStateOf(false) }
+    var currentSpeed by state.currentSpeed
+    var longPressSpeed by state.longPressSpeed
+    var currentScaleModeIndex by state.currentScaleModeIndex
+    var showSpeedSheet by state.showSpeedSheet
+    var showScaleSheet by state.showScaleSheet
 
     val activity = context as? android.app.Activity
 
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build()
-    }
+    val exoPlayer = state.exoPlayer
 
-    var playerVideoWidth by remember { mutableIntStateOf(0) }
-    var playerVideoHeight by remember { mutableIntStateOf(0) }
+    var playerVideoWidth by state.playerVideoWidth
+    var playerVideoHeight by state.playerVideoHeight
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -376,31 +432,18 @@ fun MovieDetailScreen(
         }
     }
 
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetFixedHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp)
-
-    var savedHistoryOnDispose by remember { mutableStateOf(false) }
-
-    fun saveCurrentToHistory() {
-        if (savedHistoryOnDispose) return
-        savedHistoryOnDispose = true
-        val epName = pageData?.routes?.getOrNull(selectedRouteIndex)?.episodes?.getOrNull(
-            selectedEpisodeIndex
-        )?.name ?: ""
-        saveWatchHistory(
-            context,
-            currentEpisodeUrl,
-            pageData?.title ?: "",
-            pageData?.coverUrl ?: "",
-            epName,
-            exoPlayer
-        )
-    }
+    val saveCurrentToHistory = { state.saveCurrentToHistory() }
 
     DisposableEffect(exoPlayer) {
         onDispose {
-            saveCurrentToHistory()
-            exoPlayer.release()
+            state.wasPlayingBeforePause.value = exoPlayer.playWhenReady
+            exoPlayer.pause()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!state.isFullscreen.value && state.wasPlayingBeforePause.value) {
+            exoPlayer.play()
         }
     }
 
@@ -440,7 +483,6 @@ fun MovieDetailScreen(
     LaunchedEffect(videoUrl) {
         while (true) {
             kotlinx.coroutines.delay(15000)
-            savedHistoryOnDispose = false
             saveCurrentToHistory()
         }
     }
@@ -480,7 +522,6 @@ fun MovieDetailScreen(
         val prevEpisodeUrl = currentEpisodeUrl
         val prevM3u8Url = currentM3u8Url
         fetchJob?.cancel()
-        savedHistoryOnDispose = false
         saveCurrentToHistory()
         selectedRouteIndex = routeIdx
         selectedEpisodeIndex = epIdx
@@ -534,6 +575,7 @@ fun MovieDetailScreen(
     }
 
     LaunchedEffect(videoUrl, retryKey) {
+        if (pageData != null && currentM3u8Url.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         errorMsg = null
         val result = withContext(Dispatchers.IO) {
@@ -550,7 +592,7 @@ fun MovieDetailScreen(
         if (result != null && result.routes.isNotEmpty() && result.routes[0].episodes.isNotEmpty()) {
             pageData = result
 
-            val matchUrl = initialEpisodeUrl ?: videoUrl
+            val matchUrl = state.initialEpisodeUrl ?: videoUrl
             val targetPath = try {
                 matchUrl.toUri().encodedPath
             } catch (_: Exception) {
@@ -590,8 +632,8 @@ fun MovieDetailScreen(
                         prepare()
                         playWhenReady = true
                     }
-                    if (initialPosition > 0L) {
-                        targetPosition = initialPosition
+                    if (state.initialPosition > 0L) {
+                        targetPosition = state.initialPosition
                     }
                 } else {
                     errorMsg = "无法加载播放地址"
@@ -700,15 +742,14 @@ fun MovieDetailScreen(
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showIntroSheet = true },
                         ) {
                             Box(
                                 modifier = Modifier.combinedClickable(
-                                    onClick = {},
-                                    onLongClick = {
-                                        val intent =
-                                            Intent(Intent.ACTION_VIEW, data.coverUrl.toUri())
-                                        context.startActivity(intent)
+                                    onClick = {
+                                        onViewImage(data.coverUrl, buildBaseUrl(videoUrl), data.title)
                                     },
                                 ),
                             ) {
@@ -719,7 +760,6 @@ fun MovieDetailScreen(
                                         .httpHeaders(
                                             NetworkHeaders.Builder()
                                                 .set("Referer", buildBaseUrl(videoUrl))
-                                                .set("User-Agent", AppData.UA_CHROME_M)
                                                 .build()
                                         ).build(),
                                     contentDescription = null,
@@ -728,13 +768,30 @@ fun MovieDetailScreen(
                                         .clip(MaterialTheme.shapes.medium),
                                     contentScale = ContentScale.Crop,
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primaryContainer
+                                                .copy(alpha = 0.9f),
+                                            shape = MaterialTheme.shapes.medium,
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                                ) {
+                                    Text(
+                                        text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(
                                 modifier = Modifier
                                     .height(140.dp)
-                                    .weight(1f)
-                                    .clickable { showIntroSheet = true },
+                                    .weight(1f),
                             ) {
                                 Text(
                                     text = data.title,
@@ -949,7 +1006,6 @@ fun MovieDetailScreen(
         IntroBottomSheet(
             data = pageData!!,
             onDismiss = { showIntroSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 
@@ -964,7 +1020,6 @@ fun MovieDetailScreen(
                 showRouteSheet = false
             },
             onDismiss = { showRouteSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 
@@ -979,7 +1034,6 @@ fun MovieDetailScreen(
                 showEpisodeSheet = false
             },
             onDismiss = { showEpisodeSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 
@@ -995,7 +1049,6 @@ fun MovieDetailScreen(
                 longPressSpeed = speed
             },
             onDismiss = { showSpeedSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 
@@ -1006,7 +1059,6 @@ fun MovieDetailScreen(
                 currentScaleModeIndex = index
             },
             onDismiss = { showScaleSheet = false },
-            fixedHeight = sheetFixedHeight,
         )
     }
 }
@@ -1158,109 +1210,89 @@ private fun ActionIconItem(
 private fun IntroBottomSheet(
     data: PageData,
     onDismiss: () -> Unit,
-    fixedHeight: Dp,
 ) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = null,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fixedHeight),
+                .height(sheetMaxHeight),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "详情",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = data.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                if (data.type.isNotEmpty()) {
+                SheetSectionTitle("简介详情")
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 32.dp),
+                ) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = data.type,
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = data.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                     )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "简介",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = data.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                if (data.director.isNotEmpty()) {
+                    if (data.type.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = data.type,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
+
                     Text(
-                        text = "导演",
+                        text = "简介",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = data.director,
+                        text = data.description,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
 
-                if (data.actor.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "主演",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = data.actor,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (data.director.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "导演",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = data.director,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    if (data.actor.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "主演",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = data.actor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -1273,8 +1305,9 @@ private fun RouteBottomSheet(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
-    fixedHeight: Dp,
 ) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(selectedIndex) {
@@ -1287,69 +1320,47 @@ private fun RouteBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = null,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fixedHeight),
+                .height(sheetMaxHeight),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "线路",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-
             Column(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(
+                Column(
                     modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .wrapContentWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    routes.forEachIndexed { index, route ->
-                        FilterChip(
-                            selected = index == selectedIndex,
-                            onClick = { onSelect(index) },
-                            label = { Text(route.name) },
-                            modifier = if (index == selectedIndex) {
-                                Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                            } else {
-                                Modifier
-                            },
-                        )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .wrapContentWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        routes.forEachIndexed { index, route ->
+                            FilterChip(
+                                selected = index == selectedIndex,
+                                onClick = { onSelect(index) },
+                                label = { Text(route.name) },
+                                modifier = if (index == selectedIndex) {
+                                    Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -1362,7 +1373,6 @@ private fun EpisodeBottomSheet(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
-    fixedHeight: Dp,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -1378,6 +1388,8 @@ private fun EpisodeBottomSheet(
     val totalEpisodes = episodes.size
     val categoryCount = (totalEpisodes + pageSize - 1) / pageSize
     val hasCategories = categoryCount > 1
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
 
     val pagerState = rememberPagerState(
         pageCount = { categoryCount.coerceAtLeast(1) },
@@ -1395,40 +1407,13 @@ private fun EpisodeBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = null,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fixedHeight),
+                .height(sheetMaxHeight),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "选集",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close_outlined),
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-
             if (hasCategories) {
                 PrimaryScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,

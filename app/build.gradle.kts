@@ -15,7 +15,7 @@ android {
         applicationId = "pjs.dogbox"
         minSdk = 28
         targetSdk = 37
-        versionCode = 26081410
+        versionCode = 26081630
         versionName = "0.2.2"
 
         ndk {
@@ -93,6 +93,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)

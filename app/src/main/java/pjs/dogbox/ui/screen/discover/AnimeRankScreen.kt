@@ -1,7 +1,6 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -79,7 +78,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -99,7 +97,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.ui.screen.TabStateCache
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SimpleDragHandle
@@ -114,7 +112,7 @@ internal data class AnimeItem(
     val seasonId: Int,
 )
 
-private data class FilterData(
+internal data class FilterData(
     val sortOptions: List<Pair<Int, String>>,
     val orderOptions: List<Pair<Int, String>>,
     val statusOptions: List<Pair<Int, String>>,
@@ -122,7 +120,7 @@ private data class FilterData(
     val styleOptions: List<Pair<Int, String>>,
 )
 
-private class AnimeRankOrderState {
+internal class AnimeRankOrderState {
     var currentPage by mutableIntStateOf(1)
     var animeList by mutableStateOf(emptyList<AnimeItem>())
     var isLoading by mutableStateOf(false)
@@ -133,6 +131,16 @@ private class AnimeRankOrderState {
     var lastFetchKey by mutableStateOf("")
     var showFilters by mutableStateOf(true)
     val gridState = LazyGridState()
+}
+
+internal class AnimeRankScreenState {
+    val filterState = mutableIntStateOf(STATE_LOADING)
+    val filterData = mutableStateOf<FilterData?>(null)
+    val isFinish = mutableIntStateOf(-1)
+    val selectedYear = mutableStateOf("-1")
+    val selectedStyleId = mutableIntStateOf(-1)
+    val sortMode = mutableIntStateOf(0)
+    val tabCache = TabStateCache { AnimeRankOrderState() }
 }
 
 private const val STATE_LOADING = 0
@@ -174,20 +182,23 @@ private fun buildUrl(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnimeRankScreen(
+internal fun AnimeRankScreen(
+    state: AnimeRankScreenState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onSearchMovie: (String) -> Unit = {}
+    onSearchMovie: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
-    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
-    var filterData by remember { mutableStateOf<FilterData?>(null) }
-    var isFinish by remember { mutableIntStateOf(-1) }
-    var selectedYear by remember { mutableStateOf("-1") }
-    var selectedStyleId by remember { mutableIntStateOf(-1) }
-    var sortMode by remember { mutableIntStateOf(0) }
+    var filterState by state.filterState
+    var filterData by state.filterData
+    var isFinish by state.isFinish
+    var selectedYear by state.selectedYear
+    var selectedStyleId by state.selectedStyleId
+    var sortMode by state.sortMode
 
     LaunchedEffect(Unit) {
+        if (filterState != STATE_LOADING) return@LaunchedEffect
         var attempts = 0
         while (attempts < 2) {
             attempts++
@@ -207,7 +218,7 @@ fun AnimeRankScreen(
     val pagerState = rememberPagerState(
         pageCount = { filterData?.orderOptions?.size ?: 1 }
     )
-    val tabCache = rememberTabStateCache { AnimeRankOrderState() }
+    val tabCache = state.tabCache
 
     Column(
         modifier = modifier
@@ -286,6 +297,7 @@ fun AnimeRankScreen(
                                 onYearChange = { selectedYear = it },
                                 onStyleIdChange = { selectedStyleId = it },
                                 onSearchMovie = onSearchMovie,
+                                onViewImage = onViewImage,
                                 tabState = tabCache.get(
                                     (data.orderOptions.getOrNull(page)?.first ?: 1).toString()
                                 ),
@@ -312,6 +324,7 @@ private fun AnimeRankOrderContent(
     onYearChange: (String) -> Unit,
     onStyleIdChange: (Int) -> Unit,
     onSearchMovie: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     tabState: AnimeRankOrderState,
 ) {
     LaunchedEffect(
@@ -542,6 +555,13 @@ private fun AnimeRankOrderContent(
                             AnimeGridItem(
                                 item = item,
                                 onClick = { onSearchMovie(item.title) },
+                                onViewImage = { _, _, _ ->
+                                    onViewImage(
+                                        item.cover.substringBefore("@"),
+                                        "https://www.bilibili.com/anime/",
+                                        item.title
+                                    )
+                                },
                             )
                         }
 
@@ -586,16 +606,15 @@ private fun AnimeRankOrderContent(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun AnimeGridItem(item: AnimeItem, onClick: () -> Unit) {
-    val context = LocalContext.current
-
+private fun AnimeGridItem(
+    item: AnimeItem,
+    onClick: () -> Unit,
+    onViewImage: (String, String, String) -> Unit,
+) {
     Card(
         modifier = Modifier.combinedClickable(
             onClick = onClick,
-            onLongClick = {
-                val intent = Intent(Intent.ACTION_VIEW, item.cover.toUri())
-                context.startActivity(intent)
-            },
+            onLongClick = { onViewImage(item.cover.substringBefore("@"), "https://www.bilibili.com/anime/", item.title) },
         ),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -617,7 +636,6 @@ private fun AnimeGridItem(item: AnimeItem, onClick: () -> Unit) {
                         .httpHeaders(
                             NetworkHeaders.Builder()
                                 .set("Referer", "https://www.bilibili.com/anime/")
-                                .set("User-Agent", AppData.UA_CHROME_M)
                                 .build()
                         ).build(),
                     contentDescription = item.title,

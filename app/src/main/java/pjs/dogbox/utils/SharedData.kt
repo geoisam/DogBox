@@ -5,11 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import kotlinx.serialization.json.Json
@@ -30,8 +41,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class WatchHistoryItem(
@@ -48,9 +60,13 @@ data class WatchHistoryItem(
     val key: String = AppData.NIVOD_KEY,
 ) {
     val formattedDate: String
-        get() = SimpleDateFormat("yy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
+        get() = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .format(DATE_TIME_FORMATTER)
     val formattedTime: String
-        get() = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+        get() = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .format(TIME_FORMATTER)
 
     val progressPercent: Float
         get() = if (duration > 0) (progress.toFloat() / duration).coerceIn(0f, 1f) else 0f
@@ -65,6 +81,13 @@ data class WatchHistoryItem(
             val dSec = d % 60
             return String.format("%02d:%02d / %02d:%02d", pMin, pSec, dMin, dSec)
         }
+
+    private companion object {
+        val DATE_TIME_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yy-MM-dd HH:mm", Locale.getDefault())
+        val TIME_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+    }
 }
 
 const val DISCLAIMER_TITLE = "免责声明"
@@ -175,7 +198,12 @@ object SharedData {
         )
     }
 
-    fun getWatchHistory(context: Context): List<WatchHistoryItem> {
+    private var cachedWatchHistory: MutableList<WatchHistoryItem>? = null
+    private var lastHistoryPersistTs = 0L
+
+    private const val HISTORY_PERSIST_DEBOUNCE_MS = 30_000L
+
+    private fun loadWatchHistory(context: Context): List<WatchHistoryItem> {
         val jsonStr = getPrefs(context).getString(KEY_WATCH_HISTORY, null) ?: return emptyList()
         return try {
             val arr = Json.parseToJsonElement(jsonStr).jsonArray
@@ -186,32 +214,66 @@ object SharedData {
         }
     }
 
-    fun saveWatchHistory(context: Context, items: List<WatchHistoryItem>) {
+    @Synchronized
+    private fun ensureWatchHistoryLoaded(context: Context): MutableList<WatchHistoryItem> {
+        cachedWatchHistory?.let { return it }
+        return loadWatchHistory(context).toMutableList().also { cachedWatchHistory = it }
+    }
+
+    @Synchronized
+    fun getWatchHistory(context: Context): List<WatchHistoryItem> =
+        ensureWatchHistoryLoaded(context).toList()
+
+    private fun persistWatchHistory(context: Context) {
+        val items = cachedWatchHistory ?: return
         val arr = JsonArray(items.map { watchItemToJson(it) })
         getPrefs(context).edit { putString(KEY_WATCH_HISTORY, arr.toString()) }
     }
 
     @Synchronized
+    private fun persistWatchHistoryDebounced(context: Context) {
+        val now = System.currentTimeMillis()
+        if (now - lastHistoryPersistTs < HISTORY_PERSIST_DEBOUNCE_MS) return
+        lastHistoryPersistTs = now
+        persistWatchHistory(context)
+    }
+
+    /** 立即将内存中的观看历史落盘，用于退出播放等需要保证进度的时机 */
+    @Synchronized
+    fun flushWatchHistory(context: Context) {
+        lastHistoryPersistTs = 0L
+        persistWatchHistory(context)
+    }
+
+    @Synchronized
     fun addOrUpdateWatchHistory(context: Context, item: WatchHistoryItem) {
-        val current = getWatchHistory(context).toMutableList()
+        val current = ensureWatchHistoryLoaded(context)
         val existingIdx = current.indexOfFirst { it.id == item.id && it.key == item.key }
         if (existingIdx >= 0) {
             current[existingIdx] = item
         } else {
             current.add(item)
         }
-        val trimmed = if (current.size > 200) current.sortedByDescending { it.timestamp }
-            .take(200) else current
-        saveWatchHistory(context, trimmed)
+        if (current.size > 200) {
+            val trimmed = current.sortedByDescending { it.timestamp }
+                .take(200).toMutableList()
+            current.clear()
+            current.addAll(trimmed)
+        }
+        persistWatchHistoryDebounced(context)
     }
 
     @Synchronized
     fun removeWatchHistory(context: Context, ids: Set<String>) {
-        val current = getWatchHistory(context).filter { "${it.key}|${it.id}" !in ids }
-        saveWatchHistory(context, current)
+        val current = ensureWatchHistoryLoaded(context)
+        current.removeAll { "${it.key}|${it.id}" in ids }
+        persistWatchHistory(context)
     }
 
+    @Synchronized
     fun clearWatchHistory(context: Context) {
+        cachedWatchHistory?.clear()
+        cachedWatchHistory = mutableListOf()
         getPrefs(context).edit { remove(KEY_WATCH_HISTORY) }
     }
 
@@ -385,6 +447,30 @@ object SharedData {
     }
 }
 
+@Composable
+fun SheetSectionTitle(title: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(18.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
 
 @Composable
 fun SimpleDragHandle() {

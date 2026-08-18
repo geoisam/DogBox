@@ -1,11 +1,13 @@
 package pjs.dogbox.ui.screen
 
 import io.ktor.http.ContentType
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -469,45 +471,57 @@ object InviteExecutor {
         hosts: JsonArray, jKey: String, jIv: String,
         log: (String) -> Unit,
     ): JsonArray? {
-        for ((i, el) in hosts.withIndex()) {
-            if (el !is JsonPrimitive) {
-                log("第 ${i + 1} 个配置链接格式无效"); continue
+        val result = selectFirstNonNull(
+            hosts.mapIndexed { i, el ->
+                suspend {
+                    if (el !is JsonPrimitive) {
+                        log("第 ${i + 1} 个配置链接格式无效"); null
+                    } else {
+                        resolveHostList(el.content, jKey, jIv, i, log)
+                    }
+                }
             }
+        )
+        if (result == null) {
+            log("所有 host 链接均请求失败，停止运行")
+        }
+        return result
+    }
 
-            val resp = httpGet(el.content) ?: run {
-                log("第 ${i + 1} 个API列表获取失败或为空"); continue
-            }
-
-            val json = toJson(resp)
-            if (json == null || "data" !in json) {
-                log("第 ${i + 1} 个API列表返回数据无效（缺少 data 字段）"); continue
-            }
-
-            val dataEl = json["data"]
-            if (dataEl == null || dataEl is JsonNull || dataEl !is JsonPrimitive) {
-                log("第 ${i + 1} 个API列表 data 字段格式无效（非字符串）"); continue
-            }
-
-            val dec = aesDecrypt(dataEl.content, jKey, jIv) ?: run {
-                log("第 ${i + 1} 个API列表数据解密失败"); continue
-            }
-
-            val hostData = toJson(dec)
-            if (hostData == null || "apiHost" !in hostData) {
-                log("第 ${i + 1} 个API列表返回数据无效（缺少 apiHost 字段）"); continue
-            }
-
-            val apiArr = hostData["apiHost"]
-            if (apiArr !is JsonArray || apiArr.isEmpty()) {
-                log("第 ${i + 1} 个API列表 apiHost 字段格式无效（非数组或为空）"); continue
-            }
-
-            log("第 ${i + 1} 个API列表获取成功")
-            return apiArr.jsonArray
+    private suspend fun resolveHostList(
+        url: String, jKey: String, jIv: String,
+        index: Int, log: (String) -> Unit,
+    ): JsonArray? {
+        val resp = httpGet(url) ?: run {
+            log("第 ${index + 1} 个API列表获取失败或为空"); return null
         }
 
-        log("所有 host 链接均请求失败，停止运行")
-        return null
+        val json = toJson(resp)
+        if (json == null || "data" !in json) {
+            log("第 ${index + 1} 个API列表返回数据无效（缺少 data 字段）"); return null
+        }
+
+        val dataEl = json["data"]
+        if (dataEl == null || dataEl is JsonNull || dataEl !is JsonPrimitive) {
+            log("第 ${index + 1} 个API列表 data 字段格式无效（非字符串）"); return null
+        }
+
+        val dec = aesDecrypt(dataEl.content, jKey, jIv) ?: run {
+            log("第 ${index + 1} 个API列表数据解密失败"); return null
+        }
+
+        val hostData = toJson(dec)
+        if (hostData == null || "apiHost" !in hostData) {
+            log("第 ${index + 1} 个API列表返回数据无效（缺少 apiHost 字段）"); return null
+        }
+
+        val apiArr = hostData["apiHost"]
+        if (apiArr !is JsonArray || apiArr.isEmpty()) {
+            log("第 ${index + 1} 个API列表 apiHost 字段格式无效（非数组或为空）"); return null
+        }
+
+        log("第 ${index + 1} 个API列表获取成功")
+        return apiArr.jsonArray
     }
 
     private suspend fun probeHosts(
@@ -515,11 +529,32 @@ object InviteExecutor {
         prefixes: List<String>,
         headers: Map<String, String>
     ): String? {
+        return selectFirstNonNull(prefixes.map { prefix ->
+            val host = "https://$prefix.$domain/api.php"
+            suspend { if (httpGet(host, headers) != null) host else null }
+        })
+    }
+
+    private suspend fun <T> selectFirstNonNull(blocks: List<suspend () -> T?>): T? {
+        if (blocks.isEmpty()) return null
         return coroutineScope {
-            prefixes.map { prefix ->
-                val host = "https://$prefix.$domain/api.php"
-                async { if (httpGet(host, headers) != null) host else null }
-            }.awaitAll().firstOrNull { it != null }
+            val deferred = blocks.map { block -> async { block() } }.toMutableList()
+            var result: T? = null
+            while (deferred.isNotEmpty()) {
+                val winner = select<Deferred<T?>> {
+                    deferred.forEach { d ->
+                        d.onAwait { d }
+                    }
+                }
+                deferred.remove(winner)
+                val r = winner.await()
+                if (r != null) {
+                    result = r
+                    coroutineContext.cancelChildren()
+                    break
+                }
+            }
+            result
         }
     }
 

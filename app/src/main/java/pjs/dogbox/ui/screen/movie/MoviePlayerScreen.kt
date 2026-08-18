@@ -20,11 +20,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,6 +81,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
+import pjs.dogbox.utils.SimpleDragHandle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -133,6 +137,8 @@ fun MoviePlayerScreen(
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var locked by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
+    var bgColorIndex by remember { mutableIntStateOf(0) }
+    val bgColors = listOf(Color.Black, Color.White, Color.Gray)
 
     var currentTimeText by remember { mutableStateOf("未知") }
     var batteryPercentText by remember { mutableStateOf("未知") }
@@ -194,11 +200,9 @@ fun MoviePlayerScreen(
             previousVolumePercent = volumePercent
             exoPlayer.volume = 0f
             volumePercent = 0
-            Toast.makeText(context, "已静音", Toast.LENGTH_SHORT).show()
         } else {
             exoPlayer.volume = previousVolume
             volumePercent = previousVolumePercent
-            Toast.makeText(context, "音量已恢复", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -392,7 +396,7 @@ fun MoviePlayerScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black),
+                .background(bgColors[bgColorIndex]),
         ) {
             PlayerCore(
                 exoPlayer = exoPlayer,
@@ -449,13 +453,13 @@ fun MoviePlayerScreen(
                                         listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
                                     )
                                 )
-                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp),
+                                    .padding(horizontal = if (isLandscape) 12.dp else 32.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
@@ -505,10 +509,13 @@ fun MoviePlayerScreen(
                                     }
                                 }
 
-                                IconButton(onClick = { }) {
+                                IconButton(onClick = {
+                                    bgColorIndex = (bgColorIndex + 1) % bgColors.size
+                                    hideControls()
+                                }) {
                                     Icon(
-                                        painter = painterResource(R.drawable.headphones_outlined),
-                                        contentDescription = "音频播放",
+                                        painter = painterResource(R.drawable.sync_alt_outlined),
+                                        contentDescription = "切换背景色",
                                         tint = Color.White,
                                         modifier = Modifier.size(24.dp),
                                     )
@@ -679,7 +686,7 @@ fun MoviePlayerScreen(
                         Column(
                             modifier = Modifier
                                 .align(Alignment.CenterStart)
-                                .padding(horizontal = 24.dp),
+                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             FilledTonalIconButton(
@@ -726,7 +733,7 @@ fun MoviePlayerScreen(
                         Column(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
-                                .padding(horizontal = 24.dp),
+                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             FilledTonalIconButton(
@@ -756,7 +763,7 @@ fun MoviePlayerScreen(
                                         listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                                     )
                                 )
-                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Row(
@@ -1343,22 +1350,18 @@ fun MoviePlayerScreen(
                 )
             }
         } else {
+            val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            val sheetFixedHeight =
-                (LocalConfiguration.current.screenHeightDp.dp - getStatusBarHeight() - 240.dp).coerceAtLeast(
-                    300.dp
-                )
             ModalBottomSheet(
                 onDismissRequest = { showMoreSheet = false },
                 sheetState = sheetState,
-                dragHandle = null,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                modifier = Modifier.fillMaxWidth(),
+                dragHandle = { SimpleDragHandle() },
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(sheetFixedHeight),
+                        .height(sheetMaxHeight),
                 ) {
                     MoreSettingsContent(
                         flipHorizontal = flipHorizontal,

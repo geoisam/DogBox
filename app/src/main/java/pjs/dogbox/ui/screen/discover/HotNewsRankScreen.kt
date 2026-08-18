@@ -295,20 +295,23 @@ private suspend fun HotTabState.refresh(platform: HotPlatform) {
         isRefreshing = true
     }
     loadError = false
-    var result = platform.fetchItems()
-    if (result.isFailure) {
-        result = platform.fetchItems()
+    try {
+        var result = platform.fetchItems()
+        if (result.isFailure) {
+            result = platform.fetchItems()
+        }
+        result.fold(
+            onSuccess = {
+                items = it
+            },
+            onFailure = {
+                if (items.isEmpty()) loadError = true
+            },
+        )
+    } finally {
+        isLoading = false
+        isRefreshing = false
     }
-    result.fold(
-        onSuccess = {
-            items = it
-        },
-        onFailure = {
-            if (items.isEmpty()) loadError = true
-        },
-    )
-    isLoading = false
-    isRefreshing = false
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -496,7 +499,7 @@ private fun HotTabContent(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        if (tabState.items.isEmpty()) {
+        if (tabState.items.isEmpty() && !tabState.isLoading) {
             tabState.refresh(platform)
         }
     }

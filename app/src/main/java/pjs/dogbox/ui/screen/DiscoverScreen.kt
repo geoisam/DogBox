@@ -40,13 +40,13 @@ enum class DiscoverPage {
     ANIME_RANK,
     BOX_OFFICE_REALTIME,
     BOX_OFFICE_TOTAL,
-    ENC_AND_DEC,
     HOT_NEWS_RANK,
     INVITE_MASTER,
     MEDIA_PLAYER,
     MEDIA_ANALYZE,
     MOVIE_RATING,
     MOVIE_WORLD,
+    PROFILE_AVATAR,
     SCROLLING_TEXT,
     TV_LIVE,
 }
@@ -135,10 +135,10 @@ private val groups = listOf(
     DiscoverGroup(
         "其他", listOf(
             DiscoverItem(
-                "加密解密",
-                "对称加密与哈希算法",
+                "头像获取",
+                "QQ头像与抖音头像",
                 R.drawable.hive_outlined,
-                DiscoverPage.ENC_AND_DEC
+                DiscoverPage.PROFILE_AVATAR
             ),
             DiscoverItem(
                 "滚动字幕",
@@ -243,7 +243,7 @@ fun DiscoverScreen(
                 }
             }
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
 

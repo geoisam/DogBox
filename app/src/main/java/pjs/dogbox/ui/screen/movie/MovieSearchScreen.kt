@@ -1,6 +1,5 @@
 package pjs.dogbox.ui.screen.movie
 
-import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -75,7 +74,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -97,7 +95,7 @@ import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SimpleDragHandle
 import java.net.URLEncoder
 
-private enum class SearchSource(
+internal enum class SearchSource(
     val label: String,
     val host: String,
     val searchUrl: String,
@@ -106,7 +104,7 @@ private enum class SearchSource(
     NIVOD("泥视频", AppData.NIVOD_HOST, AppData.NIVOD_SEARCH),
 }
 
-private data class SearchItem(
+internal data class SearchItem(
     val link: String,
     val cover: String,
     val title: String,
@@ -185,18 +183,20 @@ private suspend fun fetchPage(
         page <= 1 -> "${source.searchUrl}$encoded"
         else -> "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
     }
-    HttpUtil.get(
-        url, mapOf(
-            "User-Agent" to AppData.UA_CHROME_PC,
-            "Referer" to "${source.host}/",
-        )
-    ).fold(
-        onSuccess = { html -> Result.success(parseSearchResults(html, source.host, page)) },
-        onFailure = { Result.failure(it) },
-    )
+    try {
+        val html = HttpUtil.get(
+            url, mapOf(
+                "User-Agent" to AppData.UA_CHROME_PC,
+                "Referer" to "${source.host}/",
+            )
+        ).getOrThrow()
+        Result.success(parseSearchResults(html, source.host, page))
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
 }
 
-private class SourceState {
+internal class SourceState {
     var itemList by mutableStateOf<List<SearchItem>>(emptyList())
     var isLoading by mutableStateOf(false)
     var currentPage by mutableIntStateOf(1)
@@ -217,20 +217,31 @@ private class SourceState {
     }
 }
 
+internal class MovieSearchScreenState(initialQuery: String) {
+    val searchText = mutableStateOf(initialQuery)
+    val activeQuery = mutableStateOf(initialQuery)
+    val sources = SearchSource.entries
+    val sourceStates = sources.associateWith { SourceState() }
+    val orderedSources = mutableStateOf<List<SearchSource>>(sources)
+    val retryKey = mutableIntStateOf(0)
+    val lastSearchKey = mutableStateOf("")
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun MovieSearchScreen(
-    initialQuery: String = "",
+internal fun MovieSearchScreen(
+    state: MovieSearchScreenState,
     onBack: () -> Unit = {},
     onPlayVideo: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
-    var searchText by remember { mutableStateOf(initialQuery) }
-    var activeQuery by remember { mutableStateOf(initialQuery) }
+    var searchText by state.searchText
+    var activeQuery by state.activeQuery
 
-    val sources = remember { SearchSource.entries }
-    val sourceStates = remember { sources.associateWith { SourceState() } }
-    var orderedSources by remember { mutableStateOf<List<SearchSource>>(sources) }
+    val sources = state.sources
+    val sourceStates = state.sourceStates
+    var orderedSources by state.orderedSources
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { orderedSources.size })
     val tabScrollState = rememberLazyListState()
     var showSourceSheet by remember { mutableStateOf(false) }
@@ -238,13 +249,17 @@ fun MovieSearchScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
-    var retryKey by remember { mutableIntStateOf(0) }
+    var retryKey by state.retryKey
+    var lastSearchKey by state.lastSearchKey
 
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
     }
 
     LaunchedEffect(activeQuery, retryKey) {
+        val searchKey = "$activeQuery|$retryKey"
+        if (lastSearchKey == searchKey) return@LaunchedEffect
+        lastSearchKey = searchKey
         if (activeQuery.isNotEmpty()) {
             sourceStates.values.forEach { it.reset() }
             orderedSources = sources
@@ -256,7 +271,7 @@ fun MovieSearchScreen(
                         state.isLoading = true
                         fetchPage(source, activeQuery, 1).fold(
                             onSuccess = { (items, pageInfo) ->
-                                state.itemList = items
+                                state.itemList = items.distinctBy { it.link }
                                 state.hasMore = pageInfo.hasNext
                             },
                             onFailure = {
@@ -481,6 +496,7 @@ fun MovieSearchScreen(
                         onRetryLoadMore = { retryLoadMore(source) },
                         onLoadMore = { loadMore(source) },
                         onPlayVideo = onPlayVideo,
+                        onViewImage = onViewImage,
                     )
                 }
             }
@@ -501,7 +517,7 @@ fun MovieSearchScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    sources.forEach { source ->
+                    orderedSources.forEach { source ->
                         val pageIndex = orderedSources.indexOf(source)
                         val isSelected = pageIndex == pagerState.currentPage
                         val bgColor by animateColorAsState(
@@ -551,6 +567,7 @@ private fun SourceTabContent(
     onRetryLoadMore: () -> Unit,
     onLoadMore: () -> Unit,
     onPlayVideo: (String) -> Unit,
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -562,7 +579,7 @@ private fun SourceTabContent(
         state.isLoading = true
         fetchPage(source, activeQuery, state.currentPage).fold(
             onSuccess = { (items, pageInfo) ->
-                state.itemList += items
+                state.itemList = (state.itemList + items).distinctBy { it.link }
                 state.hasMore = pageInfo.hasNext
             },
             onFailure = {
@@ -671,6 +688,7 @@ private fun SourceTabContent(
                             focusManager.clearFocus()
                             onPlayVideo(item.link)
                         },
+                        onViewImage = { _, _, _ -> onViewImage(item.cover, item.host, item.title) },
                     )
                 }
                 if (state.isLoading) {
@@ -730,16 +748,11 @@ private fun SourceTabContent(
 }
 
 @Composable
-private fun SearchGridItem(item: SearchItem, onClick: () -> Unit) {
-    val context = LocalContext.current
-
+private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
     Card(
         modifier = Modifier.combinedClickable(
             onClick = onClick,
-            onLongClick = {
-                val intent = Intent(Intent.ACTION_VIEW, item.cover.toUri())
-                context.startActivity(intent)
-            },
+            onLongClick = { onViewImage(item.cover, item.host, item.title) },
         ),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -753,7 +766,6 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit) {
                         .httpHeaders(
                             NetworkHeaders.Builder()
                                 .set("Referer", item.host)
-                                .set("User-Agent", AppData.UA_CHROME_M)
                                 .build()
                         ).build(),
                     contentDescription = item.title,

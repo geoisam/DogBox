@@ -1,7 +1,6 @@
 package pjs.dogbox.ui.screen
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -58,7 +57,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -76,7 +74,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -92,20 +89,16 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SharedData
 import pjs.dogbox.utils.SimpleDragHandle
-import pjs.dogbox.utils.UpdateBottomSheet
-import pjs.dogbox.utils.fetchRemoteConfig
-import pjs.dogbox.utils.parseUpdateInfo
 import java.net.URLEncoder
 
 internal data class HomeItem(
     val id: String,
     val cover: String,
+    val coverLarge: String,
     val title: String,
     val subtitle: String,
     val rating: Double,
@@ -148,6 +141,13 @@ internal class FilterableTabState {
     val gridState = LazyGridState()
 }
 
+internal class HomeScreenState {
+    val filterState = mutableIntStateOf(STATE_LOADING)
+    val filterData = mutableStateOf<HomeFilterData?>(null)
+    val tabCache = TabStateCache { FilterableTabState() }
+    val firstTabLoaded = mutableStateOf(false)
+}
+
 private val tabs = listOf(
     TabDef("推荐", "movie", null, emptyList(), useSuggestionApi = true),
     TabDef("电影", "movie", null, listOf("sort", "year", "movie-type", "movie-area")),
@@ -162,59 +162,21 @@ private val tabs = listOf(
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
+internal fun HomeScreen(
+    state: HomeScreenState,
     modifier: Modifier = Modifier,
     onSearchMovie: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
-    var showUpdateDialog by remember { mutableStateOf(false) }
-    var updateVer by remember { mutableStateOf("1.0.0") }
-    var updateNote by remember { mutableStateOf("修复了一些已知问题") }
-    var updateDown by remember { mutableStateOf(AppData.GITHUB_REPO) }
-    var dismissedUpdateCode by rememberSaveable { mutableIntStateOf(0) }
-    val context = LocalContext.current
+    var filterState by state.filterState
+    var filterData by state.filterData
 
-    LaunchedEffect(Unit) {
-        if (!SharedData.isAutoCheckUpdate(context)) return@LaunchedEffect
-        if (SharedData.isAutoCheckDoneThisLaunch()) return@LaunchedEffect
-        val configJson = fetchRemoteConfig()
-        val updateInfo = parseUpdateInfo(configJson)
-        if (updateInfo != null) {
-            if (updateInfo.code > BuildConfig.VERSION_CODE) {
-                SharedData.setCachedCheckFailed(false)
-                SharedData.setCachedUpToDate(false)
-                SharedData.setCachedUpdateInfo(
-                    SharedData.CachedUpdateInfo(
-                        versionCode = updateInfo.code,
-                        versionName = updateInfo.ver,
-                        note = updateInfo.note,
-                        downloadUrl = updateInfo.down,
-                    )
-                )
-                if (updateInfo.code != dismissedUpdateCode) {
-                    updateVer = updateInfo.ver
-                    updateNote = updateInfo.note
-                    updateDown = updateInfo.down
-                    showUpdateDialog = true
-                }
-            } else {
-                SharedData.setCachedUpdateInfo(null)
-                SharedData.setCachedCheckFailed(false)
-                SharedData.setCachedUpToDate(true)
-            }
-        } else {
-            SharedData.setCachedUpdateInfo(null)
-            SharedData.setCachedUpToDate(false)
-            SharedData.setCachedCheckFailed(true)
-        }
-        SharedData.markAutoCheckDone()
-    }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { tabs.size })
 
-    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
-    var filterData by remember { mutableStateOf<HomeFilterData?>(null) }
-
     LaunchedEffect(Unit) {
+        if (filterState != STATE_LOADING) return@LaunchedEffect
         var attempts = 0
         while (attempts < 2) {
             attempts++
@@ -236,11 +198,11 @@ fun HomeScreen(
         }
     }
 
-    val tabCache = rememberTabStateCache { FilterableTabState() }
+    val tabCache = state.tabCache
 
     var showTabSheet by remember { mutableStateOf(false) }
     val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var firstTabLoaded by remember { mutableStateOf(false) }
+    var firstTabLoaded by state.firstTabLoaded
 
     Box(
         modifier = modifier
@@ -362,6 +324,7 @@ fun HomeScreen(
                             onItemClick = { title ->
                                 onSearchMovie(title)
                             },
+                            onViewImage = onViewImage,
                             onDataLoaded = { firstTabLoaded = true },
                         )
                     }
@@ -419,14 +382,6 @@ fun HomeScreen(
                 }
             }
         }
-
-        UpdateBottomSheet(
-            isOpen = showUpdateDialog,
-            onDismiss = { showUpdateDialog = false },
-            latestVersion = updateVer,
-            updateNote = updateNote,
-            downloadUrl = updateDown,
-        )
     }
 }
 
@@ -438,6 +393,7 @@ private fun FilterableTabContent(
     filterData: HomeFilterData,
     tabState: FilterableTabState,
     onItemClick: (String) -> Unit,
+    onViewImage: (String, String, String) -> Unit,
     onDataLoaded: () -> Unit = {},
 ) {
     val categoryFilterMap = mapOf(
@@ -499,14 +455,21 @@ private fun FilterableTabContent(
                     val json = Json.parseToJsonElement(response).jsonObject
                     json["items"]?.jsonArray?.mapNotNull { element ->
                         val obj = element.jsonObject
+                        val picObj = obj["pic"]?.jsonObject
                         val rawCover =
-                            obj["pic"]?.jsonObject?.get("normal")?.jsonPrimitive?.contentOrNull
+                            picObj?.get("normal")?.jsonPrimitive?.contentOrNull
                                 ?: obj["cover"]?.jsonPrimitive?.contentOrNull
                                 ?: return@mapNotNull null
+                        val rawLarge = picObj?.get("large")?.jsonPrimitive?.contentOrNull
+                            ?: rawCover
                         val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
                             "http://",
                             "https://"
                         ) else rawCover
+                        val coverLarge = if (rawLarge.startsWith("http://")) rawLarge.replaceFirst(
+                            "http://",
+                            "https://"
+                        ) else rawLarge
                         val ratingVal =
                             obj["rating"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull
                                 ?: obj["rating"]?.jsonPrimitive?.doubleOrNull ?: 0.0
@@ -515,6 +478,7 @@ private fun FilterableTabContent(
                         HomeItem(
                             id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                             cover = cover,
+                            coverLarge = coverLarge,
                             title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
                             subtitle = subtitle,
                             rating = ratingVal,
@@ -727,7 +691,11 @@ private fun FilterableTabContent(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(tabState.itemList, key = { "${it.id}_${it.title}_${it.year}" }) { item ->
-                        HomeGridItem(item = item, onClick = { onItemClick(item.title) })
+                        HomeGridItem(
+                            item = item,
+                            onClick = { onItemClick(item.title) },
+                            onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
+                        )
                     }
                     if (tabState.isLoading) {
                         item(span = { GridItemSpan(3) }) {
@@ -768,19 +736,15 @@ private fun FilterableTabContent(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun HomeGridItem(item: HomeItem, onClick: () -> Unit) {
+private fun HomeGridItem(item: HomeItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
     val slashIndex = item.subtitle.indexOf("/")
     val year = if (slashIndex >= 0) item.subtitle.substring(0, slashIndex).trim() else item.year
     val rest = if (slashIndex >= 0) item.subtitle.substring(slashIndex + 1).trim() else ""
-    val context = LocalContext.current
 
     Card(
         modifier = Modifier.combinedClickable(
             onClick = onClick,
-            onLongClick = {
-                val intent = Intent(Intent.ACTION_VIEW, item.cover.toUri())
-                context.startActivity(intent)
-            },
+            onLongClick = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
         ),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -794,7 +758,6 @@ private fun HomeGridItem(item: HomeItem, onClick: () -> Unit) {
                         .httpHeaders(
                             NetworkHeaders.Builder()
                                 .set("Referer", "https://m.douban.com/")
-                                .set("User-Agent", AppData.UA_CHROME_M)
                                 .build()
                         ).build(),
                     contentDescription = item.title,
@@ -842,7 +805,7 @@ private fun HomeGridItem(item: HomeItem, onClick: () -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = rest.replace(Regex("\\s+"), "/").replace(Regex("/+"), "/"),
+                            text = rest.replace(WHITESPACE_REGEX, "/").replace(MULTI_SLASH_REGEX, "/"),
                             color = Color.White,
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
@@ -1011,7 +974,7 @@ private fun <T> FilterRowWithDialog(
     }
 }
 
-private data class HomeFilterData(
+internal data class HomeFilterData(
     val sortOptions: List<Pair<String, String>>,
     val yearOptions: List<Pair<String, String>>,
     val movieTypeOptions: List<Pair<String, String>>,
@@ -1057,3 +1020,6 @@ private fun parseHomeFilters(text: String): HomeFilterData {
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
 private const val STATE_ERROR = 2
+
+private val WHITESPACE_REGEX = Regex("\\s+")
+private val MULTI_SLASH_REGEX = Regex("/+")

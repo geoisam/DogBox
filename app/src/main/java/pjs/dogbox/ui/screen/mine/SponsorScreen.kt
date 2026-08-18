@@ -1,6 +1,7 @@
 package pjs.dogbox.ui.screen.mine
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,20 +25,27 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.graphics.BitmapFactory
 import pjs.dogbox.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SponsorScreen(
     onBack: () -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val notice = "此应用程序完全免费，感谢您的支持"
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -100,7 +108,16 @@ fun SponsorScreen(
             items(
                 count = 2,
             ) { index ->
+                val assetName = if (index == 0) "alipay" else "wechat"
+                val resTitle = if (index == 0) "支付宝" else "微信"
                 Card(
+                    onClick = {
+                        onViewImage(
+                            "file:///android_asset/img/$assetName.jpg",
+                            "",
+                            resTitle,
+                        )
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillParentMaxHeight(0.5f),
@@ -109,12 +126,17 @@ fun SponsorScreen(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     ),
                 ) {
-                    Image(
-                        painter = painterResource(if (index == 0) R.drawable.alipay else R.drawable.wechat),
-                        contentDescription = if (index == 0) "支付宝" else "微信",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                    )
+                    val bitmap = rememberAssetImage(context, "img/$assetName.jpg")
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = resTitle,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
                 }
             }
 
@@ -124,3 +146,13 @@ fun SponsorScreen(
         }
     }
 }
+
+@Composable
+private fun rememberAssetImage(context: android.content.Context, assetPath: String): ImageBitmap? =
+    remember(assetPath) {
+        runCatching {
+            context.assets.open(assetPath).use { it.readBytes() }
+                .let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+                .asImageBitmap()
+        }.getOrNull()
+    }

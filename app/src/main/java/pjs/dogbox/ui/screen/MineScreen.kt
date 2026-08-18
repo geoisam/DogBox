@@ -67,6 +67,7 @@ import java.util.Calendar
 fun MineScreen(
     modifier: Modifier = Modifier,
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToLocalVideos: () -> Unit = {},
     onNavigateToTheme: () -> Unit = {},
     onNavigateToAboutMe: () -> Unit = {},
     onNavigateToSponsor: () -> Unit = {},
@@ -312,13 +313,7 @@ fun MineScreen(
                     MineItem(
                         iconRes = R.drawable.video_library_outlined,
                         text = "本地视频",
-                        onClick = {
-                            android.widget.Toast.makeText(
-                                context,
-                                "功能开发中",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        },
+                        onClick = { onNavigateToLocalVideos() },
                         modifier = Modifier.weight(1f),
                     )
                     MineItem(

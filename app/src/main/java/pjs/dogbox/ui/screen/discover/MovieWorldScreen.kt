@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -57,13 +57,21 @@ import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.utils.HttpUtil
 import java.nio.charset.Charset
 
-private data class GlobalBoxOfficeItem(
+internal data class GlobalBoxOfficeItem(
     val rank: Int,
     val name: String,
     val year: String,
     val director: String,
     val boxOfficeRaw: Long,
 )
+
+internal class MovieWorldScreenState {
+    val isLoading = mutableStateOf(true)
+    val isRefreshing = mutableStateOf(false)
+    val items = mutableStateOf<List<GlobalBoxOfficeItem>>(emptyList())
+    val refreshKey = mutableIntStateOf(0)
+    val scrollState = LazyListState()
+}
 
 private const val SCRAPE_URL = "http://www.piaofang.biz"
 
@@ -96,15 +104,16 @@ private fun parsePiaofangHtml(html: String): List<GlobalBoxOfficeItem> {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MovieWorldScreen(
+internal fun MovieWorldScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onSearchMovie: (String) -> Unit = {}
+    onSearchMovie: (String) -> Unit = {},
+    state: MovieWorldScreenState = remember { MovieWorldScreenState() },
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var items by remember { mutableStateOf<List<GlobalBoxOfficeItem>>(emptyList()) }
-    var refreshKey by remember { mutableIntStateOf(0) }
+    var isLoading by state.isLoading
+    var isRefreshing by state.isRefreshing
+    var items by state.items
+    var refreshKey by state.refreshKey
 
     LaunchedEffect(refreshKey) {
         val isPull = refreshKey > 0
@@ -120,7 +129,7 @@ fun MovieWorldScreen(
         isRefreshing = false
     }
 
-    val scrollState = rememberLazyListState()
+    val scrollState = state.scrollState
     var showFab by remember { mutableStateOf(false) }
     val fabScope = rememberCoroutineScope()
 

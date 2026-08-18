@@ -1,7 +1,6 @@
 package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -70,7 +69,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -88,7 +86,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.rememberTabStateCache
+import pjs.dogbox.ui.screen.TabStateCache
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.utils.SimpleDragHandle
@@ -97,6 +95,7 @@ import java.net.URLEncoder
 internal data class MovieItem(
     val id: String,
     val cover: String,
+    val coverLarge: String,
     val title: String,
     val subtitle: String,
     val rating: Double,
@@ -115,7 +114,7 @@ private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
 private const val STATE_ERROR = 2
 
-private class MovieCategoryState {
+internal class MovieCategoryState {
     var currentPage by mutableIntStateOf(0)
     var movieList by mutableStateOf(emptyList<MovieItem>())
     var isLoading by mutableStateOf(false)
@@ -127,28 +126,38 @@ private class MovieCategoryState {
     val gridState = LazyGridState()
 }
 
+internal class MovieRatingScreenState {
+    val filterState = mutableIntStateOf(STATE_LOADING)
+    val typeOptions = mutableStateOf<List<Pair<String, String>>>(emptyList())
+    val selectedType = mutableStateOf("")
+    val tabCache = TabStateCache { MovieCategoryState() }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MovieRatingScreen(
+internal fun MovieRatingScreen(
+    state: MovieRatingScreenState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onSearchMovie: (String) -> Unit = {}
+    onSearchMovie: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val tabs = listOf("豆瓣高分", "冷门佳片")
     val categories = listOf("豆瓣高分", "冷门佳片")
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { tabs.size })
-    val tabCache = rememberTabStateCache { MovieCategoryState() }
+    val tabCache = state.tabCache
     var showTabSheet by remember { mutableStateOf(false) }
     val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val context = LocalContext.current
-    var filterState by remember { mutableIntStateOf(STATE_LOADING) }
-    var typeOptions by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-    var selectedType by remember { mutableStateOf("") }
+    var filterState by state.filterState
+    var typeOptions by state.typeOptions
+    var selectedType by state.selectedType
 
 
     LaunchedEffect(Unit) {
+        if (filterState != STATE_LOADING) return@LaunchedEffect
         var attempts = 0
         while (attempts < 2) {
             attempts++
@@ -304,6 +313,7 @@ fun MovieRatingScreen(
                             selectedType = selectedType,
                             onTypeChange = { selectedType = it },
                             onSearchMovie = onSearchMovie,
+                            onViewImage = onViewImage,
                             tabState = tabCache.get(categories[page]),
                         )
                     }
@@ -373,6 +383,7 @@ private fun MovieCategoryContent(
     selectedType: String,
     onTypeChange: (String) -> Unit,
     onSearchMovie: (String) -> Unit = {},
+    onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     tabState: MovieCategoryState,
 ) {
     LaunchedEffect(tabState.currentPage, selectedType, category, tabState.refreshKey) {
@@ -404,17 +415,25 @@ private fun MovieCategoryContent(
                 if (items != null) {
                     val parsed = items.mapNotNull { element ->
                         val obj = element.jsonObject
+                        val picObj = obj["pic"]?.jsonObject
                         val rawCover =
                             obj["cover"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
-                                ?: obj["pic"]?.jsonObject?.get("normal")?.jsonPrimitive?.contentOrNull
+                                ?: picObj?.get("normal")?.jsonPrimitive?.contentOrNull
                                 ?: return@mapNotNull null
+                        val rawLarge = picObj?.get("large")?.jsonPrimitive?.contentOrNull
+                            ?: rawCover
                         val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
                             "http://",
                             "https://"
                         ) else rawCover
+                        val coverLarge = if (rawLarge.startsWith("http://")) rawLarge.replaceFirst(
+                            "http://",
+                            "https://"
+                        ) else rawLarge
                         MovieItem(
                             id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                             cover = cover,
+                            coverLarge = coverLarge,
                             title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
                             subtitle = obj["card_subtitle"]?.jsonPrimitive?.contentOrNull ?: "",
                             rating = obj["rating"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull
@@ -546,6 +565,7 @@ private fun MovieCategoryContent(
                                                 onSearchMovie(item.title)
                                             }
                                         },
+                                        onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
                                     )
                                 }
 
@@ -732,20 +752,16 @@ private fun FilterChipBar(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun MovieGridItem(item: MovieItem, onClick: () -> Unit) {
+private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
     val slashIndex = item.subtitle.indexOf("/")
     val year = if (slashIndex >= 0) item.subtitle.substring(0, slashIndex).trim() else ""
     val rest =
         if (slashIndex >= 0) item.subtitle.substring(slashIndex + 1).trim() else item.subtitle
-    val context = LocalContext.current
 
     Card(
         modifier = Modifier.combinedClickable(
             onClick = onClick,
-            onLongClick = {
-                val intent = Intent(Intent.ACTION_VIEW, item.cover.toUri())
-                context.startActivity(intent)
-            },
+            onLongClick = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
         ),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -761,7 +777,6 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit) {
                         .httpHeaders(
                             NetworkHeaders.Builder()
                                 .set("Referer", "https://m.douban.com/")
-                                .set("User-Agent", AppData.UA_CHROME_M)
                                 .build()
                         ).build(),
                     contentDescription = item.title,

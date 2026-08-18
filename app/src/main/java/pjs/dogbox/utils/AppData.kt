@@ -6,16 +6,23 @@ object AppData {
     const val GITHUB_REPO = "https://github.com/geoisam/DogBox"
 
     const val NIVOD_HOST = "https://www.nivod.vip"
-    const val NIVOD_SEARCH = "https://www.nivod.vip/s/-------------/?wd="
+    const val NIVOD_SEARCH = "$NIVOD_HOST/s/-------------/?wd="
     const val NIVOD_KEY = "NIVOD"
+    const val NIVOD_NAME = "泥视频"
 
     const val YXXQ_HOST = "https://www.yxxq41.cc"
-    const val YXXQ_SEARCH = "https://www.yxxq41.cc/search/-------------.html?wd="
+    const val YXXQ_SEARCH = "$YXXQ_HOST/search/-------------.html?wd="
     const val YXXQ_KEY = "YXXQ"
+    const val YXXQ_NAME = "映像星球"
 
     fun sourceKey(host: String): String = when {
         host.contains("yxxq") -> YXXQ_KEY
         else -> NIVOD_KEY
+    }
+
+    fun sourceName(key: String): String = when (key) {
+        YXXQ_KEY -> YXXQ_NAME
+        else -> NIVOD_NAME
     }
 
     const val UA_CHROME_PC =

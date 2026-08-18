@@ -1,5 +1,6 @@
 package pjs.dogbox.ui.screen.mine
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -83,6 +84,11 @@ fun WatchHistoryScreen(
 
     fun refresh() {
         items = SharedData.getWatchHistory(context)
+    }
+
+    BackHandler(enabled = isDeleteMode) {
+        isDeleteMode = false
+        selectedIds.clear()
     }
 
     Scaffold(
@@ -349,7 +355,6 @@ private fun HistoryGridItem(
                             .httpHeaders(
                                 NetworkHeaders.Builder()
                                     .set("Referer", item.host)
-                                    .set("User-Agent", AppData.UA_CHROME_M)
                                     .build()
                             ).build(),
                         contentDescription = item.title,
@@ -371,9 +376,25 @@ private fun HistoryGridItem(
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
                         Text(
-                            text = progressPercentText,
+                            text = AppData.sourceName(item.key),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(69.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = progressPercentText,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                     }
