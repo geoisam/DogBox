@@ -86,7 +86,7 @@ private val groups = listOf(
             ),
             DiscoverItem(
                 "素材解析",
-                "视频图文无水印下载",
+                "视频图文无水印保存",
                 R.drawable.psychiatry_outlined,
                 DiscoverPage.MEDIA_ANALYZE
             ),

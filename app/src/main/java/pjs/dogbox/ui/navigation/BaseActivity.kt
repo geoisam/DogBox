@@ -63,7 +63,10 @@ import pjs.dogbox.ui.screen.discover.ProfileAvatarScreen
 import pjs.dogbox.ui.screen.discover.ProfileAvatarScreenState
 import pjs.dogbox.ui.screen.discover.HotNewsRankScreen
 import pjs.dogbox.ui.screen.discover.InviteMasterScreen
+import pjs.dogbox.ui.screen.discover.MediaAnalyzeImageGallery
+import pjs.dogbox.ui.screen.discover.MediaAnalyzeResultScreen
 import pjs.dogbox.ui.screen.discover.MediaAnalyzeScreen
+import pjs.dogbox.ui.screen.discover.MediaAnalyzePreview
 import pjs.dogbox.ui.screen.discover.MediaLinkTestScreen
 import pjs.dogbox.ui.screen.discover.MovieRatingScreen
 import pjs.dogbox.ui.screen.discover.MovieRatingScreenState
@@ -71,9 +74,8 @@ import pjs.dogbox.ui.screen.discover.MovieWorldScreen
 import pjs.dogbox.ui.screen.discover.ScrollingTextScreen
 import pjs.dogbox.ui.screen.discover.TvLiveScreen
 import pjs.dogbox.ui.screen.mine.AboutMeScreen
-import pjs.dogbox.ui.screen.mine.LocalVideoPlayerScreen
+import pjs.dogbox.ui.screen.mine.LocalVideoPreview
 import pjs.dogbox.ui.screen.mine.LocalVideosScreen
-import pjs.dogbox.ui.screen.mine.MediaScannerScreen
 import pjs.dogbox.ui.screen.mine.MyThemeScreen
 import pjs.dogbox.ui.screen.mine.SponsorScreen
 import pjs.dogbox.ui.screen.mine.WatchHistoryScreen
@@ -231,7 +233,14 @@ fun BaseScreen(
                 }
 
                 DiscoverPage.MEDIA_PLAYER -> MediaLinkTestScreen(onBack = onBack)
-                DiscoverPage.MEDIA_ANALYZE -> MediaAnalyzeScreen(onBack = onBack)
+                DiscoverPage.MEDIA_ANALYZE -> MediaAnalyzeScreen(
+                    onBack = onBack,
+                    onOpenResult = { type, urls, referer, title ->
+                        navController.navigate(
+                            AppRoutes.analyzeResult(type, urls, referer, title)
+                        )
+                    },
+                )
                 DiscoverPage.SCROLLING_TEXT -> ScrollingTextScreen(onBack = onBack)
                 DiscoverPage.INVITE_MASTER -> InviteMasterScreen(
                     onBack = onBack,
@@ -314,15 +323,6 @@ fun BaseScreen(
                 onPlayVideo = { uri, title ->
                     navController.navigate(AppRoutes.localPlay(uri, title))
                 },
-                onNavigateToMediaScanner = {
-                    navController.navigate(AppRoutes.MEDIA_SCANNER)
-                },
-            )
-        }
-
-        composable(AppRoutes.MEDIA_SCANNER) {
-            MediaScannerScreen(
-                onBack = { navController.popBackStack() },
             )
         }
 
@@ -335,11 +335,102 @@ fun BaseScreen(
         ) { entry ->
             val uri = entry.arguments?.getString("url") ?: ""
             val title = entry.arguments?.getString("title") ?: ""
-            LocalVideoPlayerScreen(
+            LocalVideoPreview(
                 videoUri = uri,
                 title = title,
                 onBack = { navController.popBackStack() },
             )
+        }
+
+        composable(
+            route = AppRoutes.ANALYZE_PLAY,
+            arguments = listOf(
+                navArgument("urls") { type = NavType.StringType; defaultValue = "" },
+                navArgument("index") { type = NavType.IntType; defaultValue = 0 },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                navArgument("referer") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val urls = (entry.arguments?.getString("urls") ?: "")
+                .split("\n")
+                .filter { it.isNotBlank() }
+            val index = (entry.arguments?.getInt("index") ?: 0)
+                .coerceIn(0, (urls.size - 1).coerceAtLeast(0))
+            val title = entry.arguments?.getString("title") ?: ""
+            val referer = entry.arguments?.getString("referer") ?: ""
+            if (urls.isNotEmpty()) {
+                MediaAnalyzePreview(
+                    videoUrls = urls,
+                    initialIndex = index,
+                    title = title,
+                    referer = referer,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
+        composable(
+            route = AppRoutes.ANALYZE_IMAGE_GALLERY,
+            arguments = listOf(
+                navArgument("urls") { type = NavType.StringType; defaultValue = "" },
+                navArgument("index") { type = NavType.IntType; defaultValue = 0 },
+                navArgument("referer") { type = NavType.StringType; defaultValue = "" },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val urls = (entry.arguments?.getString("urls") ?: "")
+                .split("\n")
+                .filter { it.isNotBlank() }
+            val index = (entry.arguments?.getInt("index") ?: 0)
+                .coerceIn(0, (urls.size - 1).coerceAtLeast(0))
+            val referer = entry.arguments?.getString("referer") ?: ""
+            val title = entry.arguments?.getString("title") ?: ""
+            if (urls.isNotEmpty()) {
+                MediaAnalyzeImageGallery(
+                    imageUrls = urls,
+                    initialIndex = index,
+                    referer = referer,
+                    title = title,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
+        composable(
+            route = AppRoutes.ANALYZE_RESULT,
+            arguments = listOf(
+                navArgument("type") { type = NavType.StringType; defaultValue = "" },
+                navArgument("urls") { type = NavType.StringType; defaultValue = "" },
+                navArgument("referer") { type = NavType.StringType; defaultValue = "" },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val type = entry.arguments?.getString("type") ?: ""
+            val urls = (entry.arguments?.getString("urls") ?: "")
+                .split("\n")
+                .filter { it.isNotBlank() }
+            val referer = entry.arguments?.getString("referer") ?: ""
+            val title = entry.arguments?.getString("title") ?: ""
+            if (urls.isNotEmpty()) {
+                MediaAnalyzeResultScreen(
+                    type = type,
+                    urls = urls,
+                    referer = referer,
+                    resultTitle = title,
+                    onBack = { navController.popBackStack() },
+                    onOpen = { index ->
+                        if (type == "image") {
+                            navController.navigate(
+                                AppRoutes.analyzeImageGallery(urls, index, referer, title)
+                            )
+                        } else {
+                            navController.navigate(
+                                AppRoutes.analyzePlay(urls, index, title, referer)
+                            )
+                        }
+                    },
+                )
+            }
         }
 
         composable(AppRoutes.MY_THEME) {

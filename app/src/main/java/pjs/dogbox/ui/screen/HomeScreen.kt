@@ -68,13 +68,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
@@ -751,7 +749,7 @@ private fun HomeGridItem(item: HomeItem, onClick: () -> Unit, onViewImage: (Stri
     ) {
         Column {
             Box(modifier = Modifier.fillMaxWidth()) {
-                AsyncImage(
+                CoverImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(item.cover)
                         .crossfade(true)
@@ -765,7 +763,6 @@ private fun HomeGridItem(item: HomeItem, onClick: () -> Unit, onViewImage: (Stri
                         .fillMaxWidth()
                         .aspectRatio(3f / 4f)
                         .clip(MaterialTheme.shapes.medium),
-                    contentScale = ContentScale.Crop,
                 )
 
                 if (item.rating > 0.0) {

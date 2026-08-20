@@ -14,58 +14,11 @@ import kotlinx.serialization.json.longOrNull
 
 object LocalVideoStore {
     private const val PREFS_NAME = "local_video_scan"
-    private const val KEY_USE_MEDIA_LIBRARY = "use_media_library"
-    private const val KEY_FOLDERS = "custom_folders"
     private const val KEY_SCANNED_VIDEOS = "scanned_videos"
     private const val KEY_HAS_SCANNED = "has_scanned"
 
     private fun prefs(context: Context): android.content.SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    }
-
-    // === 使用 Android 媒体库 ===
-
-    fun useMediaLibrary(context: Context): Boolean {
-        return prefs(context).getBoolean(KEY_USE_MEDIA_LIBRARY, true)
-    }
-
-    fun setUseMediaLibrary(context: Context, enabled: Boolean) {
-        prefs(context).edit { putBoolean(KEY_USE_MEDIA_LIBRARY, enabled) }
-    }
-
-    // === 自定义文件夹 ===
-
-    fun getFolders(context: Context): List<LocalVideoFolder> {
-        val json = prefs(context).getString(KEY_FOLDERS, null) ?: run {
-            val def = listOf(defaultVideoFolder())
-            saveFolders(context, def)
-            return def
-        }
-        return try {
-            Json.parseToJsonElement(json).jsonArray.mapNotNull { folderFromJson(it.jsonObject) }
-        } catch (_: Exception) {
-            listOf(defaultVideoFolder())
-        }
-    }
-
-    fun saveFolders(context: Context, folders: List<LocalVideoFolder>) {
-        val arr = JsonArray(folders.map { folderToJson(it) })
-        prefs(context).edit { putString(KEY_FOLDERS, arr.toString()) }
-    }
-
-    fun addFolder(context: Context, folder: LocalVideoFolder): List<LocalVideoFolder> {
-        val current = getFolders(context).toMutableList()
-        if (current.none { it.uriString == folder.uriString }) {
-            current.add(folder)
-        }
-        saveFolders(context, current)
-        return current
-    }
-
-    fun removeFolder(context: Context, uriString: String): List<LocalVideoFolder> {
-        val current = getFolders(context).filter { it.uriString != uriString }
-        saveFolders(context, current)
-        return current
     }
 
     // === 扫描结果 ===
@@ -123,33 +76,6 @@ object LocalVideoStore {
     }
 
     // === 序列化 ===
-
-    private fun folderToJson(folder: LocalVideoFolder): JsonObject {
-        return JsonObject(
-            mapOf(
-                "uriString" to JsonPrimitive(folder.uriString),
-                "name" to JsonPrimitive(folder.name),
-                "path" to JsonPrimitive(folder.path),
-            )
-        )
-    }
-
-    private fun folderFromJson(obj: JsonObject): LocalVideoFolder? {
-        return try {
-            val uriString = obj["uriString"]?.jsonPrimitive?.contentOrNull ?: return null
-            var path = obj["path"]?.jsonPrimitive?.contentOrNull ?: ""
-            if (path.isEmpty() || path.startsWith("content://")) {
-                path = uriToDisplayPath(android.net.Uri.parse(uriString))
-            }
-            LocalVideoFolder(
-                uriString = uriString,
-                name = obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
-                path = path,
-            )
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     private fun videoToJson(item: LocalVideoItem): JsonObject {
         return JsonObject(

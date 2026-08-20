@@ -72,13 +72,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
@@ -96,6 +94,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.ui.screen.CoverImage
 import pjs.dogbox.ui.screen.PagerTabFollowEffect
 import pjs.dogbox.ui.screen.TabStateCache
 import pjs.dogbox.utils.AppData
@@ -629,7 +628,7 @@ private fun AnimeGridItem(
                     } else {
                         "${item.cover}@400w_600h.webp"
                     }
-                AsyncImage(
+                CoverImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(thumbnailUrl)
                         .crossfade(true)
@@ -643,7 +642,6 @@ private fun AnimeGridItem(
                         .fillMaxWidth()
                         .aspectRatio(3f / 4f)
                         .clip(MaterialTheme.shapes.medium),
-                    contentScale = ContentScale.Crop,
                 )
 
                 Box(

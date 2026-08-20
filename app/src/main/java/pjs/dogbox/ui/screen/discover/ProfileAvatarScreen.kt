@@ -117,13 +117,19 @@ internal fun ProfileAvatarScreen(
     fun fetchDouyin() {
         val input = douyinInput.trim()
         if (input.isEmpty()) {
-            Toast.makeText(context, "请输入抖音分享链接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "请输入抖音主页链接", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val link = extractShareUrl(input)
+        if (link == null || !link.contains("douyin", ignoreCase = true)) {
+            Toast.makeText(context, "请输入抖音主页链接", Toast.LENGTH_SHORT).show()
             return
         }
         scope.launch {
+            douyinInput = link
             fetchingDouyin = true
             focusManager.clearFocus()
-            val info = resolveDouyinAvatar(input)
+            val info = resolveDouyinAvatar(link)
             fetchingDouyin = false
             if (info != null) {
                 onViewImage(info.url, "https://www.douyin.com/", info.nickname)
@@ -249,6 +255,15 @@ internal fun ProfileAvatarScreen(
                             keyboardType = KeyboardType.Number,
                             isFetching = false,
                             onFetch = ::fetchQQ,
+                            onClear = { qqInput = "" },
+                            onPaste = {
+                                val pasted = pasteFromClipboard(context)
+                                if (pasted != null) {
+                                    qqInput = pasted.filter(Char::isDigit).take(20)
+                                } else {
+                                    Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                                }
+                            },
                         )
                     } else {
                         AvatarFetchCard(
@@ -260,6 +275,15 @@ internal fun ProfileAvatarScreen(
                             isFetching = fetchingDouyin,
                             onFetch = ::fetchDouyin,
                             multiline = true,
+                            onClear = { douyinInput = "" },
+                            onPaste = {
+                                val pasted = pasteFromClipboard(context)
+                                if (pasted != null) {
+                                    douyinInput = pasted
+                                } else {
+                                    Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                                }
+                            },
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -329,6 +353,8 @@ private fun AvatarFetchCard(
     onValueChange: (String) -> Unit,
     isFetching: Boolean,
     onFetch: () -> Unit,
+    onClear: () -> Unit,
+    onPaste: () -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
     multiline: Boolean = false,
 ) {
@@ -364,6 +390,11 @@ private fun AvatarFetchCard(
                 },
             )
             Spacer(modifier = Modifier.height(12.dp))
+            ClipboardActionRow(
+                onClear = onClear,
+                onPaste = onPaste,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             FilledTonalButton(
                 onClick = onFetch,
                 enabled = !isFetching,
@@ -385,20 +416,10 @@ private fun AvatarFetchCard(
     }
 }
 
-private fun extractShareUrl(input: String): String? {
-    val text = input.trim()
-    val douyinShort = Regex("""https?://v\.douyin\.com/[A-Za-z0-9_-]+""").find(text)?.value
-    if (douyinShort != null) return douyinShort
-    val url = Regex("""https?://[^\s"'<>]+""").find(text)?.value ?: return null
-    return if (url.contains("douyin")) url.substringBefore("@") else url
-}
-
 private data class DouyinAvatarInfo(val url: String, val nickname: String)
 
-private suspend fun resolveDouyinAvatar(input: String): DouyinAvatarInfo? = withContext(Dispatchers.IO) {
-    val rawUrl = extractShareUrl(input)
-        ?: return@withContext null
-    val finalUrl = HttpUtil.getFinalUrl(rawUrl, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
+private suspend fun resolveDouyinAvatar(link: String): DouyinAvatarInfo? = withContext(Dispatchers.IO) {
+    val finalUrl = HttpUtil.getFinalUrl(link, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
         ?: return@withContext null
     val secUid = Regex("""/user/([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)
         ?: Regex("""[?&]sec_uid=([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)

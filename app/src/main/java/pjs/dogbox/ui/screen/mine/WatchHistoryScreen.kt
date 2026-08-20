@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,6 +37,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -79,6 +81,7 @@ fun WatchHistoryScreen(
     var items by remember { mutableStateOf(SharedData.getWatchHistory(context)) }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<String>() }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
 
@@ -149,56 +152,64 @@ fun WatchHistoryScreen(
         },
         bottomBar = {
             AnimatedVisibility(visible = isDeleteMode) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceContainer)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilledTonalButton(
-                        onClick = {
-                            val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { "${it.key}|${it.id}" }
-                            selectedIds.clear()
-                            selectedIds.addAll(allKeys)
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("全选")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilledTonalButton(
+                            onClick = {
+                                val filtered = items.filter { it.orientation == pagerState.currentPage }
+                                val allKeys = filtered.map { "${it.key}|${it.id}" }
+                                selectedIds.clear()
+                                selectedIds.addAll(allKeys)
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("全选")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(
+                            onClick = {
+                                val filtered = items.filter { it.orientation == pagerState.currentPage }
+                                val allKeys = filtered.map { "${it.key}|${it.id}" }
+                                val currentSelected = selectedIds.toSet()
+                                selectedIds.clear()
+                                allKeys.filter { it !in currentSelected }
+                                    .forEach { selectedIds.add(it) }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("反选")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(
+                            onClick = {
+                                isDeleteMode = false
+                                selectedIds.clear()
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("取消")
+                        }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    FilledTonalButton(
-                        onClick = {
-                            val filtered = items.filter { it.orientation == pagerState.currentPage }
-                            val allKeys = filtered.map { "${it.key}|${it.id}" }
-                            val currentSelected = selectedIds.toSet()
-                            selectedIds.clear()
-                            allKeys.filter { it !in currentSelected }
-                                .forEach { selectedIds.add(it) }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("反选")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (selectedIds.isNotEmpty()) {
-                                SharedData.removeWatchHistory(context, selectedIds.toSet())
-                                selectedIds.clear()
-                                isDeleteMode = false
-                                refresh()
+                                showDeleteDialog = true
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError,
                         ),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         enabled = selectedIds.isNotEmpty(),
                     ) {
-                        Text("确认删除 (${selectedIds.size})")
+                        Text("删除（${selectedIds.size}）")
                     }
                 }
             }
@@ -303,6 +314,30 @@ fun WatchHistoryScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("删除", fontWeight = FontWeight.Bold) },
+            text = { Text("确认删除这${selectedIds.size}项内容？删除后将无法查看。") },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteDialog = false
+                    SharedData.removeWatchHistory(context, selectedIds.toSet())
+                    selectedIds.clear()
+                    isDeleteMode = false
+                    refresh()
+                }) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteDialog = false }) {
+                    Text("取消")
+                }
+            },
+        )
     }
 }
 

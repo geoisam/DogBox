@@ -84,6 +84,13 @@
     "homepage": "https://developer.android.com/jetpack/androidx/releases/core"
   },
   {
+    "name": "Document File",
+    "module": "androidx.documentfile:documentfile",
+    "version": "1.1.0",
+    "license": "Apache 2.0",
+    "homepage": "https://developer.android.com/jetpack/androidx/releases/documentfile"
+  },
+  {
     "name": "Graphics Shapes",
     "module": "androidx.graphics:graphics-shapes",
     "version": "1.1.0",

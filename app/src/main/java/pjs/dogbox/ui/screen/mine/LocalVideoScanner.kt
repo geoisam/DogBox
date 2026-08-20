@@ -11,8 +11,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.ContextCompat
-import androidx.documentfile.provider.DocumentFile
-import java.io.File
 import java.util.Locale
 
 data class LocalVideoItem(
@@ -26,26 +24,6 @@ data class LocalVideoItem(
     val dateAdded: Long,
     val path: String = "",
 )
-
-data class LocalVideoFolder(
-    val uriString: String,
-    val name: String,
-    val path: String,
-)
-
-val VIDEO_EXTENSIONS = setOf(
-    "mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "m4v",
-    "3gp", "3gpp", "ts", "m2ts", "rmvb", "rm", "mpg", "mpeg", "vob",
-)
-
-const val MAX_SCAN_FILES = 10_000
-
-private val SKIP_DIRS = setOf(
-    "Android", "obb", ".thumbnails", "cache", "temp", "Lost.dir", "LOST.DIR",
-)
-
-fun isVideoFile(name: String): Boolean =
-    name.substringAfterLast('.', "").lowercase(Locale.ROOT) in VIDEO_EXTENSIONS
 
 internal fun hasFileAccessPermission(context: Context): Boolean =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -70,44 +48,6 @@ internal fun openFileAccessPermissionPage(context: Context) {
     } else {
         openPermissionManager(context)
     }
-}
-
-internal fun uriToDisplayPath(uri: Uri): String {
-    if (uri.scheme == "file") {
-        return uri.path ?: uri.toString()
-    }
-    if (uri.scheme == "content") {
-        val segments = uri.pathSegments
-        val docId = if (segments.size >= 2 && segments[0] == "tree") {
-            segments[1]
-        } else if (segments.size >= 2 && segments[0] == "document") {
-            segments[1]
-        } else {
-            return uri.toString()
-        }
-        val decoded = Uri.decode(docId) ?: docId
-        val index = decoded.indexOf(':')
-        if (index <= 0) return uri.toString()
-        val volume = decoded.substring(0, index)
-        val relPath = decoded.substring(index + 1).removePrefix("/")
-        val base = if (volume == "primary" || volume.startsWith("home")) {
-            "/storage/emulated/0"
-        } else {
-            "/storage/$volume"
-        }
-        return if (relPath.isEmpty()) base else "$base/$relPath"
-    }
-    return uri.toString()
-}
-
-internal fun defaultVideoFolder(): LocalVideoFolder {
-    val dir = File(Environment.getExternalStorageDirectory(), "Download/DogBox")
-    val path = dir.absolutePath
-    return LocalVideoFolder(
-        uriString = "file://$path",
-        name = "Download/DogBox",
-        path = path,
-    )
 }
 
 internal fun queryMediaStoreVideos(context: Context): List<LocalVideoItem> {
@@ -164,91 +104,6 @@ internal fun queryMediaStoreVideos(context: Context): List<LocalVideoItem> {
         }
     }
     return items
-}
-
-internal fun scanFolderVideos(context: Context, folder: LocalVideoFolder): List<LocalVideoItem> {
-    val result = mutableListOf<LocalVideoItem>()
-    val counter = IntArray(1)
-    try {
-        val uri = Uri.parse(folder.uriString)
-        if (uri.scheme == "file") {
-            val dir = uri.path?.let { File(it) } ?: return result
-            if (dir.isDirectory) {
-                walkFileDir(dir, result, counter)
-            }
-        } else if (uri.scheme == "content") {
-            val tree = DocumentFile.fromTreeUri(context, uri) ?: return result
-            walkDocumentDir(tree, result, counter)
-        }
-    } catch (_: Exception) {
-    }
-    return result
-}
-
-private fun walkFileDir(dir: File, out: MutableList<LocalVideoItem>, counter: IntArray) {
-    if (counter[0] >= MAX_SCAN_FILES) return
-    val children = try {
-        dir.listFiles() ?: return
-    } catch (_: Exception) {
-        return
-    }
-    for (child in children) {
-        if (counter[0] >= MAX_SCAN_FILES) return
-        counter[0]++
-        val name = child.name
-        if (child.isDirectory) {
-            if (name.startsWith(".") || name in SKIP_DIRS) continue
-            walkFileDir(child, out, counter)
-        } else if (child.isFile && isVideoFile(name)) {
-            val abs = child.absolutePath
-            out.add(
-                LocalVideoItem(
-                    id = abs.hashCode().toLong(),
-                    uri = Uri.fromFile(child),
-                    displayName = name,
-                    duration = -1,
-                    size = child.length(),
-                    width = 0,
-                    height = 0,
-                    dateAdded = child.lastModified() / 1000L,
-                    path = abs,
-                )
-            )
-        }
-    }
-}
-
-private fun walkDocumentDir(doc: DocumentFile, out: MutableList<LocalVideoItem>, counter: IntArray) {
-    if (counter[0] >= MAX_SCAN_FILES) return
-    val children = try {
-        doc.listFiles()
-    } catch (_: Exception) {
-        return
-    }
-    for (child in children) {
-        if (counter[0] >= MAX_SCAN_FILES) return
-        counter[0]++
-        val name = child.name ?: continue
-        if (child.isDirectory) {
-            if (name.startsWith(".") || name in SKIP_DIRS) continue
-            walkDocumentDir(child, out, counter)
-        } else if (child.isFile && isVideoFile(name)) {
-            val uri = child.uri.toString()
-            out.add(
-                LocalVideoItem(
-                    id = uri.hashCode().toLong(),
-                    uri = child.uri,
-                    displayName = name,
-                    duration = -1,
-                    size = child.length(),
-                    width = 0,
-                    height = 0,
-                    dateAdded = child.lastModified() / 1000L,
-                    path = uri,
-                )
-            )
-        }
-    }
 }
 
 internal fun formatDuration(ms: Long): String {

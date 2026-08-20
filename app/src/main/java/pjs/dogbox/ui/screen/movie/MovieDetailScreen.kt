@@ -1,5 +1,9 @@
 package pjs.dogbox.ui.screen.movie
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -33,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +62,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -74,7 +78,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
@@ -89,6 +92,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import pjs.dogbox.ui.screen.CoverImage
 import pjs.dogbox.ui.screen.DisposableState
 import pjs.dogbox.utils.AppData
 import pjs.dogbox.utils.HttpUtil
@@ -368,6 +372,7 @@ internal fun MovieDetailScreen(
     var showRouteSheet by state.showRouteSheet
     var showEpisodeSheet by state.showEpisodeSheet
     var isFullscreen by state.isFullscreen
+    var showCopySheet by remember { mutableStateOf(false) }
 
     var currentSpeed by state.currentSpeed
     var longPressSpeed by state.longPressSpeed
@@ -433,6 +438,17 @@ internal fun MovieDetailScreen(
     }
 
     val saveCurrentToHistory = { state.saveCurrentToHistory() }
+
+    fun copyToClipboard(text: String) {
+        val clipper = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipper.setPrimaryClip(ClipData.newPlainText("链接", text))
+        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+    }
+
+    fun openInBrowser(url: String) {
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+            .onFailure { Toast.makeText(context, "无法打开浏览器", Toast.LENGTH_SHORT).show() }
+    }
 
     DisposableEffect(exoPlayer) {
         onDispose {
@@ -753,7 +769,7 @@ internal fun MovieDetailScreen(
                                     },
                                 ),
                             ) {
-                                AsyncImage(
+                                CoverImage(
                                     model = ImageRequest.Builder(LocalContext.current)
                                         .data(data.coverUrl)
                                         .crossfade(true)
@@ -766,7 +782,6 @@ internal fun MovieDetailScreen(
                                     modifier = Modifier
                                         .size(width = 100.dp, height = 140.dp)
                                         .clip(MaterialTheme.shapes.medium),
-                                    contentScale = ContentScale.Crop,
                                 )
                                 Box(
                                     modifier = Modifier
@@ -843,16 +858,7 @@ internal fun MovieDetailScreen(
                             ActionIconItem(
                                 icon = R.drawable.link_outlined,
                                 label = "复制链接",
-                                onClick = {
-                                    val clipper =
-                                        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                                as android.content.ClipboardManager
-                                    val clip = android.content.ClipData.newPlainText(
-                                        "link",
-                                        currentM3u8Url
-                                    )
-                                    clipper.setPrimaryClip(clip)
-                                },
+                                onClick = { showCopySheet = true },
                                 modifier = Modifier.weight(1f),
                             )
                             ActionIconItem(
@@ -998,6 +1004,65 @@ internal fun MovieDetailScreen(
                         Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
+            }
+        }
+    }
+
+    if (showCopySheet) {
+        val copySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCopySheet = false },
+            sheetState = copySheetState,
+            dragHandle = { SimpleDragHandle() },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = pageData?.title ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider()
+                SheetActionItem(
+                    icon = R.drawable.link_outlined,
+                    label = "复制播放链接",
+                    onClick = {
+                        showCopySheet = false
+                        copyToClipboard(currentM3u8Url)
+                    },
+                )
+                SheetActionItem(
+                    icon = R.drawable.content_copy_outlined,
+                    label = "复制网页地址",
+                    onClick = {
+                        showCopySheet = false
+                        copyToClipboard(currentEpisodeUrl)
+                    },
+                )
+                SheetActionItem(
+                    icon = R.drawable.open_in_browser_outlined,
+                    label = "浏览器打开网页",
+                    onClick = {
+                        showCopySheet = false
+                        openInBrowser(currentEpisodeUrl)
+                    },
+                )
             }
         }
     }
@@ -1201,6 +1266,35 @@ private fun ActionIconItem(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SheetActionItem(
+    icon: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

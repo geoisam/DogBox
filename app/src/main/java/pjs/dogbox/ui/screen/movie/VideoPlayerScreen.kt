@@ -187,14 +187,21 @@ fun VideoPlayerScreen(
 
     fun toggleMute() {
         isMuted = !isMuted
+        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         if (isMuted) {
             previousVolume = exoPlayer.volume
             previousVolumePercent = volumePercent
             exoPlayer.volume = 0f
             volumePercent = 0
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
         } else {
             exoPlayer.volume = previousVolume
             volumePercent = previousVolumePercent
+            audioManager.setStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                (previousVolumePercent * maxVol / 100).coerceIn(0, maxVol),
+                0
+            )
         }
     }
 
@@ -417,6 +424,7 @@ fun VideoPlayerScreen(
                 resetControlsTimer = { hideControls() },
                 showControls = showControls,
                 playerIsPlaying = playerIsPlaying,
+                backgroundColor = bgColors[bgColorIndex],
             )
 
             if (showControls) {
@@ -479,7 +487,6 @@ fun VideoPlayerScreen(
 
                                 IconButton(onClick = {
                                     bgColorIndex = (bgColorIndex + 1) % bgColors.size
-                                    hideControls()
                                 }) {
                                     Icon(
                                         painter = painterResource(R.drawable.sync_alt_outlined),
@@ -595,6 +602,14 @@ fun VideoPlayerScreen(
                                                         0
                                                     )
                                                     volumePercent = (newVol * 100 / maxVol)
+                                                    if (newVol == 0) {
+                                                        isMuted = true
+                                                        exoPlayer.volume = 0f
+                                                    } else {
+                                                        isMuted = false
+                                                        exoPlayer.volume = 1f
+                                                        previousVolumePercent = volumePercent
+                                                    }
                                                     if (!isAdjustingVolume) {
                                                         isAdjustingVolume = true
                                                     }

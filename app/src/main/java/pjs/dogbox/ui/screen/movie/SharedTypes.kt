@@ -772,11 +772,12 @@ internal fun PlayerCore(
     showControls: Boolean,
     isSwitchingEpisode: Boolean = false,
     playerIsPlaying: Boolean = false,
+    backgroundColor: Color = Color.Black,
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(backgroundColor),
         contentAlignment = Alignment.Center,
     ) {
         AndroidView(
@@ -831,12 +832,13 @@ internal fun PlayerCore(
     if (isRewinding || isFastForwarding) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.medium),
-            contentAlignment = Alignment.Center,
+                .fillMaxSize(),
         ) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = (screenHeightDp / 4f).dp)
+                    .clip(MaterialTheme.shapes.medium)
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 32.dp, vertical = 16.dp),
             ) {
@@ -868,12 +870,12 @@ internal fun PlayerCore(
         }
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.medium),
+                .fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
+                    .clip(MaterialTheme.shapes.medium)
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 48.dp, vertical = 24.dp),
             ) {
@@ -914,12 +916,13 @@ internal fun PlayerCore(
     if (isSeeking && playerDuration > 0) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.medium),
-            contentAlignment = Alignment.Center,
+                .fillMaxSize(),
         ) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = (screenHeightDp / 4f).dp)
+                    .clip(MaterialTheme.shapes.medium)
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 32.dp, vertical = 16.dp),
             ) {

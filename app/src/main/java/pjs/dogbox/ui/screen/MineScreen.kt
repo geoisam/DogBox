@@ -311,7 +311,7 @@ fun MineScreen(
                         modifier = Modifier.weight(1f),
                     )
                     MineItem(
-                        iconRes = R.drawable.video_library_outlined,
+                        iconRes = R.drawable.animated_images_outlined,
                         text = "本地视频",
                         onClick = { onNavigateToLocalVideos() },
                         modifier = Modifier.weight(1f),

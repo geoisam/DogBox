@@ -355,10 +355,15 @@ fun MediaLinkTestScreen(
                         ) {
                             ActionIconItem(
                                 icon = R.drawable.link_outlined,
-                                label = "清空链接",
+                                label = "过滤链接",
                                 onClick = {
                                     focusManager.clearFocus()
-                                    url = ""
+                                    val link = extractShareUrl(url)
+                                    if (link != null) {
+                                        url = link
+                                    } else {
+                                        Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 modifier = Modifier.weight(1f),
                             )
@@ -399,6 +404,24 @@ fun MediaLinkTestScreen(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        ClipboardActionRow(
+                            onClear = {
+                                focusManager.clearFocus()
+                                url = ""
+                            },
+                            onPaste = {
+                                focusManager.clearFocus()
+                                val pasted = pasteFromClipboard(context)
+                                if (pasted != null) {
+                                    url = pasted
+                                } else {
+                                    Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         FilledTonalButton(
                             onClick = {

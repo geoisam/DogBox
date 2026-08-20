@@ -188,7 +188,7 @@ private fun deleteVideoFile(context: android.content.Context, uriString: String)
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalVideoPlayerScreen(
+fun LocalVideoPreview(
     videoUri: String,
     title: String,
     onBack: () -> Unit = {},

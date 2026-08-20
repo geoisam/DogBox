@@ -130,7 +130,7 @@ private fun saveImageBytesToGallery(
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Pictures")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Cover")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
             val uri = context.contentResolver.insert(
@@ -145,7 +145,7 @@ private fun saveImageBytesToGallery(
         } else {
             val dir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "DogBox/Pictures"
+                "DogBox/Cover"
             )
             if (!dir.exists()) dir.mkdirs()
             File(dir, fileName).writeBytes(bytes)
@@ -280,7 +280,7 @@ fun ImageViewerScreen(
             }
             Toast.makeText(
                 context,
-                if (ok) "已保存至 /Download/DogBox/Pictures/" else "保存失败",
+                if (ok) "已保存至 /Download/DogBox/Cover/" else "保存失败",
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -500,6 +500,14 @@ fun ImageViewerScreen(
                         modifier = Modifier.size(24.dp),
                     )
                 }
+                IconButton(onClick = { showSheet = true }) {
+                    Icon(
+                        painter = painterResource(R.drawable.more_horiz_filled),
+                        contentDescription = "更多设置",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
         }
     }
@@ -540,27 +548,42 @@ fun ImageViewerScreen(
                 ImageSheetItem(
                     icon = R.drawable.download_outlined,
                     label = "保存图片",
-                    onClick = { requestDownloadPermission() },
+                    onClick = {
+                        showSheet = false
+                        requestDownloadPermission()
+                    },
                 )
                 ImageSheetItem(
                     icon = R.drawable.content_copy_outlined,
                     label = "复制链接",
-                    onClick = { copyLink() },
+                    onClick = {
+                        showSheet = false
+                        copyLink()
+                    },
                 )
                 ImageSheetItem(
                     icon = R.drawable.share_filled,
                     label = "分享链接",
-                    onClick = { shareLink() },
+                    onClick = {
+                        showSheet = false
+                        shareLink()
+                    },
                 )
                 ImageSheetItem(
                     icon = R.drawable.image_arrow_up_outlined,
                     label = "以图片分享",
-                    onClick = { shareImage() },
+                    onClick = {
+                        showSheet = false
+                        shareImage()
+                    },
                 )
                 ImageSheetItem(
                     icon = R.drawable.open_in_browser_outlined,
                     label = "浏览器打开",
-                    onClick = { openInBrowser() },
+                    onClick = {
+                        showSheet = false
+                        openInBrowser()
+                    },
                 )
             }
         }

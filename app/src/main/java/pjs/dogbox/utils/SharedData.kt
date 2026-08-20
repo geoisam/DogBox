@@ -222,7 +222,7 @@ object SharedData {
 
     @Synchronized
     fun getWatchHistory(context: Context): List<WatchHistoryItem> =
-        ensureWatchHistoryLoaded(context).toList()
+        ensureWatchHistoryLoaded(context).sortedByDescending { it.timestamp }
 
     private fun persistWatchHistory(context: Context) {
         val items = cachedWatchHistory ?: return
@@ -254,6 +254,7 @@ object SharedData {
         } else {
             current.add(item)
         }
+        current.sortByDescending { it.timestamp }
         if (current.size > 200) {
             val trimmed = current.sortedByDescending { it.timestamp }
                 .take(200).toMutableList()
