@@ -1,5 +1,7 @@
 package pjs.dogbox.ui.screen
 
+import pjs.dogbox.ui.components.SimpleDragHandle
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -56,10 +58,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.LunarSnapshot
 import pjs.dogbox.utils.LunarUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +70,6 @@ fun MineScreen(
     modifier: Modifier = Modifier,
     onNavigateToHistory: () -> Unit = {},
     onNavigateToLocalVideos: () -> Unit = {},
-    onNavigateToTheme: () -> Unit = {},
     onNavigateToAboutMe: () -> Unit = {},
     onNavigateToSponsor: () -> Unit = {},
 ) {
@@ -354,11 +355,6 @@ fun MineScreen(
                 )
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    MineListItem(
-                        iconRes = R.drawable.apparel_outlined,
-                        text = "主题模式",
-                        onClick = { onNavigateToTheme() }
-                    )
                     MineListItem(
                         iconRes = R.drawable.favorite_outlined,
                         text = "捐赠支持",

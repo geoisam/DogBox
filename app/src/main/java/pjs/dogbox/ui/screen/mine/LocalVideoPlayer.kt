@@ -1,5 +1,7 @@
 package pjs.dogbox.ui.screen.mine
 
+import pjs.dogbox.data.localvideo.LocalVideoStore
+
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -16,6 +18,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -38,6 +41,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
@@ -97,19 +102,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
 import pjs.dogbox.ui.screen.movie.MoreSettingsContent
+import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
+import pjs.dogbox.ui.screen.movie.SPEED_PRESETS
 import pjs.dogbox.ui.screen.movie.SeekBar
+import pjs.dogbox.ui.screen.movie.SpeedPresetCard
 import pjs.dogbox.ui.screen.movie.SpeedResetButton
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
 import pjs.dogbox.ui.screen.movie.formatTime
 import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
-import pjs.dogbox.utils.SheetSectionTitle
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SheetSectionTitle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.io.File
 
 private fun setSystemBarsVisible(
@@ -198,6 +207,8 @@ fun LocalVideoPreview(
     val activity = context as? android.app.Activity
     val scope = rememberCoroutineScope()
 
+    GlobalPlayerConfig.init(context)
+
     var isFullscreen by remember { mutableStateOf(false) }
     var showBars by remember { mutableStateOf(true) }
     var pendingShow by remember { mutableStateOf(false) }
@@ -217,11 +228,12 @@ fun LocalVideoPreview(
     var isMuted by remember { mutableStateOf(false) }
     var previousVolume by remember { mutableFloatStateOf(1f) }
     var currentSpeed by remember { mutableFloatStateOf(1.0f) }
+    val longPressSpeed = GlobalPlayerConfig.longPressSpeed
     var currentScaleModeIndex by remember { mutableIntStateOf(0) }
     var flipHorizontal by remember { mutableStateOf(false) }
     var flipVertical by remember { mutableStateOf(false) }
-    var backgroundPlayback by remember { mutableStateOf(false) }
-    var playbackOrder by remember { mutableStateOf(PlaybackOrder.AUTO_NEXT) }
+    val backgroundPlayback = GlobalPlayerConfig.backgroundPlayback
+    val playbackOrder = GlobalPlayerConfig.playbackOrder
 
     var showRenameSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -914,11 +926,15 @@ fun LocalVideoPreview(
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
+                    adFilter = GlobalPlayerConfig.adFilter,
                     playbackOrder = playbackOrder,
+                    longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { backgroundPlayback = it },
-                    onPlaybackOrderChange = { playbackOrder = it },
+                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
                     useFixedDarkColors = false,
                 )
@@ -978,22 +994,55 @@ private fun SpeedBottomSheet(
         ) {
             SheetSectionTitle("播放倍速")
             Spacer(Modifier.height(16.dp))
-            Text(
-                "固定倍速：${"%.2f".format(sliderSpeed)}X",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Slider(
-                value = sliderSpeed,
-                onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
-                onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
-                valueRange = 0.25f..5.0f,
-                steps = 18,
+            SPEED_PRESETS.chunked(3).forEach { rowPresets ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    rowPresets.forEach { preset ->
+                        SpeedPresetCard(
+                            modifier = Modifier.weight(1f),
+                            speed = preset,
+                            selected = abs(currentSpeed - preset) < 0.001f,
+                            onClick = {
+                                sliderSpeed = preset
+                                onSpeedSelect(preset)
+                            },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-            )
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        "自定义倍速：${"%.2f".format(sliderSpeed)}X",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Slider(
+                        value = sliderSpeed,
+                        onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
+                        onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
+                        valueRange = 0.25f..5.0f,
+                        steps = 18,
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
             SpeedResetButton(
                 onClick = {

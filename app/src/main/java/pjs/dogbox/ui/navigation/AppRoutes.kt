@@ -19,6 +19,9 @@ object AppRoutes {
     const val CONTRIBUTOR = "contributor"
     const val LICENSE = "license"
     const val IMAGE_VIEWER = "image_viewer?url={url}&referer={referer}&title={title}"
+    const val SETTINGS = "settings"
+    const val CACHE_MANAGE = "cache_manage"
+
 
     fun discoverDetail(page: String): String = "discover/$page"
 

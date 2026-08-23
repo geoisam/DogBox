@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -26,15 +25,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pjs.dogbox.R
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 enum class DiscoverPage {
     ANIME_RANK,
@@ -205,11 +199,7 @@ fun DiscoverScreen(
                             ) {
                                 Surface(
                                     modifier = Modifier.size(56.dp),
-                                    shape = createChrysanthemumShapeNative(
-                                        petals = 10,
-                                        innerRadiusRatio = 0.7f,
-                                        cornerRadiusRatio = 0.3f
-                                    ),
+                                    shape = MaterialTheme.shapes.large,
                                     color = MaterialTheme.colorScheme.primaryContainer,
                                     tonalElevation = 2.dp
                                 ) {
@@ -245,64 +235,4 @@ fun DiscoverScreen(
         }
         Spacer(Modifier.height(12.dp))
     }
-}
-
-
-fun createChrysanthemumShapeNative(
-    petals: Int = 10,
-    innerRadiusRatio: Float = 0.65f,
-    cornerRadiusRatio: Float = 0.25f
-) = GenericShape { size, _ ->
-
-    val maxRadius = (size.minDimension / 2) * 0.95f
-    if (maxRadius <= 0f) return@GenericShape
-
-    val path = Path()
-    val centerX = size.width / 2
-    val centerY = size.height / 2
-
-    val points = mutableListOf<Offset>()
-    val totalVertices = petals * 2
-    val angleStep = (2 * Math.PI) / totalVertices
-    val startAngle = -Math.PI / 2.0
-
-    for (i in 0 until totalVertices) {
-        val angle = startAngle + i * angleStep
-        val r = if (i % 2 == 0) maxRadius else maxRadius * innerRadiusRatio
-        val x = centerX + r * cos(angle).toFloat()
-        val y = centerY + r * sin(angle).toFloat()
-        points.add(Offset(x, y))
-    }
-
-    for (i in points.indices) {
-        val curr = points[i]
-        val prev = points[(i - 1 + points.size) % points.size]
-        val next = points[(i + 1) % points.size]
-
-        val vecIn = curr - prev
-        val vecOut = next - curr
-
-        val lenIn = sqrt(vecIn.x * vecIn.x + vecIn.y * vecIn.y)
-        val lenOut = sqrt(vecOut.x * vecOut.x + vecOut.y * vecOut.y)
-
-        val dirIn = Offset(vecIn.x / lenIn, vecIn.y / lenIn)
-        val dirOut = Offset(vecOut.x / lenOut, vecOut.y / lenOut)
-
-        val cornerR =
-            if (i % 2 == 0) maxRadius * cornerRadiusRatio else (maxRadius * innerRadiusRatio) * 0.2f
-
-        val pStart = curr - dirIn * cornerR
-        val pEnd = curr - dirOut * cornerR
-
-        if (i == 0) {
-            path.moveTo(pStart.x, pStart.y)
-        } else {
-            path.lineTo(pStart.x, pStart.y)
-        }
-
-        path.quadraticTo(curr.x, curr.y, pEnd.x, pEnd.y)
-    }
-
-    path.close()
-    addPath(path)
 }

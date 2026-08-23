@@ -1,4 +1,6 @@
-package pjs.dogbox.utils
+package pjs.dogbox.data
+
+import pjs.dogbox.utils.LunarSnapshot
 
 object AppData {
     var snapshot: LunarSnapshot? = null

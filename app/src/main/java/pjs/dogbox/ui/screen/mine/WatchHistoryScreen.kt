@@ -67,9 +67,9 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.utils.AppData
-import pjs.dogbox.utils.SharedData
-import pjs.dogbox.utils.WatchHistoryItem
+import pjs.dogbox.data.AppData
+import pjs.dogbox.data.SharedData
+import pjs.dogbox.data.WatchHistoryItem
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

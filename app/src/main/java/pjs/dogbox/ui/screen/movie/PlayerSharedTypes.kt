@@ -24,6 +24,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -51,6 +52,10 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
@@ -61,6 +66,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -86,6 +92,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -93,12 +100,13 @@ import androidx.core.graphics.createBitmap
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.utils.SimpleDragHandle
-import pjs.dogbox.utils.SheetSectionTitle
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.SimpleDragHandle
+import pjs.dogbox.ui.components.SheetSectionTitle
 
 @Composable
 fun getStatusBarHeight(): Dp {
@@ -349,19 +357,18 @@ internal fun SpeedResetButton(
     }
 }
 
+internal val SPEED_PRESETS = listOf(0.50f, 0.75f, 1.25f, 1.50f, 2.00f, 3.00f)
+
 @Composable
 internal fun SpeedBottomSheet(
     currentSpeed: Float,
-    longPressSpeed: Float,
     onSpeedSelect: (Float) -> Unit,
-    onLongPressSpeedConfirm: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
-    var sliderLongPressSpeed by remember(longPressSpeed) { mutableFloatStateOf(longPressSpeed) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -380,22 +387,55 @@ internal fun SpeedBottomSheet(
             ) {
             SheetSectionTitle("播放倍速")
             Spacer(Modifier.height(16.dp))
-            Text(
-                "固定倍速：${"%.2f".format(sliderSpeed)}X",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Slider(
-                value = sliderSpeed,
-                onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
-                onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
-                valueRange = 0.25f..5.0f,
-                steps = 18,
+            SPEED_PRESETS.chunked(3).forEach { rowPresets ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    rowPresets.forEach { preset ->
+                        SpeedPresetCard(
+                            modifier = Modifier.weight(1f),
+                            speed = preset,
+                            selected = abs(currentSpeed - preset) < 0.001f,
+                            onClick = {
+                                sliderSpeed = preset
+                                onSpeedSelect(preset)
+                            },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-            )
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        "自定义倍速：${"%.2f".format(sliderSpeed)}X",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Slider(
+                        value = sliderSpeed,
+                        onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
+                        onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
+                        valueRange = 0.25f..5.0f,
+                        steps = 18,
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
             SpeedResetButton(
                 onClick = {
@@ -404,33 +444,45 @@ internal fun SpeedBottomSheet(
                 },
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
-            Spacer(Modifier.height(24.dp))
-            Text(
-                "长按前进/后退倍速：${"%.2f".format(sliderLongPressSpeed)}X",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Slider(
-                value = sliderLongPressSpeed,
-                onValueChange = { sliderLongPressSpeed = (it * 4).toInt() / 4f },
-                onValueChangeFinished = { onLongPressSpeedConfirm(sliderLongPressSpeed) },
-                valueRange = 0.25f..5.0f,
-                steps = 18,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            SpeedResetButton(
-                onClick = {
-                    sliderLongPressSpeed = 3.0f
-                    onLongPressSpeedConfirm(3.0f)
-                },
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
             Spacer(Modifier.height(16.dp))
             }
+        }
+    }
+}
+
+@Composable
+internal fun SpeedPresetCard(
+    modifier: Modifier = Modifier,
+    speed: Float,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.outlineVariant
+
+    Card(
+        modifier = modifier
+            .border(2.dp, borderColor, MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "${"%.2f".format(speed)}x",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            )
         }
     }
 }
@@ -549,16 +601,67 @@ internal enum class PlaybackOrder(val label: String) {
     LIST_LOOP("列表循环"),
 }
 
+internal object GlobalPlayerConfig {
+    private var initialized = false
+
+    var playbackOrder by mutableStateOf(PlaybackOrder.AUTO_NEXT)
+        private set
+
+    var backgroundPlayback by mutableStateOf(false)
+        private set
+
+    var adFilter by mutableStateOf(true)
+        private set
+
+    var longPressSpeed by mutableStateOf(3.0f)
+        private set
+
+    fun init(context: Context) {
+        if (initialized) return
+        playbackOrder = PlaybackOrder.entries.getOrElse(
+            pjs.dogbox.data.SharedData.getPlaybackOrder(context)
+        ) { PlaybackOrder.AUTO_NEXT }
+        backgroundPlayback = pjs.dogbox.data.SharedData.isBackgroundPlayback(context)
+        adFilter = pjs.dogbox.data.SharedData.isAdFilterEnabled(context)
+        longPressSpeed = pjs.dogbox.data.SharedData.getLongPressSpeed(context)
+        initialized = true
+    }
+
+    fun setBackgroundPlayback(context: Context, enabled: Boolean) {
+        backgroundPlayback = enabled
+        pjs.dogbox.data.SharedData.setBackgroundPlayback(context, enabled)
+    }
+
+    fun setAdFilter(context: Context, enabled: Boolean) {
+        adFilter = enabled
+        pjs.dogbox.data.SharedData.setAdFilterEnabled(context, enabled)
+    }
+
+    fun setPlaybackOrder(context: Context, order: PlaybackOrder) {
+        playbackOrder = order
+        pjs.dogbox.data.SharedData.setPlaybackOrder(context, order.ordinal)
+    }
+
+    fun setLongPressSpeed(context: Context, speed: Float) {
+        longPressSpeed = speed
+        pjs.dogbox.data.SharedData.setLongPressSpeed(context, speed)
+    }
+}
+
 @Composable
 internal fun MoreSettingsContent(
     flipHorizontal: Boolean,
     flipVertical: Boolean,
     backgroundPlayback: Boolean,
+    adFilter: Boolean,
     playbackOrder: PlaybackOrder,
+    longPressSpeed: Float = 3.0f,
     onFlipHorizontalChange: (Boolean) -> Unit,
     onFlipVerticalChange: (Boolean) -> Unit,
     onBackgroundPlaybackChange: (Boolean) -> Unit,
+    onAdFilterChange: (Boolean) -> Unit,
     onPlaybackOrderChange: (PlaybackOrder) -> Unit,
+    onLongPressSpeedChange: (Float) -> Unit = {},
     onDismiss: () -> Unit,
     useFixedDarkColors: Boolean = true,
 ) {
@@ -576,10 +679,15 @@ internal fun MoreSettingsContent(
             BorderStroke(1.dp, if (selected) Color.Transparent else unselectedBorderColor)
         }
     }
-    val sectionTitleColor = if (useFixedDarkColors) Color.White
-    else MaterialTheme.colorScheme.onSurface
     val titleColor = if (useFixedDarkColors) Color.White
     else MaterialTheme.colorScheme.onSurface
+
+    val cardContainer = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
+    else MaterialTheme.colorScheme.surfaceContainerLow
+    val rowValueColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.6f)
+    else MaterialTheme.colorScheme.onSurfaceVariant
+
+    var orderMenuExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (useFixedDarkColors) {
@@ -611,118 +719,214 @@ internal fun MoreSettingsContent(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // Flip section
-            Text(
-                "画面翻转",
-                style = MaterialTheme.typography.titleSmall,
-                color = sectionTitleColor,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(
+            // ===== 卡片一：播放设置 =====
+            Card(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(containerColor = cardContainer),
             ) {
-                FilterChip(
-                    selected = flipHorizontal,
-                    onClick = { onFlipHorizontalChange(!flipHorizontal) },
-                    label = { Text("左右翻转") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipSelectedColor,
-                        containerColor = chipUnselectedColor,
-                        labelColor = unselectedLabelColor,
-                        selectedLabelColor = selectedLabelColor,
-                    ),
-                    border = chipBorder(flipHorizontal),
-                )
-                FilterChip(
-                    selected = flipVertical,
-                    onClick = { onFlipVerticalChange(!flipVertical) },
-                    label = { Text("上下翻转") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipSelectedColor,
-                        containerColor = chipUnselectedColor,
-                        labelColor = unselectedLabelColor,
-                        selectedLabelColor = selectedLabelColor,
-                    ),
-                    border = chipBorder(flipVertical),
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // 画面翻转
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "画面翻转",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        FilterChip(
+                            selected = flipHorizontal,
+                            onClick = { onFlipHorizontalChange(!flipHorizontal) },
+                            label = { Text("左右翻转") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = chipSelectedColor,
+                                containerColor = chipUnselectedColor,
+                                labelColor = unselectedLabelColor,
+                                selectedLabelColor = selectedLabelColor,
+                            ),
+                            border = chipBorder(flipHorizontal),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        FilterChip(
+                            selected = flipVertical,
+                            onClick = { onFlipVerticalChange(!flipVertical) },
+                            label = { Text("上下翻转") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = chipSelectedColor,
+                                containerColor = chipUnselectedColor,
+                                labelColor = unselectedLabelColor,
+                                selectedLabelColor = selectedLabelColor,
+                            ),
+                            border = chipBorder(flipVertical),
+                        )
+                    }
+                    // 播放顺序
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { orderMenuExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "播放顺序",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        Text(
+                            text = playbackOrder.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = rowValueColor,
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = rowValueColor,
+                            )
+                            DropdownMenu(
+                                expanded = orderMenuExpanded,
+                                onDismissRequest = { orderMenuExpanded = false },
+                            ) {
+                                PlaybackOrder.entries.forEach { order ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = order.label,
+                                                color = if (order == playbackOrder) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        },
+                                        onClick = {
+                                            onPlaybackOrderChange(order)
+                                            orderMenuExpanded = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // 后台播放
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "后台播放",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        Switch(
+                            checked = backgroundPlayback,
+                            onCheckedChange = onBackgroundPlaybackChange,
+                        )
+                    }
+                    // 广告过滤
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "广告过滤",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        Switch(
+                            checked = adFilter,
+                            onCheckedChange = onAdFilterChange,
+                        )
+                    }
+                    // 定时关闭
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "定时关闭",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        Text(
+                            text = "未开启",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = rowValueColor,
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Icon(
+                            painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = rowValueColor,
+                        )
+                    }
+                }
             }
+
             Spacer(Modifier.height(20.dp))
 
-            // Playback order
-            Text(
-                "播放顺序",
-                style = MaterialTheme.typography.titleSmall,
-                color = sectionTitleColor,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            FlowRow(
+            // ===== 卡片二：长按倍速 =====
+            Card(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(containerColor = cardContainer),
             ) {
-                PlaybackOrder.entries.forEach { order ->
-                    FilterChip(
-                        selected = order == playbackOrder,
-                        onClick = { onPlaybackOrderChange(order) },
-                        label = { Text(order.label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = chipSelectedColor,
-                            containerColor = chipUnselectedColor,
-                            labelColor = unselectedLabelColor,
-                            selectedLabelColor = selectedLabelColor,
-                        ),
-                        border = chipBorder(order == playbackOrder),
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "长按倍速",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                        )
+                        Text(
+                            text = "${"%.2f".format(longPressSpeed)}X",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = rowValueColor,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Slider(
+                        value = longPressSpeed,
+                        onValueChange = { onLongPressSpeedChange((it * 4).toInt() / 4f) },
+                        valueRange = 0.25f..5.0f,
+                        steps = 18,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    SpeedResetButton(
+                        onClick = { onLongPressSpeedChange(3.0f) },
+                        modifier = Modifier.align(Alignment.End),
                     )
                 }
             }
-            Spacer(Modifier.height(20.dp))
 
-            // Other settings
-            Text(
-                "其他设置",
-                style = MaterialTheme.typography.titleSmall,
-                color = sectionTitleColor,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = backgroundPlayback,
-                    onClick = { onBackgroundPlaybackChange(!backgroundPlayback) },
-                    label = { Text("后台播放") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipSelectedColor,
-                        containerColor = chipUnselectedColor,
-                        labelColor = unselectedLabelColor,
-                        selectedLabelColor = selectedLabelColor,
-                    ),
-                    border = chipBorder(backgroundPlayback),
-                )
-                FilterChip(
-                    selected = false,
-                    onClick = { },
-                    label = { Text("定时关闭") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipSelectedColor,
-                        containerColor = chipUnselectedColor,
-                        labelColor = unselectedLabelColor,
-                        selectedLabelColor = selectedLabelColor,
-                    ),
-                    border = chipBorder(false),
-                )
-            }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -825,7 +1029,7 @@ internal fun PlayerCore(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            ChrysanthemumLoading()
+            CircularProgressIndicator(modifier = Modifier.size(56.dp))
         }
     }
 
@@ -1342,7 +1546,7 @@ internal fun NonFullscreenPlayer(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         }
 

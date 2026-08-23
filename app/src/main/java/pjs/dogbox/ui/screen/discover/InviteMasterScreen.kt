@@ -70,9 +70,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.InviteExecutor
+import pjs.dogbox.data.invite.InviteExecutor
 import pjs.dogbox.utils.CryptUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 

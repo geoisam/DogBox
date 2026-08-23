@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.animateColorAsState
@@ -73,11 +73,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.TabStateCache
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.util.Calendar
 
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getYearData"
@@ -272,7 +272,7 @@ private fun BoxOfficeYearContent(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         } else {
             PullToRefreshBox(

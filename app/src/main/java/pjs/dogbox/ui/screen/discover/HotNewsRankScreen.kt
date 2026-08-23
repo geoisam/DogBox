@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState
@@ -73,11 +73,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.rememberTabStateCache
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.navigation.rememberTabStateCache
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 private data class HotItem(val title: String, val url: String)
@@ -538,7 +538,7 @@ private fun HotTabContent(
         ) {
             if (tabState.isLoading && currentItems.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    ChrysanthemumLoading()
+                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 }
             } else if (tabState.loadError && currentItems.isEmpty()) {
                 Box(

@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
@@ -66,9 +66,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 
 internal class ProfileAvatarScreenState {
     val qqInput = mutableStateOf("")

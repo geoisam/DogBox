@@ -81,7 +81,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -103,6 +103,8 @@ fun VideoPlayerScreen(
 ) {
     val context = LocalContext.current
 
+    GlobalPlayerConfig.init(context)
+
     var playerIsPlaying by remember { mutableStateOf(false) }
     var playerIsBuffering by remember { mutableStateOf(true) }
     var playerCurrentPosition by remember { mutableStateOf(0L) }
@@ -111,7 +113,7 @@ fun VideoPlayerScreen(
     var playerVideoWidth by remember { mutableIntStateOf(0) }
     var playerVideoHeight by remember { mutableIntStateOf(0) }
     var currentSpeed by remember { mutableStateOf(1.0f) }
-    var longPressSpeed by remember { mutableFloatStateOf(3.0f) }
+    val longPressSpeed = GlobalPlayerConfig.longPressSpeed
     var isMuted by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val isLandscape =
@@ -178,8 +180,8 @@ fun VideoPlayerScreen(
     var userToggledControls by remember { mutableStateOf(false) }
     var flipHorizontal by remember { mutableStateOf(false) }
     var flipVertical by remember { mutableStateOf(false) }
-    var backgroundPlayback by remember { mutableStateOf(false) }
-    var playbackOrder by remember { mutableStateOf(PlaybackOrder.AUTO_NEXT) }
+    val backgroundPlayback = GlobalPlayerConfig.backgroundPlayback
+    val playbackOrder = GlobalPlayerConfig.playbackOrder
     var isSeeking by remember { mutableStateOf(false) }
     var seekPreviewPosition by remember { mutableStateOf(0L) }
     var seekHideJob by remember { mutableStateOf<Job?>(null) }
@@ -1027,11 +1029,6 @@ modifier = Modifier.padding(horizontal = 12.dp),
             if (showSpeedSheet) {
                 PlayerOverlay(isLandscape = isLandscape, onDismiss = { showSpeedSheet = false }) {
                     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
-                    var sliderLongPressSpeed by remember(longPressSpeed) {
-                        mutableFloatStateOf(
-                            longPressSpeed
-                        )
-                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1085,32 +1082,6 @@ modifier = Modifier.padding(horizontal = 12.dp),
                                 sliderSpeed = 1.0f
                                 currentSpeed = 1.0f
                                 exoPlayer.playbackParameters = PlaybackParameters(1.0f)
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        )
-                        Spacer(Modifier.height(24.dp))
-                        Text(
-                            "长按前进/后退倍速：${"%.2f".format(sliderLongPressSpeed)}X",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Slider(
-                            value = sliderLongPressSpeed,
-                            onValueChange = { sliderLongPressSpeed = (it * 4).toInt() / 4f },
-                            onValueChangeFinished = { longPressSpeed = sliderLongPressSpeed },
-                            valueRange = 0.25f..5.0f,
-                            steps = 18,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        SpeedResetButton(
-                            onClick = {
-                                sliderLongPressSpeed = 3.0f
-                                longPressSpeed = 3.0f
                             },
                             modifier = Modifier.padding(horizontal = 12.dp),
                         )
@@ -1233,11 +1204,15 @@ modifier = Modifier.padding(horizontal = 12.dp),
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
+                    adFilter = GlobalPlayerConfig.adFilter,
                     playbackOrder = playbackOrder,
+                    longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { backgroundPlayback = it },
-                    onPlaybackOrderChange = { playbackOrder = it },
+                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
                 )
             }
@@ -1259,11 +1234,15 @@ modifier = Modifier.padding(horizontal = 12.dp),
                         flipHorizontal = flipHorizontal,
                         flipVertical = flipVertical,
                         backgroundPlayback = backgroundPlayback,
+                        adFilter = GlobalPlayerConfig.adFilter,
                         playbackOrder = playbackOrder,
+                        longPressSpeed = longPressSpeed,
                         onFlipHorizontalChange = { flipHorizontal = it },
                         onFlipVerticalChange = { flipVertical = it },
-                        onBackgroundPlaybackChange = { backgroundPlayback = it },
-                        onPlaybackOrderChange = { playbackOrder = it },
+                        onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                        onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                        onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                        onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                         onDismiss = { showMoreSheet = false },
                         useFixedDarkColors = false,
                     )

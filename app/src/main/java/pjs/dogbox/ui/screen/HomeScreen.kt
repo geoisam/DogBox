@@ -1,5 +1,11 @@
 package pjs.dogbox.ui.screen
 
+import pjs.dogbox.ui.components.CoverImage
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.components.SimpleDragHandle
+import pjs.dogbox.ui.navigation.TabStateCache
+
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -88,9 +94,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 internal data class HomeItem(
@@ -209,7 +215,7 @@ internal fun HomeScreen(
     ) {
         if (!firstTabLoaded) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         }
         Column(modifier = Modifier.fillMaxSize()) {
@@ -288,7 +294,7 @@ internal fun HomeScreen(
             when (filterState) {
                 STATE_LOADING -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        ChrysanthemumLoading()
+                        CircularProgressIndicator(modifier = Modifier.size(56.dp))
                     }
                 }
 
@@ -668,7 +674,7 @@ private fun FilterableTabContent(
         ) {
             if (tabState.isLoading && tabState.itemList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    ChrysanthemumLoading()
+                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 }
             } else if (tabState.itemList.isEmpty()) {
                 Box(
@@ -703,7 +709,7 @@ private fun FilterableTabContent(
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                ChrysanthemumLoading(size = 36.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(36.dp))
                             }
                         }
                     }

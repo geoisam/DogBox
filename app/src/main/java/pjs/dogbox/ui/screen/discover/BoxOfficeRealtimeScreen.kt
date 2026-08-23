@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
@@ -61,7 +61,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.utils.HttpUtil
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -250,7 +250,7 @@ fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         } else {
             val data = realtimeData
@@ -311,7 +311,7 @@ fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        ChrysanthemumLoading()
+                        CircularProgressIndicator(modifier = Modifier.size(56.dp))
                     }
                 } else if (showEmpty) {
                     Box(

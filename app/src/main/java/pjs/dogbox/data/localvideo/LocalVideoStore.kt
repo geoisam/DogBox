@@ -1,4 +1,4 @@
-package pjs.dogbox.ui.screen.mine
+package pjs.dogbox.data.localvideo
 
 import android.content.Context
 import androidx.core.content.edit

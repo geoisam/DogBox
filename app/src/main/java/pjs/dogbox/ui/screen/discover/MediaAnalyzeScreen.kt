@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.Manifest
 import android.content.ClipData
@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -19,7 +18,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +28,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,7 +36,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -76,15 +72,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.service.MediaDownloadService
-import pjs.dogbox.ui.screen.mine.openPermissionManager
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.openPermissionManager
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 private data class AnalyzeSource(val key: String, val name: String, val desc: String)
@@ -123,19 +117,19 @@ private val analyzeSources = listOf(
     AnalyzeSource(
         "JY",
         "JY线路",
-        "支持抖音、快手、小红书、微信、豆包、知乎、微博、YouTube、TikTok、Instagram、X(Twitter)等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "AH",
         "AH线路",
-        "支持抖音、快手、小红书、微信、豆包、知乎、微博、YouTube、TikTok、Instagram、X(Twitter)等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "EL",
         "EL线路",
-        "支持抖音、快手、小红书、微信、豆包、知乎、微博、YouTube、TikTok、Instagram、X(Twitter)等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
     ),
-    AnalyzeSource("LX", "LX线路", "支持抖音、快手等"),
+    AnalyzeSource("LX", "LX线路", "支持抖音、快手、B站等"),
     AnalyzeSource("HS", "HS线路", "支持抖音、小红书等"),
 )
 
@@ -727,24 +721,33 @@ fun MediaAnalyzeScreen(
                             },
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
+                                    FilledTonalIconButton(
                                         onClick = { copyText(context, res.musicUrl) },
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        ),
+                                        modifier = Modifier.size(36.dp),
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.content_copy_outlined),
                                             contentDescription = "复制音乐链接",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(24.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(22.dp),
                                         )
                                     }
-                                    IconButton(
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    FilledTonalIconButton(
                                         onClick = ::downloadMusic,
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        ),
+                                        modifier = Modifier.size(36.dp),
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.cloud_download_outlined),
                                             contentDescription = "下载音乐",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(24.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(22.dp),
                                         )
                                     }
                                 }

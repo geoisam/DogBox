@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
@@ -53,7 +53,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.utils.HttpUtil
 import java.nio.charset.Charset
 
@@ -180,7 +180,7 @@ internal fun MovieWorldScreen(
                 when {
                     isLoading && items.isEmpty() -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            ChrysanthemumLoading()
+                            CircularProgressIndicator(modifier = Modifier.size(56.dp))
                         }
                     }
 

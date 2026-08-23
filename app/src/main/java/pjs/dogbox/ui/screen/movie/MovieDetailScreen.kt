@@ -91,15 +91,15 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.ui.screen.CoverImage
-import pjs.dogbox.ui.screen.DisposableState
-import pjs.dogbox.utils.AppData
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.navigation.DisposableState
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SharedData
-import pjs.dogbox.utils.SimpleDragHandle
-import pjs.dogbox.utils.WatchHistoryItem
-import pjs.dogbox.utils.SheetSectionTitle
+import pjs.dogbox.data.SharedData
+import pjs.dogbox.ui.components.SimpleDragHandle
+import pjs.dogbox.data.WatchHistoryItem
+import pjs.dogbox.ui.components.SheetSectionTitle
 import kotlin.math.roundToInt
 
 data class EpisodeInfo(
@@ -152,7 +152,6 @@ internal class MovieDetailScreenState(
     val isFullscreen = mutableStateOf(false)
 
     val currentSpeed = mutableStateOf(1.0f)
-    val longPressSpeed = mutableStateOf(3.0f)
     val currentScaleModeIndex = mutableIntStateOf(0)
     val showSpeedSheet = mutableStateOf(false)
     val showScaleSheet = mutableStateOf(false)
@@ -375,7 +374,6 @@ internal fun MovieDetailScreen(
     var showCopySheet by remember { mutableStateOf(false) }
 
     var currentSpeed by state.currentSpeed
-    var longPressSpeed by state.longPressSpeed
     var currentScaleModeIndex by state.currentScaleModeIndex
     var showSpeedSheet by state.showSpeedSheet
     var showScaleSheet by state.showScaleSheet
@@ -1105,13 +1103,9 @@ internal fun MovieDetailScreen(
     if (showSpeedSheet) {
         SpeedBottomSheet(
             currentSpeed = currentSpeed,
-            longPressSpeed = longPressSpeed,
             onSpeedSelect = { speed ->
                 currentSpeed = speed
                 exoPlayer.playbackParameters = PlaybackParameters(speed)
-            },
-            onLongPressSpeedConfirm = { speed ->
-                longPressSpeed = speed
             },
             onDismiss = { showSpeedSheet = false },
         )
@@ -1158,7 +1152,7 @@ private fun PlayerPlaceholder(
             contentAlignment = Alignment.Center,
         ) {
             when {
-                isLoading -> ChrysanthemumLoading()
+                isLoading -> CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 onRetry != null -> Box(
                     modifier = Modifier
                         .clip(MaterialTheme.shapes.large)

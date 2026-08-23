@@ -61,8 +61,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.ui.theme.AppColorThemes
-import pjs.dogbox.utils.SharedData
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.data.SharedData
+import pjs.dogbox.ui.components.SimpleDragHandle
 
 data class ColorStyle(
     val id: String,
@@ -222,11 +222,6 @@ fun MyThemeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (supportsDynamicColor) Modifier.clickable {
-                                updateTheme(dynamic = !dynamicColor)
-                            } else Modifier
-                        )
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

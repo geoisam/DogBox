@@ -1,4 +1,4 @@
-package pjs.dogbox.utils
+package pjs.dogbox.ui.components
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler

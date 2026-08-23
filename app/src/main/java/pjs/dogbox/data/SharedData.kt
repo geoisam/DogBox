@@ -1,36 +1,10 @@
-package pjs.dogbox.utils
+package pjs.dogbox.data
 
 import android.content.Context
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -90,30 +64,6 @@ data class WatchHistoryItem(
     }
 }
 
-const val DISCLAIMER_TITLE = "免责声明"
-const val DISCLAIMER_MESSAGE =
-    "欢迎您使用 DogBox 软件（以下简称“本软件”）。\n\n本软件只提供聚合展示功能，所有资源来自网络。本软件不参与任何制作、上传、储存、下载等内容。\n\n本软件仅供个人学习与研究参考，严禁用于非法用途，安装后请于 24 小时内删除。\n\n对于使用本软件产生的一切后果，使用者责任自负。"
-const val DISCLAIMER_CONFIRM_TEXT = "知道了"
-
-@Composable
-fun DisclaimerDialog(
-    isOpen: Boolean,
-    onDismiss: () -> Unit,
-) {
-    TipsDialog(
-        isOpen = isOpen,
-        onClose = onDismiss,
-        title = DISCLAIMER_TITLE,
-        message = DISCLAIMER_MESSAGE,
-        confirmButtonText = DISCLAIMER_CONFIRM_TEXT,
-        onConfirm = onDismiss,
-        dismissButtonText = null,
-        onDismiss = { },
-        closeIcon = false,
-        onCloseIconClick = { }
-    )
-}
-
 object SharedData {
     private const val PREFS_NAME = "app_settings"
     private const val KEY_TIPS_DIALOG_SHOWN = "is_tips_dialog_shown"
@@ -127,6 +77,12 @@ object SharedData {
     private const val KEY_DYNAMIC_COLOR_STYLE = "dynamic_color_style"
     private const val KEY_AUTO_CHECK_UPDATE = "auto_check_update"
     private const val KEY_SCROLL_TEXT_CONFIG = "scroll_text_config"
+    private const val KEY_DOWNLOAD_MODE = "download_mode"
+    private const val KEY_LONG_PRESS_SPEED = "long_press_speed"
+    private const val KEY_BACKGROUND_PLAYBACK = "background_playback"
+    private const val KEY_AD_FILTER = "ad_filter"
+
+    private const val KEY_PLAYBACK_ORDER = "playback_order"
 
     private fun getPrefs(context: Context): android.content.SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -346,6 +302,56 @@ object SharedData {
         autoCheckDoneState = false
     }
 
+    // === Download Mode ===
+    // 0 = built-in download (default), 1 = system download manager
+    fun getDownloadMode(context: Context): Int {
+        return getPrefs(context).getInt(KEY_DOWNLOAD_MODE, 0)
+    }
+
+    fun setDownloadMode(context: Context, mode: Int) {
+        getPrefs(context).edit { putInt(KEY_DOWNLOAD_MODE, mode) }
+    }
+
+    // === Long Press Speed ===
+
+    fun getLongPressSpeed(context: Context): Float {
+        return getPrefs(context).getFloat(KEY_LONG_PRESS_SPEED, 3.0f)
+    }
+
+    fun setLongPressSpeed(context: Context, speed: Float) {
+        getPrefs(context).edit { putFloat(KEY_LONG_PRESS_SPEED, speed) }
+    }
+
+    // === Background Playback ===
+
+    fun isBackgroundPlayback(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_BACKGROUND_PLAYBACK, false)
+    }
+
+    fun setBackgroundPlayback(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_BACKGROUND_PLAYBACK, enabled) }
+    }
+
+    // === Ad Filter ===
+
+    fun isAdFilterEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_AD_FILTER, true)
+    }
+
+    fun setAdFilterEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_AD_FILTER, enabled) }
+    }
+
+    // === Playback Order ===
+
+    fun getPlaybackOrder(context: Context): Int {
+        return getPrefs(context).getInt(KEY_PLAYBACK_ORDER, 0)
+    }
+
+    fun setPlaybackOrder(context: Context, order: Int) {
+        getPrefs(context).edit { putInt(KEY_PLAYBACK_ORDER, order) }
+    }
+
     // === Scrolling Text Config ===
 
     data class ScrollingTextConfig(
@@ -445,52 +451,5 @@ object SharedData {
 
     fun setCachedCheckFailed(value: Boolean) {
         cachedCheckFailedState = value
-    }
-}
-
-@Composable
-fun SheetSectionTitle(title: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(18.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.primary)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
-
-@Composable
-fun SimpleDragHandle() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {}
-            .padding(vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(56.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.Gray.copy(alpha = 0.5f))
-        )
     }
 }

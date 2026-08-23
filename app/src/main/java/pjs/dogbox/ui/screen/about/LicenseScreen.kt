@@ -49,7 +49,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import androidx.compose.material3.CircularProgressIndicator
 
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
@@ -129,7 +129,7 @@ fun LicenseScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChrysanthemumLoading()
+                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 }
             }
 

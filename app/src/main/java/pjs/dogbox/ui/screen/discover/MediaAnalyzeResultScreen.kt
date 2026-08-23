@@ -71,7 +71,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.service.MediaDownloadService
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.data.AppData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

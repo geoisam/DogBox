@@ -1,4 +1,4 @@
-﻿package pjs.dogbox.ui.screen.discover
+package pjs.dogbox.ui.screen.discover
 
 import android.content.pm.ActivityInfo
 import android.widget.Toast
@@ -63,7 +63,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
@@ -85,7 +85,6 @@ fun MediaLinkTestScreen(
     val notice = "支持.m3u8、.mp4、.flv等点播或直播"
 
     var currentSpeed by remember { mutableStateOf(1.0f) }
-    var longPressSpeed by remember { mutableStateOf(3.0f) }
     var currentScaleModeIndex by remember { mutableIntStateOf(0) }
     var showSpeedSheet by remember { mutableStateOf(false) }
     var showScaleSheet by remember { mutableStateOf(false) }
@@ -272,7 +271,7 @@ fun MediaLinkTestScreen(
                             )
                         }
                         if (isDetecting) {
-                            ChrysanthemumLoading(
+                            CircularProgressIndicator(
                                 modifier = Modifier.align(Alignment.Center),
                             )
                         } else {
@@ -452,13 +451,9 @@ fun MediaLinkTestScreen(
     if (showSpeedSheet) {
         SpeedBottomSheet(
             currentSpeed = currentSpeed,
-            longPressSpeed = longPressSpeed,
             onSpeedSelect = { speed ->
                 currentSpeed = speed
                 exoPlayer.playbackParameters = PlaybackParameters(speed)
-            },
-            onLongPressSpeedConfirm = { speed ->
-                longPressSpeed = speed
             },
             onDismiss = { showSpeedSheet = false },
         )

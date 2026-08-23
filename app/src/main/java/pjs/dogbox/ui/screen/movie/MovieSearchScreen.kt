@@ -86,12 +86,12 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.ui.screen.CoverImage
-import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.utils.AppData
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 internal enum class SearchSource(
@@ -639,7 +639,7 @@ private fun SourceTabContent(
     ) {
         if (state.isLoading && state.itemList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         } else if (state.loadError && state.itemList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -698,7 +698,7 @@ private fun SourceTabContent(
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            ChrysanthemumLoading(size = 36.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(36.dp))
                         }
                     }
                 } else if (state.loadError) {

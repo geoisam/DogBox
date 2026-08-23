@@ -1,4 +1,4 @@
-package pjs.dogbox.ui.screen
+package pjs.dogbox.data.invite
 
 import io.ktor.http.ContentType
 import kotlinx.coroutines.Deferred

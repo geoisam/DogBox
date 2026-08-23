@@ -1,4 +1,4 @@
-package pjs.dogbox.ui.screen
+package pjs.dogbox.ui.components
 
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyListState

@@ -82,13 +82,13 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
-import pjs.dogbox.ui.screen.CoverImage
-import pjs.dogbox.ui.screen.PagerTabFollowEffect
-import pjs.dogbox.ui.screen.TabStateCache
-import pjs.dogbox.utils.AppData
+import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.navigation.TabStateCache
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 internal data class MovieItem(
@@ -212,7 +212,7 @@ internal fun MovieRatingScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChrysanthemumLoading()
+                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 }
             }
 
@@ -486,7 +486,7 @@ private fun MovieCategoryContent(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                ChrysanthemumLoading()
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
             }
         }
 
@@ -508,7 +508,7 @@ private fun MovieCategoryContent(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChrysanthemumLoading()
+                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -576,7 +576,7 @@ private fun MovieCategoryContent(
                                                 .padding(16.dp),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            ChrysanthemumLoading(size = 36.dp)
+                                            CircularProgressIndicator(modifier = Modifier.size(36.dp))
                                         }
                                     }
                                 }

@@ -84,8 +84,8 @@ import kotlinx.coroutines.delay
 import pjs.dogbox.R
 import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
+import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.MoreSettingsContent
-import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SeekBar
@@ -95,8 +95,8 @@ import pjs.dogbox.ui.screen.movie.formatTime
 import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
 import pjs.dogbox.ui.screen.movie.refreshEndedFrame
-import pjs.dogbox.utils.AppData
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.SimpleDragHandle
 
 private fun setSystemBarsVisible(
     controller: WindowInsetsControllerCompat?,
@@ -126,6 +126,8 @@ fun MediaAnalyzePreview(
 ) {
     val context = LocalContext.current
     val activity = context as? android.app.Activity
+
+    GlobalPlayerConfig.init(context)
 
     val pagerState = rememberPagerState(
         initialPage = initialIndex.coerceIn(0, (videoUrls.size - 1).coerceAtLeast(0)),
@@ -173,11 +175,12 @@ fun MediaAnalyzePreview(
     var isMuted by remember { mutableStateOf(false) }
     var previousVolume by remember { mutableFloatStateOf(1f) }
     var currentSpeed by remember { mutableFloatStateOf(1.0f) }
+    val longPressSpeed = GlobalPlayerConfig.longPressSpeed
     var currentScaleModeIndex by remember { mutableIntStateOf(0) }
     var flipHorizontal by remember { mutableStateOf(false) }
     var flipVertical by remember { mutableStateOf(false) }
-    var backgroundPlayback by remember { mutableStateOf(false) }
-    var playbackOrder by remember { mutableStateOf(PlaybackOrder.AUTO_NEXT) }
+    val backgroundPlayback = GlobalPlayerConfig.backgroundPlayback
+    val playbackOrder = GlobalPlayerConfig.playbackOrder
 
     var showSpeedSheet by remember { mutableStateOf(false) }
     var showScaleSheet by remember { mutableStateOf(false) }
@@ -683,12 +686,10 @@ fun MediaAnalyzePreview(
     if (showSpeedSheet) {
         SpeedBottomSheet(
             currentSpeed = currentSpeed,
-            longPressSpeed = 3.0f,
             onSpeedSelect = { speed ->
                 currentSpeed = speed
                 exoPlayer.playbackParameters = PlaybackParameters(speed)
             },
-            onLongPressSpeedConfirm = {},
             onDismiss = { showSpeedSheet = false },
         )
     }
@@ -719,11 +720,15 @@ fun MediaAnalyzePreview(
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
+                    adFilter = GlobalPlayerConfig.adFilter,
                     playbackOrder = playbackOrder,
+                    longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { backgroundPlayback = it },
-                    onPlaybackOrderChange = { playbackOrder = it },
+                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
                     useFixedDarkColors = false,
                 )

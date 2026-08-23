@@ -1,5 +1,7 @@
 package pjs.dogbox.ui.screen.mine
 
+import pjs.dogbox.utils.openPermissionManager
+
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -64,12 +66,12 @@ import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
-import pjs.dogbox.utils.AppData
-import pjs.dogbox.utils.DisclaimerDialog
-import pjs.dogbox.utils.SharedData
-import pjs.dogbox.utils.UpdateBottomSheet
-import pjs.dogbox.utils.fetchRemoteConfig
-import pjs.dogbox.utils.parseUpdateInfo
+import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.DisclaimerDialog
+import pjs.dogbox.data.SharedData
+import pjs.dogbox.ui.components.UpdateBottomSheet
+import pjs.dogbox.data.fetchRemoteConfig
+import pjs.dogbox.data.parseUpdateInfo
 
 private enum class UpdateCheckState {
     NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE, CHECK_FAILED
@@ -360,11 +362,6 @@ fun AboutMeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            val newValue = !autoCheckUpdate
-                            autoCheckUpdate = newValue
-                            SharedData.setAutoCheckUpdate(context, newValue)
-                        }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -434,10 +431,6 @@ fun AboutMeScreen(
                         text = "开源许可",
                         onClick = onNavigateToLicense
                     )
-                    AboutListItem(
-                        text = "程序日志",
-                        onClick = {}
-                    )
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -486,75 +479,3 @@ fun AboutListItem(
     }
 }
 
-internal fun openPermissionManager(context: Context) {
-    val pkg = context.packageName
-    val manufacturer = Build.MANUFACTURER.lowercase()
-    val candidates = mutableListOf<Intent>()
-
-    when {
-        manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> {
-            candidates += Intent("miui.intent.action.APP_PERM_EDITOR")
-                .setClassName(
-                    "com.miui.securitycenter",
-                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
-                )
-                .putExtra("extra_pkgname", pkg)
-            candidates += Intent("miui.intent.action.APP_PERM_EDITOR")
-                .setClassName(
-                    "com.miui.securitycenter",
-                    "com.miui.permcenter.permissions.AppPermissionsEditorActivity"
-                )
-                .putExtra("extra_pkgname", pkg)
-        }
-
-        manufacturer.contains("huawei") || manufacturer.contains("honor") -> {
-            candidates += Intent("com.huawei.systemmanager.intent.action.MANAGE_APPLICATIONS_PERMISSION")
-                .setData(Uri.parse("package:$pkg"))
-            candidates += Intent("huawei.intent.action.ACTION_APPLICATION_DETAILS")
-                .setData(Uri.parse("package:$pkg"))
-        }
-
-        manufacturer.contains("oppo") || manufacturer.contains("oneplus") || manufacturer.contains("realme") -> {
-            candidates += Intent()
-                .setClassName(
-                    "com.color.safecenter",
-                    "com.color.safecenter.permission.PermissionAppAllPermissionActivity"
-                )
-                .putExtra("packageName", pkg)
-            candidates += Intent()
-                .setClassName(
-                    "com.oppo.safe",
-                    "com.oppo.safe.permission.PermissionAppAllPermissionActivity"
-                )
-                .putExtra("packageName", pkg)
-        }
-
-        manufacturer.contains("vivo") -> {
-            candidates += Intent()
-                .setClassName(
-                    "com.vivo.permissionmanager",
-                    "com.vivo.permissionmanager.activity.PurviewTabActivity"
-                )
-                .putExtra("packagename", pkg)
-        }
-    }
-
-    for (intent in candidates) {
-        try {
-            context.startActivity(intent)
-            return
-        } catch (_: ActivityNotFoundException) {
-        }
-    }
-
-    try {
-        context.startActivity(
-            Intent(
-                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                "package:$pkg".toUri()
-            )
-        )
-    } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, "无法打开权限设置", Toast.LENGTH_SHORT).show()
-    }
-}

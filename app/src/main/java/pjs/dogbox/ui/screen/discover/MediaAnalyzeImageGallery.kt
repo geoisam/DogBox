@@ -90,11 +90,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.mine.openPermissionManager
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.openPermissionManager
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.io.File
 import java.util.Locale
 
@@ -483,23 +483,35 @@ fun MediaAnalyzeImageGallery(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(listOf(Color.Transparent, Color.Black))
-                )
-                .navigationBarsPadding()
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
+        AnimatedVisibility(
+            visible = showTopBar,
+            enter = slideInVertically(
+                animationSpec = tween(200),
+                initialOffsetY = { it },
+            ) + fadeIn(animationSpec = tween(200)),
+            exit = slideOutVertically(
+                animationSpec = tween(200),
+                targetOffsetY = { it },
+            ) + fadeOut(animationSpec = tween(200)),
+            modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            Text(
-                text = "${pagerState.currentPage + 1} / ${imageUrls.size}",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(listOf(Color.Transparent, Color.Black))
+                    )
+                    .navigationBarsPadding()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "${pagerState.currentPage + 1} / ${imageUrls.size}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 

@@ -1,5 +1,14 @@
 package pjs.dogbox.ui.screen.mine
 
+import pjs.dogbox.data.localvideo.formatDuration
+import pjs.dogbox.data.localvideo.formatSize
+import pjs.dogbox.data.localvideo.hasFileAccessPermission
+import pjs.dogbox.data.localvideo.openFileAccessPermissionPage
+
+import pjs.dogbox.data.localvideo.LocalVideoItem
+import pjs.dogbox.data.localvideo.LocalVideoStore
+import pjs.dogbox.data.localvideo.queryMediaStoreVideos
+
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -85,7 +94,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.ChrysanthemumLoading
+import androidx.compose.material3.CircularProgressIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -294,7 +303,7 @@ fun LocalVideosScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                ChrysanthemumLoading()
+                                CircularProgressIndicator(modifier = Modifier.size(56.dp))
                             }
                         } else {
                             PullToRefreshBox(

@@ -1,4 +1,4 @@
-package pjs.dogbox.utils
+package pjs.dogbox.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import pjs.dogbox.utils.HttpUtil
 
 data class UpdateInfo(
     val code: Int,

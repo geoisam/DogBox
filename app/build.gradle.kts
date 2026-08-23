@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "pjs.dogbox"
-        minSdk = 28
+        minSdk = 29
         targetSdk = 37
         versionCode = 26082000
         versionName = "0.3.1"
@@ -94,7 +94,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.documentfile)
-    implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)

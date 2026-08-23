@@ -1,4 +1,6 @@
-package pjs.dogbox.ui.screen.mine
+package pjs.dogbox.data.localvideo
+
+import pjs.dogbox.utils.openPermissionManager
 
 import android.Manifest
 import android.content.ContentUris

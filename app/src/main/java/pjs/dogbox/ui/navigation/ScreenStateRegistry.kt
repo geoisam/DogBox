@@ -1,4 +1,4 @@
-package pjs.dogbox.ui.screen
+package pjs.dogbox.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect

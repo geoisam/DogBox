@@ -1,6 +1,5 @@
 package pjs.dogbox.ui.navigation
 
-import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,8 +48,6 @@ import pjs.dogbox.ui.screen.HomeScreen
 import pjs.dogbox.ui.screen.HomeScreenState
 import pjs.dogbox.ui.screen.ImageViewerScreen
 import pjs.dogbox.ui.screen.MineScreen
-import pjs.dogbox.ui.screen.ScreenStateRegistry
-import pjs.dogbox.ui.screen.rememberEntryState
 import pjs.dogbox.ui.screen.about.ContributorScreen
 import pjs.dogbox.ui.screen.about.LicenseScreen
 import pjs.dogbox.ui.screen.discover.AnimeRankScreen
@@ -74,9 +71,11 @@ import pjs.dogbox.ui.screen.discover.MovieWorldScreen
 import pjs.dogbox.ui.screen.discover.ScrollingTextScreen
 import pjs.dogbox.ui.screen.discover.TvLiveScreen
 import pjs.dogbox.ui.screen.mine.AboutMeScreen
+import pjs.dogbox.ui.screen.mine.CacheManageScreen
 import pjs.dogbox.ui.screen.mine.LocalVideoPreview
 import pjs.dogbox.ui.screen.mine.LocalVideosScreen
 import pjs.dogbox.ui.screen.mine.MyThemeScreen
+import pjs.dogbox.ui.screen.mine.SettingsScreen
 import pjs.dogbox.ui.screen.mine.SponsorScreen
 import pjs.dogbox.ui.screen.mine.WatchHistoryScreen
 import pjs.dogbox.ui.screen.movie.MovieDetailScreen
@@ -85,12 +84,12 @@ import pjs.dogbox.ui.screen.movie.MovieSearchScreen
 import pjs.dogbox.ui.screen.movie.MovieSearchScreenState
 import pjs.dogbox.ui.screen.movie.extractHost
 import pjs.dogbox.ui.screen.movie.extractVideoId
-import pjs.dogbox.utils.AppData
-import pjs.dogbox.utils.DisclaimerDialog
-import pjs.dogbox.utils.SharedData
-import pjs.dogbox.utils.UpdateBottomSheet
-import pjs.dogbox.utils.fetchRemoteConfig
-import pjs.dogbox.utils.parseUpdateInfo
+import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.DisclaimerDialog
+import pjs.dogbox.data.SharedData
+import pjs.dogbox.ui.components.UpdateBottomSheet
+import pjs.dogbox.data.fetchRemoteConfig
+import pjs.dogbox.data.parseUpdateInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,9 +160,9 @@ fun BaseScreen(
                 onNavigateToDetail = { navController.navigate(AppRoutes.discoverDetail(it.name)) },
                 onNavigateToHistory = { navController.navigate(AppRoutes.WATCH_HISTORY) },
                 onNavigateToLocalVideos = { navController.navigate(AppRoutes.LOCAL_VIDEOS) },
-                onNavigateToTheme = { navController.navigate(AppRoutes.MY_THEME) },
                 onNavigateToAboutMe = { navController.navigate(AppRoutes.ABOUT_ME) },
                 onNavigateToSponsor = { navController.navigate(AppRoutes.SPONSOR) },
+                onNavigateToSettings = { navController.navigate(AppRoutes.SETTINGS) },
                 onViewImage = { url, referer, title ->
                     navController.navigate(AppRoutes.imageViewer(url, referer, title))
                 },
@@ -465,6 +464,20 @@ fun BaseScreen(
             LicenseScreen(onBack = { navController.popBackStack() })
         }
 
+        composable(AppRoutes.SETTINGS) {
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToTheme = { navController.navigate(AppRoutes.MY_THEME) },
+                onNavigateToCacheManage = { navController.navigate(AppRoutes.CACHE_MANAGE) },
+            )
+        }
+
+        composable(AppRoutes.CACHE_MANAGE) {
+            CacheManageScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+
         composable(
             route = AppRoutes.IMAGE_VIEWER,
             arguments = listOf(
@@ -511,9 +524,9 @@ private fun MainScaffold(
     onNavigateToDetail: (DiscoverPage) -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToLocalVideos: () -> Unit,
-    onNavigateToTheme: () -> Unit,
     onNavigateToAboutMe: () -> Unit,
     onNavigateToSponsor: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
@@ -595,7 +608,7 @@ private fun MainScaffold(
                         }
                         FilledTonalIconButton(
                             onClick = {
-                                Toast.makeText(context, "设置", Toast.LENGTH_SHORT).show()
+                                onNavigateToSettings()
                             },
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -634,7 +647,6 @@ private fun MainScaffold(
                     AppDestinations.MINE -> MineScreen(
                         onNavigateToHistory = onNavigateToHistory,
                         onNavigateToLocalVideos = onNavigateToLocalVideos,
-                        onNavigateToTheme = onNavigateToTheme,
                         onNavigateToAboutMe = onNavigateToAboutMe,
                         onNavigateToSponsor = onNavigateToSponsor,
                     )

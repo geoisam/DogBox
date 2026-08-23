@@ -16,7 +16,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.ui.navigation.BaseScreen
 import pjs.dogbox.ui.screen.SplashScreen
 import pjs.dogbox.ui.theme.DogBoxTheme
-import pjs.dogbox.utils.SharedData
+import pjs.dogbox.data.SharedData
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,5 +1,7 @@
 package pjs.dogbox.ui.screen
 
+import pjs.dogbox.ui.components.SimpleDragHandle
+
 import android.Manifest
 import android.app.Activity
 import android.content.ClipData
@@ -87,10 +89,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.ui.screen.mine.openPermissionManager
-import pjs.dogbox.utils.AppData
+import pjs.dogbox.utils.openPermissionManager
+import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.utils.SimpleDragHandle
+import pjs.dogbox.ui.components.SimpleDragHandle
 import java.io.File
 import java.util.Locale
 
