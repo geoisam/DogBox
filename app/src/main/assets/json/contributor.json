@@ -24,6 +24,12 @@
     "link": "https://deepseek.com"
   },
   {
+    "name": "ChatGLM",
+    "desc": "编程建议、开发辅助",
+    "icon": "https://a.favicon.im/chatglm.cn",
+    "link": "https://chatglm.cn"
+  },
+  {
     "name": "MiMo",
     "desc": "编程建议、开发辅助",
     "icon": "https://a.favicon.im/mimo.mi.com",

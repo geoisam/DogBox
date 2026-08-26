@@ -3,6 +3,7 @@ import com.android.build.api.variant.impl.VariantOutputImpl
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -15,8 +16,8 @@ android {
         applicationId = "pjs.dogbox"
         minSdk = 29
         targetSdk = 37
-        versionCode = 26082000
-        versionName = "0.3.1"
+        versionCode = 26082810
+        versionName = "0.3.3"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a"))

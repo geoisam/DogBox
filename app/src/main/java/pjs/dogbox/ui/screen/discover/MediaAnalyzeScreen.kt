@@ -66,19 +66,16 @@ import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import pjs.dogbox.R
+import pjs.dogbox.data.AppData
 import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.utils.openPermissionManager
+import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
+import java.security.SecureRandom
 
 private data class AnalyzeSource(val key: String, val name: String, val desc: String)
 
@@ -116,27 +113,25 @@ private val analyzeSources = listOf(
     AnalyzeSource(
         "JY",
         "JY线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
-    ),
-    AnalyzeSource(
-        "AH",
-        "AH线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "EL",
         "EL线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、最右、皮皮虾等",
+    ),
+    AnalyzeSource(
+        "AH",
+        "AH线路",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "QT",
         "QT线路",
-        "支持抖音、快手、小红书、B站、豆包、西瓜、头条、小云雀、千问、美拍、虎牙、A站、即梦、最右、皮皮虾等",
+        "支持抖音、快手、小红书、B站、豆包、即梦、小云雀、千问、西瓜、头条、A站、最右、皮皮虾等",
     ),
     AnalyzeSource("LX", "LX线路", "支持抖音、快手、B站等"),
     AnalyzeSource("HS", "HS线路", "支持抖音、小红书等"),
-    AnalyzeSource("ST", "ST线路", "支持X(Twitter)等"),
-    AnalyzeSource("MC", "MC线路", "支持X(Twitter)等"),
 )
 
 internal fun extractShareUrl(input: String): String? {
@@ -166,9 +161,36 @@ private fun lingXingUrl(link: String): String =
 private fun hongShuUrl(link: String): String =
     "https://async-dev.fun/api/xhs/post?user_id=ohyol7X24fMXmQgRx-Ky4Ixfb918&url=${URLEncoder.encode(link, "UTF-8")}"
 
-private fun JsonElement?.asStringList(): List<String> {
-    val array = this as? JsonArray ?: return emptyList()
-    return array.mapNotNull { it.jsonPrimitive.contentOrNull }
+private suspend fun qingTingUrl(link: String): AnalyzeResult? {
+    val appKey = "Nk7Qp4Lm2Vz8Hs1C"
+    val nonceID = generateRandomID()
+    val timestamp = (System.currentTimeMillis() / 1000).toString()
+    val sign = CryptUtil.md5(
+        "AppKey${appKey}AppVersion2.0.0Nonce${nonceID}Timestamp${timestamp}rT6mX9QaLp2Nd7FsKc4Hv8Jy",
+        32,
+        false,
+    )
+    val headers = mapOf(
+        "nonce" to nonceID,
+        "timestamp" to timestamp,
+        "sign" to sign,
+        "app-version" to "2.0.0",
+        "origin" to "https://33tool.com",
+        "referer" to "https://33tool.com/",
+        "user-agent" to AppData.UA_WECHAT_PC,
+    )
+    val body = buildJsonObject { put("url", link) }.toString()
+    val response = HttpUtil.post("https://api.33tool.com/api/client/parse/all", body, headers = headers).getOrNull()
+        ?: return null
+    val json = runCatching { Json.parseToJsonElement(response) }.getOrNull() ?: return null
+    return parseQingTing(json)
+}
+
+fun generateRandomID(length: Int = 11): String {
+    val allowedChars = ('a'..'z') + ('0'..'9')
+    return (1..length)
+        .map { allowedChars.random() }
+        .joinToString("")
 }
 
 private fun JsonElement?.asUrlList(): List<String> = when (this) {
@@ -274,7 +296,26 @@ private fun parseHongShu(json: JsonElement): AnalyzeResult {
     return AnalyzeResult(title, distinct(videos), distinct(images))
 }
 
+private fun parseQingTing(json: JsonElement): AnalyzeResult {
+    val data = json.jsonObject["data"]?.jsonObject ?: return AnalyzeResult("")
+    val title = data["title"]?.jsonPrimitive?.contentOrNull ?: ""
+    val images = buildList {
+        addAll(data["images"].asObjectFieldList("url"))
+    }
+    val videos = buildList {
+        addAll(data["videoUrl"].asUrlList())
+        addAll(data["images"].asObjectFieldList("livePhotoUrl"))
+    }
+    val music = (data["musicUrl"] as? JsonPrimitive)?.firstUrl()
+        ?.takeIf { it.startsWith("http", ignoreCase = true) } ?: ""
+
+    return AnalyzeResult(title, distinct(videos), distinct(images), music)
+}
+
 private suspend fun analyzeWith(source: String, link: String): AnalyzeResult? = withContext(Dispatchers.IO) {
+    if (source == "QT") {
+        return@withContext qingTingUrl(link)
+    }
     val apiUrl = when (source) {
         "JY" -> jingYinUrl(link, link.contains("douyin", ignoreCase = true))
         "AH" -> aHuaUrl(link)

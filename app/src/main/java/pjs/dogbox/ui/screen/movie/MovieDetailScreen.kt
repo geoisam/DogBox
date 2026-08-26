@@ -31,8 +31,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -1008,13 +1006,21 @@ internal fun MovieDetailScreen(
     }
 
     if (showCopySheet) {
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val sheetMaxHeight =
+            (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
         val copySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showCopySheet = false },
             sheetState = copySheetState,
             dragHandle = { SimpleDragHandle() },
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(sheetMaxHeight)
+                    .padding(bottom = 24.dp),
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1056,7 +1062,15 @@ internal fun MovieDetailScreen(
                 )
                 SheetActionItem(
                     icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开网页",
+                    label = "浏览器打开播放链接",
+                    onClick = {
+                        showCopySheet = false
+                        openInBrowser(currentM3u8Url)
+                    },
+                )
+                SheetActionItem(
+                    icon = R.drawable.open_in_browser_outlined,
+                    label = "浏览器打开网页链接",
                     onClick = {
                         showCopySheet = false
                         openInBrowser(currentEpisodeUrl)
@@ -1423,35 +1437,25 @@ private fun RouteBottomSheet(
             ) {
                 SheetSectionTitle("线路")
                 Spacer(modifier = Modifier.height(4.dp))
-                Card(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FlowRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        routes.forEachIndexed { index, route ->
-                            PlayerFilterChip(
-                                selected = index == selectedIndex,
-                                onClick = { onSelect(index) },
-                                label = route.name,
-                                useFixedDarkColors = false,
-                                modifier = if (index == selectedIndex) {
-                                    Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                                } else {
-                                    Modifier
-                                },
-                            )
-                        }
+                    routes.forEachIndexed { index, route ->
+                        PlayerFilterChip(
+                            selected = index == selectedIndex,
+                            onClick = { onSelect(index) },
+                            label = route.name,
+                            useFixedDarkColors = false,
+                            modifier = if (index == selectedIndex) {
+                                Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                            } else {
+                                Modifier
+                            },
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

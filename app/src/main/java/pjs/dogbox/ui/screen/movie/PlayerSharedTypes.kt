@@ -577,32 +577,21 @@ internal fun ScalePanelContent(
     useFixedDarkColors: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val cardContainer = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHigh
-
     Column(modifier = modifier.fillMaxWidth()) {
-        Card(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = cardContainer),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ALL_SCALE_MODES.forEachIndexed { index, scaleMode ->
-                    PlayerFilterChip(
-                        selected = index == selectedIndex,
-                        onClick = { onSelect(index) },
-                        label = scaleMode.label,
-                        useFixedDarkColors = useFixedDarkColors,
-                    )
-                }
+            ALL_SCALE_MODES.forEachIndexed { index, scaleMode ->
+                PlayerFilterChip(
+                    selected = index == selectedIndex,
+                    onClick = { onSelect(index) },
+                    label = scaleMode.label,
+                    useFixedDarkColors = useFixedDarkColors,
+                )
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -1946,41 +1935,30 @@ private fun EpisodeChipGrid(
     bringIntoViewRequester: BringIntoViewRequester,
     modifier: Modifier = Modifier,
 ) {
-    val cardContainer = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHigh
-
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-        Card(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = cardContainer),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                episodes.forEachIndexed { idx, ep ->
-                    val realIdx = startIndex + idx
-                    PlayerFilterChip(
-                        selected = realIdx == selectedIndex,
-                        onClick = { onSelect(realIdx) },
-                        label = ep.name,
-                        useFixedDarkColors = useFixedDarkColors,
-                        modifier = if (realIdx == selectedIndex) {
-                            Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                        } else {
-                            Modifier
-                        },
-                    )
-                }
+            episodes.forEachIndexed { idx, ep ->
+                val realIdx = startIndex + idx
+                PlayerFilterChip(
+                    selected = realIdx == selectedIndex,
+                    onClick = { onSelect(realIdx) },
+                    label = ep.name,
+                    useFixedDarkColors = useFixedDarkColors,
+                    modifier = if (realIdx == selectedIndex) {
+                        Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                    } else {
+                        Modifier
+                    },
+                )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
