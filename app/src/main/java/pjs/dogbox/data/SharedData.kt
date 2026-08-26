@@ -80,7 +80,7 @@ object SharedData {
     private const val KEY_DOWNLOAD_MODE = "download_mode"
     private const val KEY_LONG_PRESS_SPEED = "long_press_speed"
     private const val KEY_BACKGROUND_PLAYBACK = "background_playback"
-    private const val KEY_AD_FILTER = "ad_filter"
+    private const val KEY_ADS_FILTER = "ads_filter"
 
     private const val KEY_PLAYBACK_ORDER = "playback_order"
 
@@ -332,14 +332,14 @@ object SharedData {
         getPrefs(context).edit { putBoolean(KEY_BACKGROUND_PLAYBACK, enabled) }
     }
 
-    // === Ad Filter ===
+    // === Ads Filter ===
 
-    fun isAdFilterEnabled(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_AD_FILTER, true)
+    fun isAdsFilterEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_ADS_FILTER, true)
     }
 
-    fun setAdFilterEnabled(context: Context, enabled: Boolean) {
-        getPrefs(context).edit { putBoolean(KEY_AD_FILTER, enabled) }
+    fun setAdsFilterEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_ADS_FILTER, enabled) }
     }
 
     // === Playback Order ===

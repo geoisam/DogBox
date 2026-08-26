@@ -25,8 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -326,120 +326,113 @@ fun MediaLinkTestScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
-                            value = url,
-                            onValueChange = { url = it },
-                            label = { Text("播放链接") },
-                            placeholder = { Text("请输入播放链接") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp),
-                            maxLines = 100,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Go,
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onGo = {
-                                    focusManager.clearFocus()
-                                    detectAndPlay(url.trim())
-                                }
-                            ),
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            ActionIconItem(
-                                icon = R.drawable.link_outlined,
-                                label = "过滤链接",
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    val link = extractShareUrl(url)
-                                    if (link != null) {
-                                        url = link
-                                    } else {
-                                        Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.kid_star_outlined,
-                                label = "收藏视频",
-                                onClick = {
-                                    focusManager.clearFocus()
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.cloud_download_outlined,
-                                label = "缓存视频",
-                                onClick = {
-                                    focusManager.clearFocus()
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.speed_outlined,
-                                label = "播放倍速",
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    showSpeedSheet = true
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.aspect_ratio_outlined,
-                                label = "视频画幅",
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    showScaleSheet = true
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        ClipboardActionRow(
-                            onClear = {
-                                focusManager.clearFocus()
-                                url = ""
-                            },
-                            onPaste = {
-                                focusManager.clearFocus()
-                                val pasted = pasteFromClipboard(context)
-                                if (pasted != null) {
-                                    url = pasted
-                                } else {
-                                    Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        FilledTonalButton(
-                            onClick = {
-                                focusManager.clearFocus()
-                                detectAndPlay(url.trim())
-                            },
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
                             shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            ),
                         ) {
-                            Text(
-                                "开始播放",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                OutlinedTextField(
+                                    value = url,
+                                    onValueChange = { url = it },
+                                    label = { Text("播放链接") },
+                                    placeholder = { Text("请输入播放链接") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 120.dp),
+                                    maxLines = 100,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Uri,
+                                        imeAction = ImeAction.Go,
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onGo = {
+                                            focusManager.clearFocus()
+                                            detectAndPlay(url.trim())
+                                        }
+                                    ),
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    ActionIconItem(
+                                        icon = R.drawable.link_outlined,
+                                        label = "过滤链接",
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            val link = extractShareUrl(url)
+                                            if (link != null) {
+                                                url = link
+                                            } else {
+                                                Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    ActionIconItem(
+                                        icon = R.drawable.kid_star_outlined,
+                                        label = "收藏视频",
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    ActionIconItem(
+                                        icon = R.drawable.cloud_download_outlined,
+                                        label = "缓存视频",
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    ActionIconItem(
+                                        icon = R.drawable.speed_outlined,
+                                        label = "播放倍速",
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            showSpeedSheet = true
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    ActionIconItem(
+                                        icon = R.drawable.aspect_ratio_outlined,
+                                        label = "视频画幅",
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            showScaleSheet = true
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                ClipboardActionRow(
+                                    onClear = {
+                                        focusManager.clearFocus()
+                                        url = ""
+                                    },
+                                    onPaste = {
+                                        focusManager.clearFocus()
+                                        val pasted = pasteFromClipboard(context)
+                                        if (pasted != null) {
+                                            url = pasted
+                                        } else {
+                                            Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    actionText = "开始播放",
+                                    onAction = {
+                                        focusManager.clearFocus()
+                                        detectAndPlay(url.trim())
+                                    },
+                                )
+                            }
                         }
 
                     }

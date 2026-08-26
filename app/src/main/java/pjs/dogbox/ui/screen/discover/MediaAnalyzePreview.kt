@@ -127,8 +127,6 @@ fun MediaAnalyzePreview(
     val context = LocalContext.current
     val activity = context as? android.app.Activity
 
-    GlobalPlayerConfig.init(context)
-
     val pagerState = rememberPagerState(
         initialPage = initialIndex.coerceIn(0, (videoUrls.size - 1).coerceAtLeast(0)),
         pageCount = { videoUrls.size },
@@ -720,13 +718,13 @@ fun MediaAnalyzePreview(
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
-                    adFilter = GlobalPlayerConfig.adFilter,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
                     playbackOrder = playbackOrder,
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
                     onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },

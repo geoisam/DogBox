@@ -198,227 +198,237 @@ fun InviteMasterScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { showTypeSheet = true },
+                modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                border = BorderStroke(
-                    if (showTypeSheet) 2.dp else 1.dp,
-                    if (showTypeSheet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                )
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(16.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.app_registration_outlined),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = selectedType,
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
-
-            if (showTypeSheet) {
-                focusManager.clearFocus()
-                ModalBottomSheet(
-                    onDismissRequest = { showTypeSheet = false },
-                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                    dragHandle = { SimpleDragHandle() },
-                ) {
-                    Column(
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 32.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { showTypeSheet = true },
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent,
+                        ),
+                        border = BorderStroke(
+                            if (showTypeSheet) 2.dp else 1.dp,
+                            if (showTypeSheet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
                     ) {
-                        if (configItems.isEmpty()) {
-                            Text(
-                                "尚未配置",
-                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.app_registration_outlined),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(24.dp),
                             )
-                        } else {
-                            configItems.forEach { item ->
-                                val name = item["name"]?.jsonPrimitive?.contentOrNull ?: ""
-                                val vip = item["vip"]?.jsonPrimitive?.contentOrNull ?: ""
-                                val isSelected = name == selectedType
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedType = name
-                                            showTypeSheet = false
-                                        }
-                                        .then(
-                                            if (isSelected) Modifier.background(
-                                                MaterialTheme.colorScheme.primaryContainer,
-                                                MaterialTheme.shapes.medium
-                                            ) else Modifier
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = selectedType,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = minIntervalTime,
+                            onValueChange = {
+                                minIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                    s.toIntOrNull()?.let { v ->
+                                        if (v > 999) s.take(3) else s
+                                    } ?: s
+                                }
+                            },
+                            label = { Text("最小间隔") },
+                            placeholder = { Text("1~999") },
+                            suffix = { Text("秒") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = maxIntervalTime,
+                            onValueChange = {
+                                maxIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                    s.toIntOrNull()?.let { v ->
+                                        if (v > 999) s.take(3) else s
+                                    } ?: s
+                                }
+                            },
+                            label = { Text("最大间隔") },
+                            placeholder = { Text("1~999") },
+                            suffix = { Text("秒") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = inviteCount,
+                            onValueChange = {
+                                inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
+                                    s.toIntOrNull()?.let { v ->
+                                        if (v > 99) s.take(2) else s
+                                    } ?: s
+                                }
+                            },
+                            label = { Text("邀请数量") },
+                            placeholder = { Text("1~99") },
+                            suffix = { Text("次") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            label = { Text("邀请码") },
+                            placeholder = { Text("请输入邀请码") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    FilledTonalButton(
+                        onClick = {
+                            if (isRunning) {
+                                runningJob?.cancel()
+                                logs.add("${ts()} 邀请任务已停止")
+                                Toast.makeText(context, "邀请任务已停止", Toast.LENGTH_SHORT).show()
+                            } else {
+                                focusManager.clearFocus()
+                                showLogSheet = true
+                                runningJob = scope.launch {
+                                    isRunning = true
+                                    try {
+                                        logs.clear()
+                                        InviteExecutor.execute(
+                                            configArray = configArray ?: JsonArray(emptyList()),
+                                            params = InviteExecutor.Params(
+                                                inviteCode = inputText.trim(),
+                                                minInterval = minIntervalTime.toIntOrNull() ?: 0,
+                                                maxInterval = maxIntervalTime.toIntOrNull() ?: 0,
+                                                count = inviteCount.toIntOrNull() ?: 0,
+                                                selectedType = selectedType,
+                                            ),
+                                            onLog = { logs.add("${ts()} $it") },
                                         )
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = name,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "每邀请一人得 $vip 天会员",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (isSelected) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.check_outlined),
-                                            contentDescription = "已选择",
-                                            modifier = Modifier.size(24.dp),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
+                                    } finally {
+                                        isRunning = false
+                                        runningJob = null
                                     }
                                 }
                             }
-                        }
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            if (isRunning) "停止运行" else "开始运行",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
 
-            Row(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = minIntervalTime,
-                    onValueChange = {
-                        minIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                            s.toIntOrNull()?.let { v ->
-                                if (v > 999) s.take(3) else s
-                            } ?: s
-                        }
-                    },
-                    label = { Text("最小间隔") },
-                    placeholder = { Text("1~999") },
-                    suffix = { Text("秒") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = maxIntervalTime,
-                    onValueChange = {
-                        maxIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                            s.toIntOrNull()?.let { v ->
-                                if (v > 999) s.take(3) else s
-                            } ?: s
-                        }
-                    },
-                    label = { Text("最大间隔") },
-                    placeholder = { Text("1~999") },
-                    suffix = { Text("秒") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = inviteCount,
-                    onValueChange = {
-                        inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
-                            s.toIntOrNull()?.let { v ->
-                                if (v > 99) s.take(2) else s
-                            } ?: s
-                        }
-                    },
-                    label = { Text("邀请数量") },
-                    placeholder = { Text("1~99") },
-                    suffix = { Text("次") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    label = { Text("邀请码") },
-                    placeholder = { Text("请输入邀请码") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FilledTonalButton(
-                onClick = {
-                    if (isRunning) {
-                        runningJob?.cancel()
-                        logs.add("${ts()} 邀请任务已停止")
-                        Toast.makeText(context, "邀请任务已停止", Toast.LENGTH_SHORT).show()
-                    } else {
-                        focusManager.clearFocus()
-                        showLogSheet = true
-                        runningJob = scope.launch {
-                            isRunning = true
-                            try {
-                                logs.clear()
-                                InviteExecutor.execute(
-                                    configArray = configArray ?: JsonArray(emptyList()),
-                                    params = InviteExecutor.Params(
-                                        inviteCode = inputText.trim(),
-                                        minInterval = minIntervalTime.toIntOrNull() ?: 0,
-                                        maxInterval = maxIntervalTime.toIntOrNull() ?: 0,
-                                        count = inviteCount.toIntOrNull() ?: 0,
-                                        selectedType = selectedType,
-                                    ),
-                                    onLog = { logs.add("${ts()} $it") },
+    if (showTypeSheet) {
+        focusManager.clearFocus()
+        ModalBottomSheet(
+            onDismissRequest = { showTypeSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            dragHandle = { SimpleDragHandle() },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                if (configItems.isEmpty()) {
+                    Text(
+                        "尚未配置",
+                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                    )
+                } else {
+                    configItems.forEach { item ->
+                        val name = item["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val vip = item["vip"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val isSelected = name == selectedType
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedType = name
+                                    showTypeSheet = false
+                                }
+                                .then(
+                                    if (isSelected) Modifier.background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.shapes.medium
+                                    ) else Modifier
                                 )
-                            } finally {
-                                isRunning = false
-                                runningJob = null
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface,
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "每邀请一人得 $vip 天会员",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    painter = painterResource(R.drawable.check_outlined),
+                                    contentDescription = "已选择",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
                             }
                         }
                     }
-                },
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text(
-                    if (isRunning) "停止运行" else "开始运行",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 

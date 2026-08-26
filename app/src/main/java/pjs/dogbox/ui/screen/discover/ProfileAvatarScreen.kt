@@ -24,11 +24,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -393,25 +391,10 @@ private fun AvatarFetchCard(
             ClipboardActionRow(
                 onClear = onClear,
                 onPaste = onPaste,
+                actionText = if (isFetching) "获取中..." else "开始获取",
+                actionEnabled = !isFetching,
+                onAction = onFetch,
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            FilledTonalButton(
-                onClick = onFetch,
-                enabled = !isFetching,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                Text(
-                    text = if (isFetching) "获取中..." else "开始获取",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
         }
     }
 }

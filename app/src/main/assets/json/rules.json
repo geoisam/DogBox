@@ -1,0 +1,79 @@
+[
+    {
+        "name": "暴风",
+        "hosts": [
+            "bfzy",
+            "fengbao",
+            "bvvvvvv",
+            "rrcdnbf",
+            "bbffcdn",
+            "bfllvip",
+            "bfengbf",
+            "baofeng"
+        ],
+        "regex": [
+            "#EXT-X-DISCONTINUITY\r?\n",
+            "#EXTINF.*\r?\n.*adjump.*\r?\n"
+        ]
+    },
+    {
+        "name": "如意",
+        "hosts": [
+            "ryplay",
+            "ryiplay",
+            "ruyiplay",
+            "cdn.ry",
+            "vip.ry"
+        ],
+        "regex": [
+            "#EXT-X-DISCONTINUITY\r?\n(#EXTINF:4\\.0*,\r?\n.*\r?\n){5}#EXTINF:(0\\.560*|2\\.0*),\r?\n.*\r?\n#EXT-X-DISCONTINUITY\r?\n",
+            "#EXT-X-DISCONTINUITY\r?\n(#EXTINF:4\\.0*,\r?\n.*\r?\n)(#EXTINF:5\\.480*,\r?\n.*\r?\n)(#EXTINF:4\\.0*,\r?\n.*\r?\n)(.*\r?\n){4,6}#EXT-X-DISCONTINUITY\r?\n"
+        ]
+    },
+    {
+        "name": "天堂",
+        "hosts": [
+            "dytt",
+            "phimgood"
+        ],
+        "regex": [
+            "#EXT-X-DISCONTINUITY\r?\n",
+            "#EXTINF:5\\.567,\r?\n.*\r?\n#EXTINF:2\\.933,\r?\n.*\r?\n#EXTINF:5\\.700,\r?\n.*\r?\n#EXTINF:3\\.333,\r?\n.*\r?\n#EXTINF:1\\.533,\r?\n.*\r?\n",
+            "#EXTINF:6\\.667,\r?\n.*\r?\n#EXTINF:3\\.833,\r?\n.*\r?\n#EXTINF:1\\.833,\r?\n.*\r?\n#EXTINF:5\\.133,\r?\n.*\r?\n"
+        ]
+    },
+    {
+        "name": "量子",
+        "hosts": [
+            "lzcdn",
+            "cdnlz",
+            "lz-cdn",
+            "lfthirtytwo",
+            "vip.lz"
+        ],
+        "regex": [
+            "#EXT-X-DISCONTINUITY\r?\n(#EXTINF:4\\.0*,\r?\n.*\r?\n){6}(.*\r?\n){2}#EXT-X-DISCONTINUITY\r?\n"
+        ]
+    },
+    {
+        "name": "非凡&优质&360&iKun&森林&玉兔",
+        "hosts": [
+            "ffzy",
+            "feifei",
+            "yzzy",
+            "playback",
+            "maowushi",
+            "huicheng",
+            "ikun",
+            "kkzy",
+            "sl",
+            "senlin",
+            "lsb"
+        ],
+        "regex": [
+            "#EXT-X-KEY:METHOD=NONE\r?\n(#EXTINF:[\\d.]+,\r?\n.*\r?\n){3,9}#EXT-X-DISCONTINUITY\r?\n",
+            "#EXT-X-DISCONTINUITY\r?\n(#EXT-X-KEY:METHOD=NONE\r?\n)?(#EXTINF:[\\d.]+,\r?\n.*\r?\n){3,11}(?=#EXT-X-ENDLIST)",
+            "#EXT-X-DISCONTINUITY\r?\n(#EXT-X-KEY:METHOD=NONE\r?\n)?(#EXTINF:[\\d.]+,\r?\n.*\r?\n){3,9}#EXT-X-DISCONTINUITY\r?\n(#EXT-X-KEY:.*\r?\n)?"
+        ]
+    }
+]

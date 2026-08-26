@@ -134,7 +134,7 @@ private fun saveImageBytesToGallery(
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Material/${CryptUtil.md5(title, 16)}/Pictures")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Material/${CryptUtil.md5(title)}/Pictures")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
             val uri = context.contentResolver.insert(
@@ -149,7 +149,7 @@ private fun saveImageBytesToGallery(
         } else {
             val dir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "DogBox/Material/${CryptUtil.md5(title, 16)}/Pictures"
+                "DogBox/Material/${CryptUtil.md5(title)}/Pictures"
             )
             if (!dir.exists()) dir.mkdirs()
             File(dir, fileName).writeBytes(bytes)

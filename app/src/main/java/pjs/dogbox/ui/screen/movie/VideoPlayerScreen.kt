@@ -103,8 +103,6 @@ fun VideoPlayerScreen(
 ) {
     val context = LocalContext.current
 
-    GlobalPlayerConfig.init(context)
-
     var playerIsPlaying by remember { mutableStateOf(false) }
     var playerIsBuffering by remember { mutableStateOf(true) }
     var playerCurrentPosition by remember { mutableStateOf(0L) }
@@ -1028,7 +1026,6 @@ modifier = Modifier.padding(horizontal = 12.dp),
 
             if (showSpeedSheet) {
                 PlayerOverlay(isLandscape = isLandscape, onDismiss = { showSpeedSheet = false }) {
-                    var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1055,37 +1052,14 @@ modifier = Modifier.padding(horizontal = 12.dp),
                                 )
                             }
                         }
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            "固定倍速：${"%.2f".format(sliderSpeed)}X",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Slider(
-                            value = sliderSpeed,
-                            onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
-                            onValueChangeFinished = {
-                                currentSpeed = sliderSpeed
-                                exoPlayer.playbackParameters = PlaybackParameters(sliderSpeed)
+                        SpeedPanelContent(
+                            currentSpeed = currentSpeed,
+                            onSpeedSelect = { speed ->
+                                currentSpeed = speed
+                                exoPlayer.playbackParameters = PlaybackParameters(speed)
                             },
-                            valueRange = 0.25f..5.0f,
-                            steps = 18,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
+                            useFixedDarkColors = true,
                         )
-                        Spacer(Modifier.height(8.dp))
-                        SpeedResetButton(
-                            onClick = {
-                                sliderSpeed = 1.0f
-                                currentSpeed = 1.0f
-                                exoPlayer.playbackParameters = PlaybackParameters(1.0f)
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        )
-                        Spacer(Modifier.height(32.dp))
                     }
                 }
             }
@@ -1117,38 +1091,17 @@ modifier = Modifier.padding(horizontal = 12.dp),
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        val selectedAllIndex =
-                            mapPlayerToAllScale(currentScaleModeIndex, isLandscape)
-                        androidx.compose.foundation.layout.FlowRow(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            ALL_SCALE_MODES.forEachIndexed { index, scaleMode ->
-                                FilterChip(
-                                    selected = index == selectedAllIndex,
-                                    onClick = {
-                                        val playerIndex = mapAllToPlayerScale(index, isLandscape)
-                                        currentScaleModeIndex = playerIndex
-                                        onScaleModeIndexChange?.invoke(index)
-                                        playerViewRef?.resizeMode =
-                                            getScaleModes(isLandscape)[playerIndex].resizeMode
-                                    },
-                                    label = { Text(scaleMode.label) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = Color.Transparent,
-                                        labelColor = Color.White,
-                                    ),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (index == selectedAllIndex) Color.Transparent else Color.White,
-                                    ),
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(32.dp))
+                        ScalePanelContent(
+                            selectedIndex = mapPlayerToAllScale(currentScaleModeIndex, isLandscape),
+                            onSelect = { index ->
+                                val playerIndex = mapAllToPlayerScale(index, isLandscape)
+                                currentScaleModeIndex = playerIndex
+                                onScaleModeIndexChange?.invoke(index)
+                                playerViewRef?.resizeMode =
+                                    getScaleModes(isLandscape)[playerIndex].resizeMode
+                            },
+                            useFixedDarkColors = true,
+                        )
                     }
                 }
             }
@@ -1204,13 +1157,13 @@ modifier = Modifier.padding(horizontal = 12.dp),
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
-                    adFilter = GlobalPlayerConfig.adFilter,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
                     playbackOrder = playbackOrder,
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
                     onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
@@ -1234,13 +1187,13 @@ modifier = Modifier.padding(horizontal = 12.dp),
                         flipHorizontal = flipHorizontal,
                         flipVertical = flipVertical,
                         backgroundPlayback = backgroundPlayback,
-                        adFilter = GlobalPlayerConfig.adFilter,
+                        adsFilter = GlobalPlayerConfig.adsFilter,
                         playbackOrder = playbackOrder,
                         longPressSpeed = longPressSpeed,
                         onFlipHorizontalChange = { flipHorizontal = it },
                         onFlipVerticalChange = { flipVertical = it },
                         onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                        onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                        onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                         onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                         onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                         onDismiss = { showMoreSheet = false },

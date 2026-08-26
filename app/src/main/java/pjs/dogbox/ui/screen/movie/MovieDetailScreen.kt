@@ -27,13 +27,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -42,10 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -95,6 +92,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.navigation.DisposableState
 import pjs.dogbox.data.AppData
+import pjs.dogbox.utils.AdsFilter
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.data.SharedData
 import pjs.dogbox.ui.components.SimpleDragHandle
@@ -526,6 +524,9 @@ internal fun MovieDetailScreen(
         )
     }
 
+    suspend fun filterAds(url: String): String =
+        if (url.isNotEmpty()) AdsFilter.filter(context, url, GlobalPlayerConfig.adsFilter) else url
+
     fun selectEpisode(routeIdx: Int, epIdx: Int) {
         val data = pageData ?: return
         if (routeIdx < 0 || routeIdx >= data.routes.size) return
@@ -562,7 +563,7 @@ internal fun MovieDetailScreen(
         }
         fetchJob = scope.launch {
             try {
-                val m3u8 = fetchEpisodeM3u8(ep.link)
+                val m3u8 = filterAds(fetchEpisodeM3u8(ep.link))
                 if (m3u8.isNotEmpty()) {
                     currentM3u8Url = m3u8
                     exoPlayer.apply {
@@ -638,7 +639,7 @@ internal fun MovieDetailScreen(
             currentEpisodeUrl = ep.link
 
             scope.launch {
-                val m3u8 = fetchEpisodeM3u8(ep.link)
+                val m3u8 = filterAds(fetchEpisodeM3u8(ep.link))
                 if (m3u8.isNotEmpty()) {
                     currentM3u8Url = m3u8
                     exoPlayer.apply {
@@ -1420,25 +1421,30 @@ private fun RouteBottomSheet(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
-                Column(
+                SheetSectionTitle("线路")
+                Spacer(modifier = Modifier.height(4.dp))
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .padding(horizontal = 12.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ),
                 ) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     FlowRow(
                         modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .wrapContentWidth(),
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         routes.forEachIndexed { index, route ->
-                            FilterChip(
+                            PlayerFilterChip(
                                 selected = index == selectedIndex,
                                 onClick = { onSelect(index) },
-                                label = { Text(route.name) },
+                                label = route.name,
+                                useFixedDarkColors = false,
                                 modifier = if (index == selectedIndex) {
                                     Modifier.bringIntoViewRequester(bringIntoViewRequester)
                                 } else {
@@ -1447,8 +1453,8 @@ private fun RouteBottomSheet(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -1463,34 +1469,8 @@ private fun EpisodeBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    LaunchedEffect(selectedIndex) {
-        withFrameNanos { }
-        repeat(10) {
-            bringIntoViewRequester.bringIntoView()
-            withFrameNanos { }
-        }
-    }
-    val pageSize = 100
-    val totalEpisodes = episodes.size
-    val categoryCount = (totalEpisodes + pageSize - 1) / pageSize
-    val hasCategories = categoryCount > 1
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-
-    val pagerState = rememberPagerState(
-        pageCount = { categoryCount.coerceAtLeast(1) },
-        initialPage = if (hasCategories) selectedIndex / pageSize else 0,
-    )
-    LaunchedEffect(selectedIndex) {
-        if (hasCategories) {
-            val targetPage = (selectedIndex / pageSize).coerceIn(0, categoryCount - 1)
-            if (targetPage != pagerState.currentPage) {
-                pagerState.animateScrollToPage(targetPage)
-            }
-        }
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1502,99 +1482,13 @@ private fun EpisodeBottomSheet(
                 .fillMaxWidth()
                 .height(sheetMaxHeight),
         ) {
-            if (hasCategories) {
-                PrimaryScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    containerColor = Color.Transparent,
-                    divider = {},
-                    edgePadding = 0.dp,
-                ) {
-                    (0 until categoryCount).forEach { catIdx ->
-                        val start = catIdx * pageSize + 1
-                        val end = minOf((catIdx + 1) * pageSize, totalEpisodes)
-                        Tab(
-                            selected = catIdx == pagerState.currentPage,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(catIdx)
-                                }
-                            },
-                            text = { Text("$start-$end") },
-                        )
-                    }
-                }
-            }
-
-            if (hasCategories) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f),
-                ) { page ->
-                    val startIdx = page * pageSize
-                    val endIdx = minOf(startIdx + pageSize, totalEpisodes)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        FlowRow(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .wrapContentWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            episodes.subList(startIdx, endIdx).forEachIndexed { idx, ep ->
-                                val realIdx = startIdx + idx
-                                FilterChip(
-                                    selected = realIdx == selectedIndex,
-                                    onClick = { onSelect(realIdx) },
-                                    label = { Text(ep.name) },
-                                    modifier = if (realIdx == selectedIndex) {
-                                        Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(32.dp))
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .wrapContentWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        episodes.forEachIndexed { index, ep ->
-                            FilterChip(
-                                selected = index == selectedIndex,
-                                onClick = { onSelect(index) },
-                                label = { Text(ep.name) },
-                                modifier = if (index == selectedIndex) {
-                                    Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                                } else {
-                                    Modifier
-                                },
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-            }
+            SheetSectionTitle("选集")
+            EpisodePanelContent(
+                episodes = episodes,
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
+                useFixedDarkColors = false,
+            )
         }
     }
 }

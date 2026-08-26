@@ -109,10 +109,9 @@ import pjs.dogbox.ui.screen.movie.MoreSettingsContent
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
-import pjs.dogbox.ui.screen.movie.SPEED_PRESETS
+import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SeekBar
-import pjs.dogbox.ui.screen.movie.SpeedPresetCard
-import pjs.dogbox.ui.screen.movie.SpeedResetButton
+import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
 import pjs.dogbox.ui.screen.movie.formatTime
 import pjs.dogbox.ui.screen.movie.getQualityLabel
@@ -206,8 +205,6 @@ fun LocalVideoPreview(
     val context = LocalContext.current
     val activity = context as? android.app.Activity
     val scope = rememberCoroutineScope()
-
-    GlobalPlayerConfig.init(context)
 
     var isFullscreen by remember { mutableStateOf(false) }
     var showBars by remember { mutableStateOf(true) }
@@ -926,13 +923,13 @@ fun LocalVideoPreview(
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
                     backgroundPlayback = backgroundPlayback,
-                    adFilter = GlobalPlayerConfig.adFilter,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
                     playbackOrder = playbackOrder,
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
                     onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                    onAdFilterChange = { GlobalPlayerConfig.setAdFilter(context, it) },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
@@ -967,132 +964,5 @@ private fun PlayerActionItem(
             color = Color.White,
             style = MaterialTheme.typography.labelSmall,
         )
-    }
-}
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun SpeedBottomSheet(
-    currentSpeed: Float,
-    onSpeedSelect: (Float) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp),
-        ) {
-            SheetSectionTitle("播放倍速")
-            Spacer(Modifier.height(16.dp))
-            SPEED_PRESETS.chunked(3).forEach { rowPresets ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    rowPresets.forEach { preset ->
-                        SpeedPresetCard(
-                            modifier = Modifier.weight(1f),
-                            speed = preset,
-                            selected = abs(currentSpeed - preset) < 0.001f,
-                            onClick = {
-                                sliderSpeed = preset
-                                onSpeedSelect(preset)
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                ) {
-                    Text(
-                        "自定义倍速：${"%.2f".format(sliderSpeed)}X",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Slider(
-                        value = sliderSpeed,
-                        onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
-                        onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
-                        valueRange = 0.25f..5.0f,
-                        steps = 18,
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            SpeedResetButton(
-                onClick = {
-                    sliderSpeed = 1.0f
-                    onSpeedSelect(1.0f)
-                },
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-        }
-    }
-}
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun ScaleBottomSheet(
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp),
-        ) {
-            SheetSectionTitle("视频画幅")
-            Spacer(Modifier.height(8.dp))
-            FlowRow(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ALL_SCALE_MODES.forEachIndexed { index, scaleMode ->
-                    FilterChip(
-                        selected = index == selectedIndex,
-                        onClick = { onSelect(index); onDismiss() },
-                        label = { Text(scaleMode.label) },
-                    )
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
     }
 }

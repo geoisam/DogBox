@@ -67,8 +67,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
 
-    GlobalPlayerConfig.init(context)
-
     var downloadMode by remember { mutableIntStateOf(SharedData.getDownloadMode(context)) }
     var showSpeedSheet by remember { mutableStateOf(false) }
 
@@ -152,6 +150,13 @@ fun SettingsScreen(
                     checked = GlobalPlayerConfig.backgroundPlayback,
                     onCheckedChange = {
                         GlobalPlayerConfig.setBackgroundPlayback(context, it)
+                    },
+                )
+                SettingsSwitchRow(
+                    title = "过滤广告",
+                    checked = GlobalPlayerConfig.adsFilter,
+                    onCheckedChange = {
+                        GlobalPlayerConfig.setAdsFilter(context, it)
                     },
                 )
             }

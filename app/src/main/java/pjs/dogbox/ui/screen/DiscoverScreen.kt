@@ -201,7 +201,6 @@ fun DiscoverScreen(
                                     modifier = Modifier.size(56.dp),
                                     shape = MaterialTheme.shapes.large,
                                     color = MaterialTheme.colorScheme.primaryContainer,
-                                    tonalElevation = 2.dp
                                 ) {
                                     Box(
                                         contentAlignment = Alignment.Center
@@ -209,7 +208,7 @@ fun DiscoverScreen(
                                         Icon(
                                             painter = painterResource(it.icon),
                                             contentDescription = null,
-                                            modifier = Modifier.size(28.dp),
+                                            modifier = Modifier.size(32.dp),
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         )
                                     }
@@ -217,7 +216,7 @@ fun DiscoverScreen(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = it.title,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )

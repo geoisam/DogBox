@@ -15,6 +15,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.ui.navigation.BaseScreen
 import pjs.dogbox.ui.screen.SplashScreen
+import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.theme.DogBoxTheme
 import pjs.dogbox.data.SharedData
 
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         SharedData.resetAutoCheckDone()
+        GlobalPlayerConfig.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             val context = this@MainActivity

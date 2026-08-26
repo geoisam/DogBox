@@ -29,11 +29,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -56,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -117,20 +116,27 @@ private val analyzeSources = listOf(
     AnalyzeSource(
         "JY",
         "JY线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "AH",
         "AH线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
     ),
     AnalyzeSource(
         "EL",
         "EL线路",
-        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、最右、皮皮虾等",
+        "支持抖音、快手、小红书、微信、B站、豆包、知乎、微博、西瓜、头条、火山、A站、即梦、最右、皮皮虾等",
+    ),
+    AnalyzeSource(
+        "QT",
+        "QT线路",
+        "支持抖音、快手、小红书、B站、豆包、西瓜、头条、小云雀、千问、美拍、虎牙、A站、即梦、最右、皮皮虾等",
     ),
     AnalyzeSource("LX", "LX线路", "支持抖音、快手、B站等"),
     AnalyzeSource("HS", "HS线路", "支持抖音、小红书等"),
+    AnalyzeSource("ST", "ST线路", "支持X(Twitter)等"),
+    AnalyzeSource("MC", "MC线路", "支持X(Twitter)等"),
 )
 
 internal fun extractShareUrl(input: String): String? {
@@ -306,30 +312,57 @@ internal fun pasteFromClipboard(context: Context): String? {
 internal fun ClipboardActionRow(
     onClear: () -> Unit,
     onPaste: () -> Unit,
+    actionText: String,
+    onAction: () -> Unit,
     modifier: Modifier = Modifier,
+    actionEnabled: Boolean = true,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilledTonalButton(
+        TextActionButton(
+            text = "清空",
             onClick = onClear,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier
-                .weight(1f)
-                .height(48.dp),
-        ) {
-            Text("清空")
-        }
-        FilledTonalButton(
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        TextActionButton(
+            text = "粘贴",
             onClick = onPaste,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier
-                .weight(1f)
-                .height(48.dp),
-        ) {
-            Text("粘贴")
-        }
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        TextActionButton(
+            text = actionText,
+            onClick = onAction,
+            enabled = actionEnabled,
+            containerColor = MaterialTheme.colorScheme.primary,
+            textColor = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
+@Composable
+internal fun TextActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Row(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(containerColor.copy(alpha = if (enabled) 1f else 0.38f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = textColor.copy(alpha = if (enabled) 1f else 0.38f),
+        )
     }
 }
 
@@ -509,152 +542,84 @@ fun MediaAnalyzeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { showSheet = true },
+                modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                border = BorderStroke(
-                    if (showSheet) 2.dp else 1.dp,
-                    if (showSheet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                )
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(16.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.app_registration_outlined),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = analyzeSources.firstOrNull { it.key == selectedSource }?.name
-                            ?: selectedSource,
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
-
-            if (showSheet) {
-                focusManager.clearFocus()
-                ModalBottomSheet(
-                    onDismissRequest = { showSheet = false },
-                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                    dragHandle = { SimpleDragHandle() },
-                ) {
-                    Column(
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 32.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { showSheet = true },
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent,
+                        ),
+                        border = BorderStroke(
+                            if (showSheet) 2.dp else 1.dp,
+                            if (showSheet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
                     ) {
-                        analyzeSources.forEach { source ->
-                            val isSelected = source.key == selectedSource
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedSource = source.key
-                                        showSheet = false
-                                    }
-                                    .then(
-                                        if (isSelected) Modifier.background(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            MaterialTheme.shapes.medium
-                                        ) else Modifier
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = source.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = source.desc,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                if (isSelected) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.check_outlined),
-                                        contentDescription = "已选择",
-                                        modifier = Modifier.size(24.dp),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.app_registration_outlined),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(24.dp),
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = analyzeSources.firstOrNull { it.key == selectedSource }?.name
+                                    ?: selectedSource,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = linkInput,
+                        onValueChange = { linkInput = it },
+                        label = { Text("分享链接") },
+                        placeholder = { Text("请输入分享链接") },
+                        singleLine = false,
+                        maxLines = 100,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 120.dp),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ClipboardActionRow(
+                        onClear = {
+                            focusManager.clearFocus()
+                            linkInput = ""
+                        },
+                        onPaste = {
+                            focusManager.clearFocus()
+                            val pasted = pasteFromClipboard(context)
+                            if (pasted != null) {
+                                linkInput = pasted
+                            } else {
+                                Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        actionText = if (isAnalyzing) "解析中..." else "开始解析",
+                        actionEnabled = !isAnalyzing,
+                        onAction = ::startAnalyze,
+                    )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = linkInput,
-                onValueChange = { linkInput = it },
-                label = { Text("分享链接") },
-                placeholder = { Text("请输入分享链接") },
-                singleLine = false,
-                maxLines = 100,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 120.dp),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ClipboardActionRow(
-                onClear = {
-                    focusManager.clearFocus()
-                    linkInput = ""
-                },
-                onPaste = {
-                    focusManager.clearFocus()
-                    val pasted = pasteFromClipboard(context)
-                    if (pasted != null) {
-                        linkInput = pasted
-                    } else {
-                        Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
-                    }
-                },
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FilledTonalButton(
-                onClick = ::startAnalyze,
-                enabled = !isAnalyzing,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                Text(
-                    text = if (isAnalyzing) "解析中..." else "开始解析",
-                    style = MaterialTheme.typography.titleMedium,
-                )
             }
 
             result?.let { res ->
@@ -757,6 +722,67 @@ fun MediaAnalyzeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+
+    if (showSheet) {
+        focusManager.clearFocus()
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            dragHandle = { SimpleDragHandle() },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                analyzeSources.forEach { source ->
+                    val isSelected = source.key == selectedSource
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedSource = source.key
+                                showSheet = false
+                            }
+                            .then(
+                                if (isSelected) Modifier.background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.shapes.medium
+                                ) else Modifier
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = source.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = source.desc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (isSelected) {
+                            Icon(
+                                painter = painterResource(R.drawable.check_outlined),
+                                contentDescription = "已选择",
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
