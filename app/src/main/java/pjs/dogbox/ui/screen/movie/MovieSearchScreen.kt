@@ -100,7 +100,10 @@ internal enum class SearchSource(
     val searchUrl: String,
 ) {
     YXXQ("映像星球", AppData.YXXQ_HOST, AppData.YXXQ_SEARCH),
+    YLSP("永乐视频", AppData.YLSP_HOST, AppData.YLSP_SEARCH),
     NIVOD("泥视频", AppData.NIVOD_HOST, AppData.NIVOD_SEARCH),
+    FDZYS("饭搭子", AppData.FDZYS_HOST, ""),
+    PIANKU("片库网", AppData.PIANKU_HOST, AppData.PIANKU_SEARCH),
 }
 
 internal data class SearchItem(
@@ -139,15 +142,31 @@ private fun parseSearchResults(
     val doc = Ksoup.parse(html)
     val cardElements = doc.select("div.module-card-item").filterNot { it.hasClass("mac-ad-card") }
     val items = cardElements.mapNotNull { card ->
-        val linkEl = card.select("a.play-btn").first() ?: return@mapNotNull null
-        val imgEl = card.select("img[data-original]").first() ?: return@mapNotNull null
-        val titleEl = card.select("div.module-card-item-title").first() ?: return@mapNotNull null
+        // 四个源统一取详情页：.module-card-item 第一个 a 的 href
+        val linkEl = card.select("a").firstOrNull()
+            ?: return@mapNotNull null
+        val imgEl = card.select("img[data-original]").firstOrNull()
+            ?: card.select("img[data-src]").firstOrNull()
+            ?: card.select("img").firstOrNull()
+            ?: return@mapNotNull null
+        val titleEl = card.select("div.module-card-item-title").firstOrNull()
+            ?: card.select("a.module-card-item-poster").firstOrNull()
+            ?: return@mapNotNull null
 
-        val linkText = linkEl.attr("href")
+        val linkText = linkEl.attr("href").trim()
+        if (linkText.isBlank()) return@mapNotNull null
+        // 过滤广告跳转
+        if (linkText.contains("/go/ad/")) return@mapNotNull null
         val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
-        val coverText = imgEl.attr("data-original")
-        val cover = if (coverText.startsWith("http")) coverText else "$host$coverText"
-        val title = titleEl.text().trim()
+        val coverText = imgEl.attr("data-original").ifBlank { imgEl.attr("data-src") }.ifBlank { imgEl.attr("src") }.trim()
+        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
+        val cover = when {
+            coverText.startsWith("http") -> coverText
+            coverText.startsWith("//") -> "https:$coverText"
+            else -> "$host$coverText"
+        }
+        val title = titleEl.text().trim().ifBlank { linkEl.attr("title").trim() }
+        if (title.isBlank()) return@mapNotNull null
         val note = card.select("div.module-item-note").firstOrNull()?.text()?.trim() ?: ""
 
         val infoText =
@@ -176,11 +195,17 @@ private suspend fun fetchPage(
     keyword: String,
     page: Int,
 ): Result<Pair<List<SearchItem>, PageInfo>> = withContext(Dispatchers.IO) {
-    val encoded = URLEncoder.encode(keyword, "UTF-8")
-    val url = when {
-        source == SearchSource.NIVOD -> "${source.searchUrl}$encoded&page=$page"
-        page <= 1 -> "${source.searchUrl}$encoded"
-        else -> "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
+    val encoded = URLEncoder.encode(keyword, "UTF-8").replace("+", "%20")
+    val url = when (source) {
+        SearchSource.FDZYS -> {
+            val base = "${AppData.FDZYS_HOST}/yu-${encoded}-xianguan-de-yingpian-shippin-zhibo"
+            if (page <= 1) base else "$base?page=$page"
+        }
+        SearchSource.NIVOD, SearchSource.YLSP, SearchSource.PIANKU -> "${source.searchUrl}$encoded&page=$page"
+        SearchSource.YXXQ -> {
+            if (page <= 1) "${source.searchUrl}$encoded"
+            else "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
+        }
     }
     try {
         val html = HttpUtil.get(
@@ -189,10 +214,159 @@ private suspend fun fetchPage(
                 "Referer" to "${source.host}/",
             )
         ).getOrThrow()
-        Result.success(parseSearchResults(html, source.host, page))
+        val result = when (source) {
+            SearchSource.FDZYS -> parseFdzysSearchResults(html, source.host, page)
+            SearchSource.PIANKU -> parsePiankuSearchResults(html, source.host, page)
+            else -> parseSearchResults(html, source.host, page)
+        }
+        Result.success(result)
     } catch (e: Throwable) {
         Result.failure(e)
     }
+}
+
+private fun parseFdzysSearchResults(
+    html: String,
+    host: String,
+    currentPage: Int = 1,
+): Pair<List<SearchItem>, PageInfo> {
+    val doc = Ksoup.parse(html)
+    val cardElements = doc.select("div.myui-vodbox-content")
+    val items = cardElements.mapNotNull { card ->
+        val aEl = card.select("a").firstOrNull() ?: return@mapNotNull null
+        val linkText = aEl.attr("href").trim()
+        if (linkText.isBlank()) return@mapNotNull null
+        val rawLink = if (linkText.startsWith("http")) linkText else "$host$linkText"
+
+        val link = rawLink.trim().removeSuffix("/")
+
+        val imgEl = card.select("img[data-src]").firstOrNull()
+            ?: card.select("img[data-original]").firstOrNull()
+            ?: card.select("img").firstOrNull()
+            ?: return@mapNotNull null
+        var coverText = imgEl.attr("data-src").ifBlank { imgEl.attr("data-original") }
+            .ifBlank { imgEl.attr("src") }
+            .trim()
+        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
+        val cover = when {
+            coverText.startsWith("http") -> coverText
+            coverText.startsWith("//") -> "https:$coverText"
+            else -> "$host$coverText"
+        }
+        val title = card.select(".card-info .title").firstOrNull()?.text()?.trim()
+            ?: card.select(".vod-detail .title").firstOrNull()?.text()?.trim()
+            ?: aEl.attr("title").trim().ifBlank { null }
+            ?: imgEl.attr("alt").trim().ifBlank { null }
+            ?: return@mapNotNull null
+        if (title.isBlank()) return@mapNotNull null
+        val note = card.select(".vod-detail .info-title-box .score").firstOrNull()?.text()?.trim()
+            ?: card.select(".score").firstOrNull()?.text()?.trim() ?: ""
+        val subtitle = card.select(".tag-box .tag").firstOrNull()?.text()?.trim() ?: ""
+        val year = card.select(".vod-detail .info-bottom .right").firstOrNull()?.text()?.trim()
+            ?: card.select(".info-bottom .right").firstOrNull()?.text()?.trim() ?: ""
+        SearchItem(
+            link = link,
+            cover = cover,
+            title = title,
+            note = note,
+            year = year,
+            subtitle = subtitle,
+            host = host,
+        )
+    }
+    var lastPage = doc.select("div.pagination div.pages-box a.page").mapNotNull {
+        it.text().trim().toIntOrNull()
+    }.maxOrNull() ?: 0
+    // 兼容：无分页但结果数达到一页阈值时，尝试允许翻页（避免因结构变更导致无法翻页）
+    if (lastPage == 0 && items.size >= 24) {
+        // 若当前页已返回一整页数据，且未检测到分页，则假设还有下一页
+        lastPage = currentPage + 1
+    }
+
+    return items to PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
+}
+
+private fun parsePiankuSearchResults(
+    html: String,
+    host: String,
+    currentPage: Int = 1,
+): Pair<List<SearchItem>, PageInfo> {
+    val doc = Ksoup.parse(html)
+    val cardElements = doc.select("div.public-list-box")
+    val items = cardElements.mapNotNull { card ->
+        // 详情页链接：.public-list-box第一个a的href
+        val linkEl = card.select("a").firstOrNull() ?: return@mapNotNull null
+        val linkText = linkEl.attr("href").trim()
+        if (linkText.isBlank()) return@mapNotNull null
+        if (linkText.contains("/go/ad/")) return@mapNotNull null
+        val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
+        // 影片名称：.public-list-button
+        val titleEl = card.select(".public-list-button").firstOrNull()
+            ?: card.select("a.time-title").firstOrNull()
+            ?: return@mapNotNull null
+        val title = titleEl.text().trim().ifBlank { linkEl.attr("title").trim() }
+        if (title.isBlank()) return@mapNotNull null
+        // 标题下面没有为空 的卡片才保留，已通过 title 判空实现
+
+        // 封面：.public-list-div img的src（兼容 data-src/data-original）
+        val imgEl = card.select(".public-list-div img[data-src]").firstOrNull()
+            ?: card.select(".public-list-div img[data-original]").firstOrNull()
+            ?: card.select(".public-list-div img").firstOrNull()
+            ?: card.select("img[data-src]").firstOrNull()
+            ?: card.select("img").firstOrNull()
+            ?: return@mapNotNull null
+        var coverText = imgEl.attr("data-src").ifBlank { imgEl.attr("data-original") }
+            .ifBlank { imgEl.attr("src") }.trim()
+        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
+        val cover = when {
+            coverText.startsWith("http") -> coverText
+            coverText.startsWith("//") -> "https:$coverText"
+            else -> "$host$coverText"
+        }
+        // 封面右上角：.public-list-div .public-prt
+        val note = card.select(".public-list-div .public-prt").firstOrNull()?.text()?.trim() ?: ""
+        // 封面下面阴影部分：.public-list-div .public-list-prb
+        val subtitle = card.select(".public-list-div .public-list-prb").firstOrNull()?.text()?.trim() ?: ""
+        // 标题下面没有 year 信息，置空
+        val year = ""
+
+        SearchItem(
+            link = link,
+            cover = cover,
+            title = title,
+            note = note,
+            year = year,
+            subtitle = subtitle,
+            host = host,
+        )
+    }
+    // 分页：.pages .page-link 数值最大为末页；若无数值则看下一页按钮是否存在
+    var lastPage = doc.select(".page-link").mapNotNull {
+        it.text().trim().toIntOrNull()
+    }.maxOrNull() ?: 0
+    if (lastPage == 0) {
+        // 兼容 .pages a 或 .page-info a
+        lastPage = doc.select(".pages a, .page-info a, div.pages a").mapNotNull {
+            it.text().trim().toIntOrNull()
+        }.maxOrNull() ?: 0
+    }
+    // 若仍未识别，尝试从 href 中解析 ----------N--- 结构
+    if (lastPage == 0) {
+        val maxHrefPage = doc.select("a[href*=\"----------\"]").mapNotNull { a ->
+            Regex("""----------(\d+)---""").find(a.attr("href"))?.groupValues?.getOrNull(1)?.toIntOrNull()
+        }.maxOrNull() ?: 0
+        if (maxHrefPage > lastPage) lastPage = maxHrefPage
+    }
+    if (lastPage == 0) {
+        val nextHref = doc.select(".page-link.fa.ds-jiantouyou, a[title*=下一页]").firstOrNull()?.attr("href")?.trim() ?: ""
+        if (nextHref.isNotBlank() && !nextHref.contains("javascript")) {
+            lastPage = currentPage + 1
+        } else if (items.size >= 12) {
+            // 兜底：若未检测到分页但返回一整页数据，假设还有下一页
+            lastPage = currentPage + 1
+        }
+    }
+    return items to PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
 }
 
 internal class SourceState {

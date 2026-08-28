@@ -141,6 +141,9 @@ internal class MovieDetailScreenState(
     val isSwitchingEpisode = mutableStateOf(false)
     val pendingSwitchTarget = mutableStateOf<Pair<Int, Int>?>(null)
     val pendingSwitchBack = mutableStateOf<(() -> Unit)?>(null)
+    val playErrorMsg = mutableStateOf<String?>(null)
+    val isPlayLoading = mutableStateOf(false)
+    val playRetryKey = mutableIntStateOf(0)
 
     val showIntroSheet = mutableStateOf(false)
     val showRouteSheet = mutableStateOf(false)
@@ -180,8 +183,19 @@ internal class MovieDetailScreenState(
 
 internal fun extractVideoId(url: String): String {
     val uri = url.toUri()
+    val host = extractHost(url)
+    // 饭搭子：详情 /category/slug 与播放 /category/slug/1?sid= 需统一取 slug
+    if (host.contains("fdzys")) {
+        val segments = uri.pathSegments
+        if (segments.isEmpty()) return ""
+        val last = segments.last()
+        // 播放页最后一段为纯数字或含 sid 参数
+        val isEpisode = last.matches(Regex("\\d+")) || url.contains("?sid=") || url.contains("&sid=")
+        val target = if (isEpisode && segments.size >= 2) segments[segments.size - 2] else last
+        return target.substringBefore(".").substringBefore("-").substringBefore("?").trim()
+    }
     val last = uri.pathSegments.lastOrNull() ?: return ""
-    return last.substringBefore(".").substringBefore("-")
+    return last.substringBefore(".").substringBefore("-").substringBefore("?")
 }
 
 internal fun extractHost(url: String): String {
@@ -266,19 +280,21 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         val doc = Ksoup.parse(html)
 
         val routes = mutableListOf<RouteInfo>()
-        val tabBox = doc.selectFirst("#mobile-tab-box")
-        if (tabBox != null) {
-            val tabItems = tabBox.select(".module-tab-item")
-            val listContents = doc.select(".module-play-list-content")
-            for ((index, tabItem) in tabItems.withIndex()) {
-                val routeName = tabItem.selectFirst("span")?.text()?.trim() ?: "线路${index + 1}"
+
+        // Try FDZYS structure first: li[data-sid] routes + div.tab-pane[data-sid] episodes
+        val fdzysTabs = doc.select("li[data-sid]")
+        if (fdzysTabs.isNotEmpty()) {
+            for (tabItem in fdzysTabs) {
+                val sid = tabItem.attr("data-sid")
+                val routeName = tabItem.selectFirst("a")?.text()?.trim() ?: "线路$sid"
                 val episodes = mutableListOf<EpisodeInfo>()
-                if (index < listContents.size) {
-                    val listContent = listContents[index]
-                    for (linkEl in listContent.select(".module-play-list-link")) {
+                val pane = doc.selectFirst("div.tab-pane[data-sid=\"$sid\"]")
+                if (pane != null) {
+                    for (linkEl in pane.select("a[href]")) {
                         val href = linkEl.attr("href")
+                        if (href.isBlank()) continue
                         val link = if (href.startsWith("http")) href else "$baseUrl$href"
-                        val epName = linkEl.selectFirst("span")?.text()?.trim() ?: ""
+                        val epName = linkEl.text().trim()
                         if (epName.isNotEmpty()) {
                             episodes.add(EpisodeInfo(name = epName, link = link))
                         }
@@ -288,6 +304,117 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             }
         }
 
+        // 片库网： .anthology-tab + .anthology-list-box
+        if (routes.isEmpty() && baseUrl.contains("pianku")) {
+            val tabElements = doc.select(".anthology-tab a")
+            val listBoxes = doc.select(".anthology-list .anthology-list-box")
+            if (tabElements.isNotEmpty() && listBoxes.isNotEmpty()) {
+                for ((index, tabEl) in tabElements.withIndex()) {
+                    // 去掉 badge 数字后的线路名
+                    val badgeText = tabEl.selectFirst("span.badge")?.text()?.trim() ?: ""
+                    var rawName = tabEl.text().trim()
+                    if (badgeText.isNotEmpty()) {
+                        rawName = rawName.replace(badgeText, "").trim()
+                    }
+                    var routeName = rawName.replace(Regex("\\s*\\d+\\s*$"), "").trim()
+                    if (routeName.isBlank()) {
+                        // 尝试取图标后的文本
+                        routeName = tabEl.ownText().trim().ifBlank { rawName }
+                    }
+                    if (routeName.isBlank()) routeName = "线路${index + 1}"
+                    val episodes = mutableListOf<EpisodeInfo>()
+                    if (index < listBoxes.size) {
+                        val box = listBoxes[index]
+                        for (linkEl in box.select("a[href]")) {
+                            val href = linkEl.attr("href").trim()
+                            if (href.isBlank()) continue
+                            val link = if (href.startsWith("http")) href else "$baseUrl$href"
+                            val epName = linkEl.text().trim().takeIf { it.isNotEmpty() }
+                                ?: linkEl.attr("title").trim().takeIf { it.isNotEmpty() }
+                                ?: continue
+                            episodes.add(EpisodeInfo(name = epName, link = link))
+                        }
+                    }
+                    routes.add(RouteInfo(name = routeName, episodes = episodes))
+                }
+            } else if (tabElements.isEmpty()) {
+                // 单线路兜底：直接取所有 .anthology-list-play a
+                val fallbackEpisodes = mutableListOf<EpisodeInfo>()
+                for (linkEl in doc.select(".anthology-list-play a[href]")) {
+                    val href = linkEl.attr("href").trim()
+                    if (href.isBlank()) continue
+                    val link = if (href.startsWith("http")) href else "$baseUrl$href"
+                    val epName = linkEl.text().trim().ifBlank { linkEl.attr("title").trim() }
+                    if (epName.isNotEmpty()) fallbackEpisodes.add(EpisodeInfo(name = epName, link = link))
+                }
+                if (fallbackEpisodes.isNotEmpty()) {
+                    val singleName = doc.selectFirst(".anthology-tab a")?.text()?.trim()
+                        ?.replace(Regex("\\s*\\d+\\s*$"), "")?.trim()?.takeIf { it.isNotBlank() } ?: "默认"
+                    routes.add(RouteInfo(name = singleName, episodes = fallbackEpisodes))
+                }
+            }
+        }
+
+        // Detail page for YXXQ/NIVOD/YLSP: #y-playList + .module-play-list-content
+        if (routes.isEmpty()) {
+            val yPlayList = doc.selectFirst("#y-playList")
+            if (yPlayList != null) {
+                val tabItems = yPlayList.select(".module-tab-item")
+                val listContents = doc.select(".module-play-list-content")
+                for ((index, tabItem) in tabItems.withIndex()) {
+                    var routeName = tabItem.selectFirst("span")?.text()?.trim()
+                        ?: tabItem.attr("data-dropdown-value").trim().takeIf { it.isNotEmpty() }
+                        ?: tabItem.text().trim()
+                    // 去掉末尾的清晰度/数量 如 "720"
+                    routeName = routeName.replace(Regex("\\s*\\d+\\s*$"), "").trim()
+                    if (routeName.isBlank()) routeName = "线路${index + 1}"
+                    val episodes = mutableListOf<EpisodeInfo>()
+                    if (index < listContents.size) {
+                        val listContent = listContents[index]
+                        for (linkEl in listContent.select(".module-play-list-link")) {
+                            val href = linkEl.attr("href")
+                            if (href.isBlank()) continue
+                            val link = if (href.startsWith("http")) href else "$baseUrl$href"
+                            val epName = linkEl.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                                ?: linkEl.text().trim().takeIf { it.isNotEmpty() }
+                                ?: linkEl.attr("title").trim()
+                            if (epName.isNotEmpty()) {
+                                episodes.add(EpisodeInfo(name = epName, link = link))
+                            }
+                        }
+                    }
+                    routes.add(RouteInfo(name = routeName, episodes = episodes))
+                }
+            }
+        }
+
+        // Fallback to existing structure: #mobile-tab-box (play page)
+        if (routes.isEmpty()) {
+            val tabBox = doc.selectFirst("#mobile-tab-box")
+            if (tabBox != null) {
+                val tabItems = tabBox.select(".module-tab-item")
+                val listContents = doc.select(".module-play-list-content")
+                for ((index, tabItem) in tabItems.withIndex()) {
+                    val routeName = tabItem.selectFirst("span")?.text()?.trim() ?: "线路${index + 1}"
+                    val episodes = mutableListOf<EpisodeInfo>()
+                    if (index < listContents.size) {
+                        val listContent = listContents[index]
+                        for (linkEl in listContent.select(".module-play-list-link")) {
+                            val href = linkEl.attr("href")
+                            val link = if (href.startsWith("http")) href else "$baseUrl$href"
+                            val epName = linkEl.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                                ?: linkEl.text().trim()
+                            if (epName.isNotEmpty()) {
+                                episodes.add(EpisodeInfo(name = epName, link = link))
+                            }
+                        }
+                    }
+                    routes.add(RouteInfo(name = routeName, episodes = episodes))
+                }
+            }
+        }
+
+        // Final fallback
         if (routes.isEmpty()) {
             val fallbackEpisodes = mutableListOf<EpisodeInfo>()
             for (linkEl in doc.select(".module-play-list-link")) {
@@ -310,16 +437,261 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         val playerJsonStr = extractPlayerJson(playerMain)
         val playerJson =
             playerJsonStr?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
-        val m3u8Url = playerJson?.get("url")?.jsonPrimitive?.contentOrNull ?: ""
+        val encrypt = playerJson?.get("encrypt")?.jsonPrimitive?.contentOrNull ?: "0"
+        val rawUrl = playerJson?.get("url")?.jsonPrimitive?.contentOrNull ?: ""
+        val m3u8Url = when (encrypt) {
+            "1" -> try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (_: Exception) { rawUrl }
+            "2" -> try {
+                val decoded = java.util.Base64.getDecoder().decode(rawUrl).toString(Charsets.UTF_8)
+                java.net.URLDecoder.decode(decoded, "UTF-8")
+            } catch (_: Exception) { rawUrl }
+            else -> rawUrl
+        }
         val vodData = playerJson?.get("vod_data")?.jsonObject
-        val title = vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull
-            ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim() ?: "未知影片"
-        val type = vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull ?: ""
-        val actor = vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull ?: ""
-        val director = vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull ?: ""
-        val description =
-            doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim() ?: "暂无简介"
-        val coverUrl = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim() ?: ""
+        val isFdzys = baseUrl.contains("fdzys")
+        val isPianku = baseUrl.contains("pianku")
+
+        val title: String
+        val type: String
+        val actor: String
+        val director: String
+        val description: String
+        val coverUrl: String
+
+        if (isPianku) {
+            // 片库网详情：按用户指定选择器
+            // 标题：.slide-desc-box .this-desc-title
+            title = doc.selectFirst(".slide-desc-box .this-desc-title")?.text()?.trim()?.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 类型：.slide-desc-box .this-desc-tags所有span里文字用英文,分割
+            val tagSpans = doc.select(".slide-desc-box .this-desc-tags span")
+            val tagType = if (tagSpans.isNotEmpty()) {
+                tagSpans.mapNotNull { it.text().trim().takeIf { t -> t.isNotEmpty() } }.joinToString(",").takeIf { it.isNotBlank() }
+            } else null
+            type = tagType
+                ?: doc.selectFirst(".slide-desc-box .this-desc-tags")?.text()?.trim()?.replace(" ", "")?.replace("　", "")?.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 导演/主演：.slide-desc-box .this-info（第一个导演，第二个演员）
+            val thisInfos = doc.select(".slide-desc-box .this-info")
+            var dirTemp = ""
+            var actTemp = ""
+            if (thisInfos.size >= 1) {
+                // 导演：去掉空格还有“导演:”，去掉最后一个，所有，改为英文,
+                var raw = thisInfos[0].text().replace(" ", "").replace("　", "").trim()
+                raw = raw.replaceFirst(Regex("^.*?导演[:：]\\s*"), "")
+                if (raw.isNotEmpty() && (raw.endsWith("，") || raw.endsWith(",") || raw.endsWith("、"))) {
+                    raw = raw.dropLast(1)
+                }
+                raw = raw.replace("，", ",").replace("、", ",")
+                dirTemp = raw.trim()
+            }
+            if (thisInfos.size >= 2) {
+                var raw = thisInfos[1].text().replace(" ", "").replace("　", "").trim()
+                raw = raw.replaceFirst(Regex("^.*?演员[:：]\\s*"), "")
+                if (raw.isNotEmpty() && (raw.endsWith("，") || raw.endsWith(",") || raw.endsWith("、"))) {
+                    raw = raw.dropLast(1)
+                }
+                raw = raw.replace("，", ",").replace("、", ",")
+                actTemp = raw.trim()
+            }
+            director = dirTemp.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+            actor = actTemp.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 封面：.this-pic-bj的style需要正则截取
+            var rawCover: String? = null
+            val picBj = doc.selectFirst(".this-pic-bj")
+            if (picBj != null) {
+                val style = picBj.attr("style")
+                if (style.isNotBlank()) {
+                    val m = Regex("""url\(['"]?(.*?)['"]?\)""").find(style)
+                    rawCover = m?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() && !it.startsWith("data:") }
+                }
+            }
+            if (rawCover.isNullOrBlank()) {
+                rawCover = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            }
+            coverUrl = when {
+                rawCover == null || rawCover == "未知" || rawCover.isBlank() -> "未知"
+                rawCover.startsWith("http") -> rawCover
+                rawCover.startsWith("//") -> "https:$rawCover"
+                rawCover.startsWith("/") -> baseUrl + rawCover
+                rawCover.isNotBlank() -> "$baseUrl/$rawCover"
+                else -> "未知"
+            }
+
+            // 简介：.slide-desc-box .this-desc .text里面的文字去掉空格还有“描述:”，为空则获取meta[name="description"]的content
+            var rawDesc: String? = doc.selectFirst(".slide-desc-box .this-desc .text")?.text()?.trim()?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst(".slide-desc-box .this-desc")?.text()?.trim()?.takeIf { it.isNotBlank() }
+            if (rawDesc != null) {
+                // 去掉空格?  spec 要求去掉空格，此处仅去掉首尾及描述前缀，保留中间可读性；若需完全去空格可取消此行注释
+                // rawDesc = rawDesc.replace(" ", "").replace("　", "")
+                rawDesc = rawDesc.replaceFirst(Regex("^.*?描述[:：]\\s*"), "").trim()
+            }
+            description = rawDesc?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[name=description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: "未知"
+        } else if (isFdzys) {
+            // 饭搭子详情：按用户指定选择器
+            val titleEl = doc.selectFirst(".title-box .title")
+                ?: doc.selectFirst(".title-box .titles")
+                ?: doc.selectFirst(".title-box h1")
+            val htmlTitle = titleEl?.text()?.trim()?.takeIf { it.isNotBlank() }
+            title = htmlTitle
+                ?: vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 类型：.title-box .tags 里面所有 tag 用英文,分割
+            val tagEls = doc.select(".title-box .tags .tag")
+            val tagType = if (tagEls.isNotEmpty()) {
+                tagEls.mapNotNull { it.text().trim().takeIf { t -> t.isNotEmpty() } }.joinToString(",").takeIf { it.isNotBlank() }
+            } else null
+            type = tagType
+                ?: vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 导演：.title-box 第一个 .director 去掉“导演:”
+            // 主演：.title-box 第二个 .director 去掉“主演:”
+            val fdzysDirectors = doc.select(".title-box .director")
+            var dirTemp = ""
+            var actTemp = ""
+            if (fdzysDirectors.size >= 2) {
+                dirTemp = fdzysDirectors[0].text().trim().replaceFirst(Regex("^.*?导演[:：]\\s*"), "").trim()
+                actTemp = fdzysDirectors[1].text().trim().replaceFirst(Regex("^.*?主演[:：]\\s*"), "").trim()
+                // 兼容无前缀时去掉冒号前内容
+                if (dirTemp == fdzysDirectors[0].text().trim()) {
+                    dirTemp = dirTemp.replaceFirst(Regex("^.*?[：:]\\s*"), "").trim()
+                }
+                if (actTemp == fdzysDirectors[1].text().trim()) {
+                    actTemp = actTemp.replaceFirst(Regex("^.*?[：:]\\s*"), "").trim()
+                }
+            } else if (fdzysDirectors.size == 1) {
+                val t = fdzysDirectors.first()!!.text().trim()
+                if (t.contains("导演")) {
+                    dirTemp = t.replaceFirst(Regex("^.*?导演[:：]\\s*"), "").trim()
+                } else if (t.contains("主演")) {
+                    actTemp = t.replaceFirst(Regex("^.*?主演[:：]\\s*"), "").trim()
+                }
+            }
+            director = dirTemp.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+            actor = actTemp.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 简介：.vod-content .intro 里面的文字
+            val descEl = doc.selectFirst(".vod-content .intro")
+                ?: doc.selectFirst(".vod-content .wrapper_more_text")
+                ?: doc.selectFirst(".vod-content")
+            // 取内部文本，若包含标题“简介:”则去掉
+            var rawDesc = descEl?.text()?.trim()?.takeIf { it.isNotBlank() }
+            if (rawDesc != null && rawDesc.startsWith("简介")) {
+                rawDesc = rawDesc.replaceFirst(Regex("^简介[:：\\s]*"), "").trim()
+            }
+            description = rawDesc?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 封面：.img-box img 的 src，为空则 meta og:image
+            val imgEl = doc.selectFirst(".img-box img")
+                ?: doc.selectFirst(".vod-detail-box .img-box img")
+            var imgCover: String? = null
+            if (imgEl != null) {
+                imgCover = imgEl.attr("src").trim()
+                    .takeIf { it.isNotBlank() && !it.contains("loading.png") && !it.startsWith("data:") }
+                    ?: imgEl.attr("data-src").trim().takeIf { it.isNotBlank() }
+                    ?: imgEl.attr("data-original").trim().takeIf { it.isNotBlank() }
+            }
+            val metaCover = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            val rawCover = imgCover?.takeIf { it.isNotBlank() } ?: metaCover ?: "未知"
+            coverUrl = when {
+                rawCover == "未知" -> "未知"
+                rawCover.startsWith("http") -> rawCover
+                rawCover.startsWith("//") -> "https:$rawCover"
+                rawCover.startsWith("/") -> baseUrl + rawCover
+                rawCover.isNotBlank() -> "$baseUrl/$rawCover"
+                else -> "未知"
+            }
+        } else {
+            // 泥视频、永乐视频、映像星球详情
+            val h1El = doc.selectFirst(".module-info-main h1") ?: doc.selectFirst("h1")
+            title = h1El?.text()?.trim()?.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() } ?: "未知"
+
+            // 类型：.module-info-main .module-info-tag 每个 .module-info-tag-link 文字去空格用/分割，/->,
+            val tagLinks = doc.select(".module-info-main .module-info-tag .module-info-tag-link")
+            val tagType = if (tagLinks.isNotEmpty()) {
+                val joined = tagLinks.mapNotNull {
+                    // 先去掉空格
+                    it.text().replace(" ", "").replace("　", "").trim().takeIf { t -> t.isNotEmpty() }
+                }.joinToString("/")
+                // /改为英文,
+                joined.removeSuffix("/").replace("/", ",").takeIf { it.isNotBlank() }
+            } else null
+            type = tagType
+                ?: vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 导演：第一个 .module-info-item-content 先去掉空格，去掉最后一个/，/改为英文,
+            // 主演：第二个
+            val itemContents = doc.select(".module-info-main .module-info-item-content")
+            var dirTemp2 = ""
+            var actTemp2 = ""
+            if (itemContents.size >= 1) {
+                dirTemp2 = itemContents[0].text().replace(" ", "").replace("　", "").trim()
+                    .removeSuffix("/").replace("/", ",")
+            }
+            if (itemContents.size >= 2) {
+                actTemp2 = itemContents[1].text().replace(" ", "").replace("　", "").trim()
+                    .removeSuffix("/").replace("/", ",")
+            }
+            director = dirTemp2.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+            actor = actTemp2.takeIf { it.isNotBlank() }
+                ?: vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: "未知"
+
+            // 封面：.module-info-poster img 的 src，为空则 meta
+            val posterImg = doc.selectFirst(".module-info-poster img")
+            var posterSrc = posterImg?.attr("src")?.trim()
+                ?.takeIf { it.isNotBlank() && !it.contains("loading.png") && !it.startsWith("data:") }
+                ?: posterImg?.attr("data-original")?.trim()?.takeIf { it.isNotBlank() }
+                ?: posterImg?.attr("data-src")?.trim()?.takeIf { it.isNotBlank() }
+            if (posterSrc.isNullOrBlank()) {
+                posterSrc = doc.selectFirst(".module-info-poster img")?.attr("data-original")?.trim()
+            }
+            val metaCover2 = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            val rawCover2 = posterSrc?.takeIf { it.isNotBlank() } ?: metaCover2 ?: "未知"
+            coverUrl = when {
+                rawCover2 == "未知" -> "未知"
+                rawCover2.startsWith("http") -> rawCover2
+                rawCover2.startsWith("//") -> "https:$rawCover2"
+                rawCover2.startsWith("/") -> baseUrl + rawCover2
+                rawCover2.isNotBlank() -> "$baseUrl/$rawCover2"
+                else -> "未知"
+            }
+
+            // 简介：.module-info-main .module-info-introduction-content
+            val introEl = doc.selectFirst(".module-info-main .module-info-introduction-content")
+                ?: doc.selectFirst(".module-info-introduction-content")
+            val rawIntro = introEl?.text()?.trim()?.takeIf { it.isNotBlank() }
+            description = rawIntro?.takeIf { it.isNotBlank() }
+                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+                ?: "未知"
+        }
 
         PageData(
             routes = routes,
@@ -335,6 +707,8 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         null
     }
 }
+
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -362,6 +736,9 @@ internal fun MovieDetailScreen(
     var isSwitchingEpisode by state.isSwitchingEpisode
     var pendingSwitchTarget by state.pendingSwitchTarget
     var pendingSwitchBack by state.pendingSwitchBack
+    var playErrorMsg by state.playErrorMsg
+    var isPlayLoading by state.isPlayLoading
+    var playRetryKey by state.playRetryKey
 
     var showIntroSheet by state.showIntroSheet
     var showRouteSheet by state.showRouteSheet
@@ -514,7 +891,17 @@ internal fun MovieDetailScreen(
                 val jsonStr = extractPlayerJson(epPlayerMain)
                 jsonStr?.let {
                     runCatching {
-                        Json.parseToJsonElement(it).jsonObject["url"]?.jsonPrimitive?.content
+                        val obj = Json.parseToJsonElement(it).jsonObject
+                        val encrypt = obj["encrypt"]?.jsonPrimitive?.contentOrNull ?: "0"
+                        val rawUrl = obj["url"]?.jsonPrimitive?.contentOrNull ?: ""
+                        when (encrypt) {
+                            "1" -> java.net.URLDecoder.decode(rawUrl, "UTF-8")
+                            "2" -> {
+                                val decoded = java.util.Base64.getDecoder().decode(rawUrl).toString(Charsets.UTF_8)
+                                java.net.URLDecoder.decode(decoded, "UTF-8")
+                            }
+                            else -> rawUrl
+                        }
                     }.getOrNull()
                 } ?: ""
             },
@@ -541,6 +928,9 @@ internal fun MovieDetailScreen(
         val ep = route.episodes[epIdx]
         currentEpisodeUrl = ep.link
         isSwitchingEpisode = true
+        isPlayLoading = true
+        playErrorMsg = null
+        currentM3u8Url = ""
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         pendingSwitchTarget = routeIdx to epIdx
@@ -550,6 +940,7 @@ internal fun MovieDetailScreen(
             currentEpisodeUrl = prevEpisodeUrl
             currentM3u8Url = prevM3u8Url
             isSwitchingEpisode = false
+            isPlayLoading = false
             if (prevM3u8Url.isNotEmpty()) {
                 exoPlayer.apply {
                     stop()
@@ -561,9 +952,13 @@ internal fun MovieDetailScreen(
         }
         fetchJob = scope.launch {
             try {
-                val m3u8 = filterAds(fetchEpisodeM3u8(ep.link))
+                val m3u8Raw = fetchEpisodeM3u8(ep.link)
+                val m3u8 = filterAds(m3u8Raw)
                 if (m3u8.isNotEmpty()) {
+                    playErrorMsg = null
                     currentM3u8Url = m3u8
+                    pendingSwitchBack = null
+                    pendingSwitchTarget = null
                     exoPlayer.apply {
                         stop()
                         setMediaItem(MediaItem.fromUri(m3u8))
@@ -571,18 +966,21 @@ internal fun MovieDetailScreen(
                         playWhenReady = true
                     }
                 } else {
+                    playErrorMsg = "无法加载播放地址"
                     val action = pendingSwitchBack
                     pendingSwitchBack = null
                     pendingSwitchTarget = null
                     action?.invoke()
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                playErrorMsg = e.message ?: "无法加载播放地址"
                 val action = pendingSwitchBack
                 pendingSwitchBack = null
                 pendingSwitchTarget = null
                 action?.invoke()
             } finally {
                 isSwitchingEpisode = false
+                isPlayLoading = false
             }
         }
     }
@@ -591,7 +989,7 @@ internal fun MovieDetailScreen(
         if (pageData != null && currentM3u8Url.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         errorMsg = null
-        val result = withContext(Dispatchers.IO) {
+        val result: PageData? = withContext(Dispatchers.IO) {
             HttpUtil.get(
                 videoUrl, mapOf(
                     "User-Agent" to AppData.UA_CHROME_PC,
@@ -606,14 +1004,13 @@ internal fun MovieDetailScreen(
             pageData = result
 
             val matchUrl = state.initialEpisodeUrl ?: videoUrl
+            var foundRouteIdx = 0
+            var foundEpIdx = 0
             val targetPath = try {
                 matchUrl.toUri().encodedPath
             } catch (_: Exception) {
                 null
             }
-
-            var foundRouteIdx = 0
-            var foundEpIdx = 0
             if (targetPath != null) {
                 for ((rIdx, route) in result.routes.withIndex()) {
                     for ((eIdx, ep) in route.episodes.withIndex()) {
@@ -635,27 +1032,69 @@ internal fun MovieDetailScreen(
             selectedEpisodeIndex = foundEpIdx
             val ep = result.routes[foundRouteIdx].episodes[foundEpIdx]
             currentEpisodeUrl = ep.link
+            isPlayLoading = true
+            playErrorMsg = null
+            currentM3u8Url = ""
 
             scope.launch {
-                val m3u8 = filterAds(fetchEpisodeM3u8(ep.link))
-                if (m3u8.isNotEmpty()) {
-                    currentM3u8Url = m3u8
-                    exoPlayer.apply {
-                        setMediaItem(MediaItem.fromUri(m3u8))
-                        prepare()
-                        playWhenReady = true
+                try {
+                    val m3u8Raw = fetchEpisodeM3u8(ep.link)
+                    val m3u8 = filterAds(m3u8Raw)
+                    if (m3u8.isNotEmpty()) {
+                        playErrorMsg = null
+                        currentM3u8Url = m3u8
+                        exoPlayer.apply {
+                            setMediaItem(MediaItem.fromUri(m3u8))
+                            prepare()
+                            playWhenReady = true
+                        }
+                        if (state.initialPosition > 0L) {
+                            targetPosition = state.initialPosition
+                        }
+                    } else {
+                        playErrorMsg = "无法加载播放地址"
+                        currentM3u8Url = ""
+                        Toast.makeText(context, "无法加载播放地址", Toast.LENGTH_SHORT).show()
                     }
-                    if (state.initialPosition > 0L) {
-                        targetPosition = state.initialPosition
-                    }
-                } else {
-                    errorMsg = "无法加载播放地址"
+                } finally {
+                    isPlayLoading = false
                 }
             }
         } else {
             errorMsg = "无法加载视频信息"
         }
         isLoading = false
+    }
+
+    LaunchedEffect(playRetryKey) {
+        if (playRetryKey == 0) return@LaunchedEffect
+        val pd = pageData ?: return@LaunchedEffect
+        if (isPlayLoading) return@LaunchedEffect
+        val route = pd.routes.getOrNull(selectedRouteIndex) ?: return@LaunchedEffect
+        val ep = route.episodes.getOrNull(selectedEpisodeIndex) ?: return@LaunchedEffect
+        isPlayLoading = true
+        playErrorMsg = null
+        currentM3u8Url = ""
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
+        try {
+            val m3u8Raw = fetchEpisodeM3u8(ep.link)
+            val m3u8 = filterAds(m3u8Raw)
+            if (m3u8.isNotEmpty()) {
+                playErrorMsg = null
+                currentM3u8Url = m3u8
+                exoPlayer.apply {
+                    setMediaItem(MediaItem.fromUri(m3u8))
+                    prepare()
+                    playWhenReady = true
+                }
+            } else {
+                playErrorMsg = "无法加载播放地址"
+                Toast.makeText(context, "无法加载播放地址", Toast.LENGTH_SHORT).show()
+            }
+        } finally {
+            isPlayLoading = false
+        }
     }
 
     val data = pageData
@@ -703,7 +1142,7 @@ internal fun MovieDetailScreen(
             modifier = modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.surface,
         ) { paddingValues ->
-            if (errorMsg != null || pageData == null) {
+            if (pageData == null) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -714,6 +1153,20 @@ internal fun MovieDetailScreen(
                         isLoading = isLoading,
                         onRetry = if (!isLoading) ({ retryKey++ }) else null,
                     )
+                    if (errorMsg != null && !isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = errorMsg ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
                 }
             } else {
                 val data = pageData!!
@@ -744,7 +1197,12 @@ internal fun MovieDetailScreen(
                     } else {
                         PlayerPlaceholder(
                             onBack = wrappedOnBack,
-                            isLoading = true,
+                            isLoading = isPlayLoading || isSwitchingEpisode,
+                            onRetry = if (!isPlayLoading && !isSwitchingEpisode) ({
+                                // retry play url for current episode
+                                playRetryKey++
+                            }) else null,
+                            errorText = playErrorMsg,
                         )
                     }
 
@@ -1142,6 +1600,7 @@ private fun PlayerPlaceholder(
     onBack: () -> Unit,
     isLoading: Boolean = true,
     onRetry: (() -> Unit)? = null,
+    errorText: String? = null,
 ) {
     Box(
         modifier = Modifier
@@ -1168,19 +1627,34 @@ private fun PlayerPlaceholder(
         ) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                onRetry != null -> Box(
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { onRetry() }
-                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                onRetry != null -> Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "点击重试",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    if (!errorText.isNullOrBlank()) {
+                        Text(
+                            text = errorText,
+                            color = Color.White.copy(alpha = 0.9f),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.large)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { onRetry() }
+                            .padding(horizontal = 24.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            text = "点击重试",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
                 else -> Icon(
                     painter = painterResource(R.drawable.autoplay_outlined),

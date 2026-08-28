@@ -82,6 +82,7 @@ import pjs.dogbox.ui.screen.movie.MovieDetailScreen
 import pjs.dogbox.ui.screen.movie.MovieDetailScreenState
 import pjs.dogbox.ui.screen.movie.MovieSearchScreen
 import pjs.dogbox.ui.screen.movie.MovieSearchScreenState
+import androidx.core.net.toUri
 import pjs.dogbox.ui.screen.movie.extractHost
 import pjs.dogbox.ui.screen.movie.extractVideoId
 import pjs.dogbox.data.AppData
@@ -106,7 +107,7 @@ fun BaseScreen(
     var showUpdateDialog by remember { mutableStateOf(false) }
     var updateVer by remember { mutableStateOf("1.0.0") }
     var updateNote by remember { mutableStateOf("修复了一些已知问题") }
-    var updateDown by remember { mutableStateOf(AppData.GITHUB_REPO) }
+    var updateDown by remember { mutableStateOf(AppData.GITHUB_PAGE) }
 
     LaunchedEffect(Unit) {
         if (!SharedData.isAutoCheckUpdate(context)) return@LaunchedEffect
@@ -310,8 +311,31 @@ fun BaseScreen(
             WatchHistoryScreen(
                 onBack = { navController.popBackStack() },
                 onPlayMovie = { url, pos, host ->
-                    val absUrl = if (url.startsWith("http")) url else "$host$url"
-                    navController.navigate(AppRoutes.play(absUrl, pos, absUrl))
+                    val episodeAbs = if (url.startsWith("http")) url else "$host$url"
+                    // 观看历史统一取详情页：episode -> detail
+                    val detailAbs = run {
+                        val vid = extractVideoId(episodeAbs)
+                        when {
+                            host.contains("nivod") -> "${extractHost(host)}/nivod/$vid/"
+                            host.contains("ylsp") || host.contains("59v") -> "${extractHost(host)}/voddetail/$vid/"
+                            host.contains("yxxq") -> "${extractHost(host)}/html/$vid.html"
+                            host.contains("fdzys") -> {
+                                // 去掉末尾集数段 /1?sid= -> 详情
+                                val uri = episodeAbs.toUri()
+                                val segs = uri.pathSegments
+                                val last = segs.lastOrNull() ?: ""
+                                val isEpisode = last.matches(Regex("\\d+")) || episodeAbs.contains("?sid=")
+                                if (isEpisode && segs.size >= 2) {
+                                    val detailPath = "/" + segs.dropLast(1).joinToString("/")
+                                    "${extractHost(host)}$detailPath"
+                                } else {
+                                    episodeAbs.substringBefore("?").trimEnd('/')
+                                }
+                            }
+                            else -> episodeAbs
+                        }
+                    }
+                    navController.navigate(AppRoutes.play(detailAbs, pos, episodeAbs))
                 },
             )
         }

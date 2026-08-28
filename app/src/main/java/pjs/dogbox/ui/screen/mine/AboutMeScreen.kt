@@ -104,7 +104,7 @@ fun AboutMeScreen(
     val checking = checkState == UpdateCheckState.CHECKING
     var latestVersion by remember { mutableStateOf(cachedInfo?.versionName ?: "") }
     var updateNote by remember { mutableStateOf(cachedInfo?.note ?: "") }
-    var updateDown by remember { mutableStateOf(cachedInfo?.downloadUrl ?: AppData.GITHUB_REPO) }
+    var updateDown by remember { mutableStateOf(cachedInfo?.downloadUrl ?: AppData.GITHUB_PAGE) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var showDisclaimerDialog by remember { mutableStateOf(false) }
 
