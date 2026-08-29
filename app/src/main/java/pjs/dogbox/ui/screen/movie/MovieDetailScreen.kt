@@ -216,6 +216,18 @@ internal fun extractPath(url: String): String {
     }
 }
 
+internal fun extractPathWithQuery(url: String): String {
+    return try {
+        val uri = url.toUri()
+        val path = uri.encodedPath ?: ""
+        val query = uri.encodedQuery?.let { "?$it" } ?: ""
+        val result = path + query
+        if (result.isNotEmpty()) result else url
+    } catch (_: Exception) {
+        url
+    }
+}
+
 private fun saveWatchHistory(
     context: android.content.Context,
     detailUrl: String,
@@ -232,9 +244,12 @@ private fun saveWatchHistory(
     val position = player.currentPosition
     if (position < 10000) return
     val duration = player.duration.coerceAtLeast(position)
-    val epPathRaw = extractPath(episodeUrl)
+    val host = extractHost(detailUrl)
+    val isFdzys = host.contains("fdzys")
+    // 仅饭搭子需记录 path + query（?sid=），其他源只记录 path
+    val epPathRaw = if (isFdzys) extractPathWithQuery(episodeUrl) else extractPath(episodeUrl)
     val epPath = if (epPathRaw.startsWith("/")) epPathRaw else "/$epPathRaw"
-    val key = AppData.sourceKey(extractHost(detailUrl))
+    val key = AppData.sourceKey(host)
     // coverUrl 存完整链接（host 可能与 key 的 host 不同，不能仅存 path）
     val coverFull = coverUrl
     SharedData.addOrUpdateWatchHistory(
@@ -287,6 +302,51 @@ private fun extractPlayerJson(html: String): String? {
         }
     }
     return null
+}
+
+private fun isDirectVideoUrl(url: String): Boolean {
+    if (url.isBlank()) return false
+    val lower = url.lowercase()
+    // 直接可播放的后缀（忽略大小写、忽略 ? 后参数）
+    // 包含 .m3u8 / .mp4 等即认为可直接播放
+    val directExts = listOf(
+        ".m3u8", ".mp4", ".m4v", ".mov", ".avi", ".mkv",
+        ".flv", ".wmv", ".webm", ".ts", ".mpd", ".3gp", ".m3u"
+    )
+    return directExts.any { ext -> lower.contains(ext) }
+}
+
+private suspend fun resolveIndirectVideoUrl(intermediateUrl: String, referer: String): String {
+    if (intermediateUrl.isBlank()) return ""
+    // 被认为是间接链接（如 /share/...），需二次请求页面源码
+    val htmlResult = HttpUtil.get(
+        intermediateUrl,
+        mapOf(
+            "User-Agent" to AppData.UA_CHROME_PC,
+            "Referer" to referer,
+        )
+    )
+    val html = htmlResult.getOrNull() ?: return ""
+    // 需求：用正则匹配 "" 里面包含 .m3u8 的即为真实播放路径
+    // 先匹配双引号，再兜底单引号
+    var path: String? = Regex("\"([^\"]*\\.m3u8[^\"]*)\"")
+        .find(html)?.groupValues?.getOrNull(1)
+    if (path.isNullOrBlank()) {
+        path = Regex("'([^']*\\.m3u8[^']*)'")
+            .find(html)?.groupValues?.getOrNull(1)
+    }
+    if (path.isNullOrBlank()) return ""
+    // 处理转义：如 \/ -> /
+    path = path.replace("\\/", "/").replace("\\\"", "\"").trim()
+    if (path.isBlank()) return ""
+    // 真实播放链接的 host 就是请求的那个链接的 host
+    val host = extractHost(intermediateUrl)
+    return when {
+        path.startsWith("http://") || path.startsWith("https://") -> path
+        path.startsWith("//") -> "https:$path"
+        path.startsWith("/") -> host + path
+        else -> "$host/$path"
+    }
 }
 
 private fun parseInitialPage(html: String, baseUrl: String): PageData? {
@@ -891,7 +951,7 @@ internal fun MovieDetailScreen(
     fun buildBaseUrl(url: String): String = extractHost(url)
 
     suspend fun fetchEpisodeM3u8(episodeLink: String): String = withContext(Dispatchers.IO) {
-        HttpUtil.get(
+        val rawUrl = HttpUtil.get(
             episodeLink, mapOf(
                 "User-Agent" to AppData.UA_CHROME_PC,
                 "Referer" to buildBaseUrl(videoUrl),
@@ -907,20 +967,28 @@ internal fun MovieDetailScreen(
                     runCatching {
                         val obj = Json.parseToJsonElement(it).jsonObject
                         val encrypt = obj["encrypt"]?.jsonPrimitive?.contentOrNull ?: "0"
-                        val rawUrl = obj["url"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val raw = obj["url"]?.jsonPrimitive?.contentOrNull ?: ""
                         when (encrypt) {
-                            "1" -> java.net.URLDecoder.decode(rawUrl, "UTF-8")
+                            "1" -> java.net.URLDecoder.decode(raw, "UTF-8")
                             "2" -> {
-                                val decoded = java.util.Base64.getDecoder().decode(rawUrl).toString(Charsets.UTF_8)
+                                val decoded = java.util.Base64.getDecoder().decode(raw).toString(Charsets.UTF_8)
                                 java.net.URLDecoder.decode(decoded, "UTF-8")
                             }
-                            else -> rawUrl
+                            else -> raw
                         }
                     }.getOrNull()
                 } ?: ""
             },
             onFailure = { "" },
         )
+        if (rawUrl.isBlank()) return@withContext ""
+        // 若已是直链（.m3u8/.mp4 等）则直接返回播放
+        if (isDirectVideoUrl(rawUrl)) return@withContext rawUrl
+        // 否则认为是间接链接，需二次请求获取源码，正则匹配 "" 内包含 .m3u8 的路径
+        val resolved = resolveIndirectVideoUrl(rawUrl, buildBaseUrl(rawUrl))
+        if (resolved.isNotBlank()) return@withContext resolved
+        // 二次解析失败则返回空，触发重试/错误提示（点击重试会重复此流程）
+        ""
     }
 
     suspend fun filterAds(url: String): String =
@@ -1020,23 +1088,52 @@ internal fun MovieDetailScreen(
             val matchUrl = state.initialEpisodeUrl ?: videoUrl
             var foundRouteIdx = 0
             var foundEpIdx = 0
-            val targetPath = try {
-                matchUrl.toUri().encodedPath
-            } catch (_: Exception) {
-                null
-            }
-            if (targetPath != null) {
-                for ((rIdx, route) in result.routes.withIndex()) {
-                    for ((eIdx, ep) in route.episodes.withIndex()) {
-                        val epPath = try {
-                            ep.link.toUri().encodedPath
-                        } catch (_: Exception) {
-                            null
+            val isFdzys = extractHost(videoUrl).contains("fdzys")
+            if (isFdzys) {
+                // 饭搭子：线路靠 ?sid= 区分，首线路无 sid，需 path+query 精确匹配
+                val targetFull = try {
+                    val uri = matchUrl.toUri()
+                    (uri.encodedPath ?: "") + (uri.encodedQuery?.let { "?$it" } ?: "")
+                } catch (_: Exception) {
+                    null
+                }
+                if (targetFull != null) {
+                    outer@ for ((rIdx, route) in result.routes.withIndex()) {
+                        for ((eIdx, ep) in route.episodes.withIndex()) {
+                            val epFull = try {
+                                val uri = ep.link.toUri()
+                                (uri.encodedPath ?: "") + (uri.encodedQuery?.let { "?$it" } ?: "")
+                            } catch (_: Exception) {
+                                null
+                            }
+                            if (epFull != null && epFull == targetFull) {
+                                foundRouteIdx = rIdx
+                                foundEpIdx = eIdx
+                                break@outer
+                            }
                         }
-                        if (epPath != null && epPath == targetPath) {
-                            foundRouteIdx = rIdx
-                            foundEpIdx = eIdx
-                            break
+                    }
+                }
+            } else {
+                // 其他源：仅按 path 匹配，各自解析已适配
+                val targetPath = try {
+                    matchUrl.toUri().encodedPath
+                } catch (_: Exception) {
+                    null
+                }
+                if (targetPath != null) {
+                    outer@ for ((rIdx, route) in result.routes.withIndex()) {
+                        for ((eIdx, ep) in route.episodes.withIndex()) {
+                            val epPath = try {
+                                ep.link.toUri().encodedPath
+                            } catch (_: Exception) {
+                                null
+                            }
+                            if (epPath != null && epPath == targetPath) {
+                                foundRouteIdx = rIdx
+                                foundEpIdx = eIdx
+                                break@outer
+                            }
                         }
                     }
                 }

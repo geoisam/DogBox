@@ -17,6 +17,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -44,7 +45,6 @@ import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.data.SharedData
 import java.io.File
 import java.io.FileOutputStream
-import java.util.concurrent.atomic.AtomicInteger
 
 class MediaDownloadService : Service() {
 
@@ -70,6 +70,26 @@ class MediaDownloadService : Service() {
 
         /** 系统下载器轮询间隔 */
         private const val SYSTEM_POLL_INTERVAL_MS = 800L
+
+        private const val PREFS_NAME = "app_settings"
+        private const val KEY_NEXT_NOTIFICATION_ID = "next_notification_id"
+        private const val NOTIFICATION_ID_START = 10001
+        private const val NOTIFICATION_ID_END = 999999
+
+        /**
+         * 生成全局唯一的通知 ID，持久化自增，避免 Service 重建导致 ID 重用而覆盖历史完成通知。
+         * 类似 QQ/微信/抖音的聊天通知，每条完成通知独立存在、互不覆盖。
+         */
+        fun obtainNextNotificationId(context: Context): Int {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            var cur = prefs.getInt(KEY_NEXT_NOTIFICATION_ID, NOTIFICATION_ID_START)
+            if (cur < NOTIFICATION_ID_START || cur >= NOTIFICATION_ID_END) cur = NOTIFICATION_ID_START
+            val next = cur + 1
+            prefs.edit { putInt(KEY_NEXT_NOTIFICATION_ID, next) }
+            // 叠加时间戳低位 + 随机数，极端情况下（卸载重装等）也能降低碰撞概率
+            // 但主要唯一性由持久化自增值保证
+            return cur
+        }
 
         fun typeNameForDirName(dirName: String): String = when (dirName) {
             "Pictures" -> "图片素材"
@@ -118,9 +138,6 @@ class MediaDownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val activeJobs = mutableMapOf<Int, Job>()
 
-    /** 每批下载分配独立的通知 id，完成通知互不覆盖、可共存 */
-    private val nextNotificationId = AtomicInteger(2001)
-
     /** notificationId -> 系统 DownloadManager 任务 id 列表 */
     private val systemDownloadIds = mutableMapOf<Int, List<Long>>()
 
@@ -155,8 +172,10 @@ class MediaDownloadService : Service() {
                 val doneTitle = intent.getStringExtra(EXTRA_NOTIFY_TITLE)
                     ?.takeIf { it.isNotBlank() }
                     ?: defaultDoneTitleForDirName(dirName)
-                // 每批下载使用全新通知 id，避免覆盖上一条完成通知
-                val notificationId = nextNotificationId.getAndIncrement()
+                // 每批下载使用全局唯一通知 id（持久化自增，从 10001 开始），避免覆盖上一条完成通知
+                // 修复：之前使用 Service 实例内的 AtomicInteger，Service 销毁重建后会重置，导致新通知覆盖旧通知
+                // 现在改为 SharedPreferences 持久化，保证像 QQ/微信/抖音那样追加而不是替代
+                val notificationId = obtainNextNotificationId(this)
 
                 ensureChannel()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

@@ -211,7 +211,7 @@ private suspend fun fetchPage(
                 url, mapOf(
                     "User-Agent" to AppData.UA_CHROME_PC,
                     "Referer" to "${source.host}/",
-                    "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                    "Accept" to "text/html;q=0.9,*/*;q=0.8",
                     "Accept-Language" to "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
                 )
             ).getOrThrow()
