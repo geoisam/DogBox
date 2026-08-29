@@ -21,18 +21,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class WatchHistoryItem(
-    val id: String,
-    val url: String,
-    val coverUrl: String,
+    val id: String, // 详情页路径，如 /nivod/123/ /html/123.html /voddetail/123/
+    val url: String, // 当前播放集路径，如 /play/xxx.html /fdzys/.../1
+    val coverUrl: String, // 封面图完整链接（host 可能与 key 的 host 不同，故存全链）
     val title: String,
     val progress: Long,
     val duration: Long,
     val timestamp: Long,
     val orientation: Int = 0,
     val episodeName: String = "",
-    val host: String = AppData.NIVOD_HOST,
     val key: String = AppData.NIVOD_KEY,
 ) {
+    // host 不再持久化，按 key 动态获取
+    val host: String
+        get() = AppData.hostForKey(key)
     val formattedDate: String
         get() = Instant.ofEpochMilli(timestamp)
             .atZone(ZoneId.systemDefault())
@@ -115,6 +117,9 @@ object SharedData {
 
     private fun jsonToWatchItem(obj: JsonObject): WatchHistoryItem? {
         return try {
+            val key = obj["key"]?.jsonPrimitive?.contentOrNull
+                ?: obj["host"]?.jsonPrimitive?.contentOrNull?.let { AppData.sourceKey(it) }
+                ?: AppData.NIVOD_KEY
             WatchHistoryItem(
                 id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                 url = obj["url"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -126,10 +131,7 @@ object SharedData {
                     ?: System.currentTimeMillis(),
                 orientation = obj["orientation"]?.jsonPrimitive?.longOrNull?.toInt() ?: 0,
                 episodeName = obj["episodeName"]?.jsonPrimitive?.contentOrNull ?: "",
-                host = obj["host"]?.jsonPrimitive?.contentOrNull ?: AppData.NIVOD_HOST,
-                key = obj["key"]?.jsonPrimitive?.contentOrNull ?: AppData.sourceKey(
-                    obj["host"]?.jsonPrimitive?.contentOrNull ?: ""
-                ),
+                key = key,
             )
         } catch (_: Exception) {
             null
@@ -148,7 +150,6 @@ object SharedData {
                 "timestamp" to JsonPrimitive(item.timestamp),
                 "orientation" to JsonPrimitive(item.orientation.toLong()),
                 "episodeName" to JsonPrimitive(item.episodeName),
-                "host" to JsonPrimitive(item.host),
                 "key" to JsonPrimitive(item.key),
             )
         )

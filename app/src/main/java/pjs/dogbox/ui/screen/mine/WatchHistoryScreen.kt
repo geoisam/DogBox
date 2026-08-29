@@ -75,7 +75,7 @@ import pjs.dogbox.data.WatchHistoryItem
 @Composable
 fun WatchHistoryScreen(
     onBack: () -> Unit = {},
-    onPlayMovie: (url: String, initialPosition: Long, host: String) -> Unit = { _, _, _ -> },
+    onPlayMovie: (WatchHistoryItem) -> Unit = {},
 ) {
     val context = LocalContext.current
     var items by remember { mutableStateOf(SharedData.getWatchHistory(context)) }
@@ -306,7 +306,7 @@ fun WatchHistoryScreen(
                                     }
                                 },
                                 onClick = {
-                                    onPlayMovie(item.url, item.progress, item.host)
+                                    onPlayMovie(item)
                                 },
                             )
                         }

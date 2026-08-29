@@ -47,6 +47,14 @@ object AppData {
         else -> NIVOD_NAME
     }
 
+    fun hostForKey(key: String): String = when (key) {
+        YXXQ_KEY -> YXXQ_HOST
+        YLSP_KEY -> YLSP_HOST
+        FDZYS_KEY -> FDZYS_HOST
+        PIANKU_KEY -> PIANKU_HOST
+        else -> NIVOD_HOST
+    }
+
     const val UA_CHROME_PC =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/169.0.0.0 Safari/537.36"
     const val UA_CHROME_M =

@@ -79,12 +79,16 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Document
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import pjs.dogbox.R
 import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
@@ -122,16 +126,8 @@ private data class PageInfo(
 )
 
 private fun checkPageInfo(doc: Document, currentPage: Int): PageInfo {
-    var lastPage = doc.select("#page a[title=尾页]").firstOrNull()?.attr("href")?.let { href ->
-        Regex("""(\d+)\D*$""").find(href)?.groupValues?.getOrNull(1)?.toIntOrNull()
-    } ?: 0
-    if (lastPage <= 0) {
-        for (a in doc.select("#page a.page-number")) {
-            val num = a.text().trim().toIntOrNull() ?: continue
-            if (num > lastPage) lastPage = num
-        }
-    }
-    return PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
+    // 已改无限页逻辑：不再解析分页元素，由调用方按 items 是否为空判断 hasNext
+    return PageInfo(hasNext = true, nextUrl = null)
 }
 
 private fun parseSearchResults(
@@ -186,7 +182,8 @@ private fun parseSearchResults(
             host = host,
         )
     }
-    val pageInfo = checkPageInfo(doc, currentPage)
+    // 无限页：只要本页有数据就认为还有下一页，空页则截止
+    val pageInfo = PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
     return items to pageInfo
 }
 
@@ -207,22 +204,36 @@ private suspend fun fetchPage(
             else "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
         }
     }
-    try {
-        val html = HttpUtil.get(
-            url, mapOf(
-                "User-Agent" to AppData.UA_CHROME_PC,
-                "Referer" to "${source.host}/",
-            )
-        ).getOrThrow()
-        val result = when (source) {
-            SearchSource.FDZYS -> parseFdzysSearchResults(html, source.host, page)
-            SearchSource.PIANKU -> parsePiankuSearchResults(html, source.host, page)
-            else -> parseSearchResults(html, source.host, page)
+    // 全部源统一：默认超时 10s，超时或失败自动重试一次，仍失败才显示“点击重试”
+    val timeoutMs = 10_000L
+    var lastError: Throwable? = null
+    repeat(2) { attempt ->
+        try {
+            val html = withTimeout(timeoutMs) {
+                HttpUtil.get(
+                    url, mapOf(
+                        "User-Agent" to AppData.UA_CHROME_PC,
+                        "Cache-Control" to "no-cache",
+                        "Origin" to source.host,
+                    )
+                ).getOrThrow()
+            }
+            val result = when (source) {
+                SearchSource.FDZYS -> parseFdzysSearchResults(html, source.host, page)
+                SearchSource.PIANKU -> parsePiankuSearchResults(html, source.host, page)
+                else -> parseSearchResults(html, source.host, page)
+            }
+            return@withContext Result.success(result)
+        } catch (e: TimeoutCancellationException) {
+            lastError = IOException("请求超时", e)
+        } catch (e: Throwable) {
+            lastError = e
         }
-        Result.success(result)
-    } catch (e: Throwable) {
-        Result.failure(e)
+        if (attempt == 0) {
+            try { delay(600) } catch (_: Throwable) {}
+        }
     }
+    Result.failure(lastError ?: IOException("未知网络错误"))
 }
 
 private fun parseFdzysSearchResults(
@@ -274,16 +285,8 @@ private fun parseFdzysSearchResults(
             host = host,
         )
     }
-    var lastPage = doc.select("div.pagination div.pages-box a.page").mapNotNull {
-        it.text().trim().toIntOrNull()
-    }.maxOrNull() ?: 0
-    // 兼容：无分页但结果数达到一页阈值时，尝试允许翻页（避免因结构变更导致无法翻页）
-    if (lastPage == 0 && items.size >= 24) {
-        // 若当前页已返回一整页数据，且未检测到分页，则假设还有下一页
-        lastPage = currentPage + 1
-    }
-
-    return items to PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
+    // 无限页：只要本页有数据就认为还有下一页
+    return items to PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
 }
 
 private fun parsePiankuSearchResults(
@@ -340,33 +343,8 @@ private fun parsePiankuSearchResults(
             host = host,
         )
     }
-    // 分页：.pages .page-link 数值最大为末页；若无数值则看下一页按钮是否存在
-    var lastPage = doc.select(".page-link").mapNotNull {
-        it.text().trim().toIntOrNull()
-    }.maxOrNull() ?: 0
-    if (lastPage == 0) {
-        // 兼容 .pages a 或 .page-info a
-        lastPage = doc.select(".pages a, .page-info a, div.pages a").mapNotNull {
-            it.text().trim().toIntOrNull()
-        }.maxOrNull() ?: 0
-    }
-    // 若仍未识别，尝试从 href 中解析 ----------N--- 结构
-    if (lastPage == 0) {
-        val maxHrefPage = doc.select("a[href*=\"----------\"]").mapNotNull { a ->
-            Regex("""----------(\d+)---""").find(a.attr("href"))?.groupValues?.getOrNull(1)?.toIntOrNull()
-        }.maxOrNull() ?: 0
-        if (maxHrefPage > lastPage) lastPage = maxHrefPage
-    }
-    if (lastPage == 0) {
-        val nextHref = doc.select(".page-link.fa.ds-jiantouyou, a[title*=下一页]").firstOrNull()?.attr("href")?.trim() ?: ""
-        if (nextHref.isNotBlank() && !nextHref.contains("javascript")) {
-            lastPage = currentPage + 1
-        } else if (items.size >= 12) {
-            // 兜底：若未检测到分页但返回一整页数据，假设还有下一页
-            lastPage = currentPage + 1
-        }
-    }
-    return items to PageInfo(hasNext = currentPage < lastPage, nextUrl = null)
+    // 无限页：只要本页有数据就认为还有下一页
+    return items to PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
 }
 
 internal class SourceState {
@@ -442,19 +420,27 @@ internal fun MovieSearchScreen(
                     launch {
                         val state = sourceStates.getValue(source)
                         state.isLoading = true
-                        fetchPage(source, activeQuery, 1).fold(
-                            onSuccess = { (items, pageInfo) ->
-                                state.itemList = items.distinctBy { it.link }
-                                state.hasMore = pageInfo.hasNext
-                            },
-                            onFailure = {
-                                state.itemList = emptyList()
-                                state.hasMore = false
-                                state.loadError = true
-                            },
-                        )
-                        state.isLoading = false
-                        state.hasSearched = true
+                        state.loadError = false
+                        try {
+                            fetchPage(source, activeQuery, 1).fold(
+                                onSuccess = { (items, pageInfo) ->
+                                    state.itemList = items.distinctBy { it.link }
+                                    state.hasMore = pageInfo.hasNext
+                                },
+                                onFailure = {
+                                    state.itemList = emptyList()
+                                    state.hasMore = false
+                                    state.loadError = true
+                                },
+                            )
+                        } catch (e: Throwable) {
+                            state.itemList = emptyList()
+                            state.hasMore = false
+                            state.loadError = true
+                        } finally {
+                            state.isLoading = false
+                            state.hasSearched = true
+                        }
                         completed += source
                         orderedSources = completed + sources.filterNot { it in completed }
                     }
@@ -473,6 +459,40 @@ internal fun MovieSearchScreen(
     fun retrySearch() {
         if (activeQuery.isNotBlank()) {
             retryKey++
+        }
+    }
+
+    fun retrySource(source: SearchSource) {
+        if (activeQuery.isBlank()) return
+        val s = sourceStates.getValue(source)
+        if (s.isLoading) return
+        scope.launch {
+            s.isLoading = true
+            s.loadError = false
+            // 仅重置当前源的分页，不影响其它源
+            s.currentPage = 1
+            s.hasMore = true
+            try {
+                fetchPage(source, activeQuery, 1).fold(
+                    onSuccess = { (items, pageInfo) ->
+                        s.itemList = items.distinctBy { it.link }
+                        s.hasMore = pageInfo.hasNext
+                        s.loadError = false
+                    },
+                    onFailure = {
+                        s.itemList = emptyList()
+                        s.hasMore = false
+                        s.loadError = true
+                    },
+                )
+            } catch (e: Throwable) {
+                s.itemList = emptyList()
+                s.hasMore = false
+                s.loadError = true
+            } finally {
+                s.isLoading = false
+                s.hasSearched = true
+            }
         }
     }
 
@@ -665,7 +685,7 @@ internal fun MovieSearchScreen(
                         source = source,
                         state = sourceStates.getValue(source),
                         activeQuery = activeQuery,
-                        retrySearch = { retrySearch() },
+                        onRetrySearch = { retrySource(source) },
                         onRetryLoadMore = { retryLoadMore(source) },
                         onLoadMore = { loadMore(source) },
                         onPlayVideo = onPlayVideo,
@@ -736,7 +756,7 @@ private fun SourceTabContent(
     source: SearchSource,
     state: SourceState,
     activeQuery: String,
-    retrySearch: () -> Unit,
+    onRetrySearch: () -> Unit,
     onRetryLoadMore: () -> Unit,
     onLoadMore: () -> Unit,
     onPlayVideo: (String) -> Unit,
@@ -750,17 +770,35 @@ private fun SourceTabContent(
     LaunchedEffect(source, state.currentPage, activeQuery, state.loadMoreRetryKey) {
         if (activeQuery.isEmpty() || state.currentPage <= 1) return@LaunchedEffect
         state.isLoading = true
-        fetchPage(source, activeQuery, state.currentPage).fold(
-            onSuccess = { (items, pageInfo) ->
-                state.itemList = (state.itemList + items).distinctBy { it.link }
-                state.hasMore = pageInfo.hasNext
-            },
-            onFailure = {
-                state.hasMore = false
-                state.loadError = true
-            },
-        )
-        state.isLoading = false
+        try {
+            fetchPage(source, activeQuery, state.currentPage).fold(
+                onSuccess = { (items, pageInfo) ->
+                    // 无限页：空页即止；有去重后无新增也视为止，避免重复数据死循环
+                    if (items.isEmpty()) {
+                        state.hasMore = false
+                    } else {
+                        val newList = (state.itemList + items).distinctBy { it.link }
+                        val hasNew = newList.size > state.itemList.size
+                        state.itemList = newList
+                        // pageInfo.hasNext 已按无限页置为 items.isNotEmpty()，再结合去重结果
+                        state.hasMore = pageInfo.hasNext && hasNew
+                        // 若无新增但仍有数据，仍更新为空判断已在上层处理，此分支不重复赋值
+                        if (!hasNew) {
+                            // 已无新增，去重后未增长，视为到达末页
+                        }
+                    }
+                },
+                onFailure = {
+                    state.hasMore = false
+                    state.loadError = true
+                },
+            )
+        } catch (e: Throwable) {
+            state.hasMore = false
+            state.loadError = true
+        } finally {
+            state.isLoading = false
+        }
     }
 
     LaunchedEffect(source) {
@@ -821,7 +859,7 @@ private fun SourceTabContent(
                     modifier = Modifier
                         .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { retrySearch() }
+                        .clickable { onRetrySearch() }
                         .padding(horizontal = 24.dp, vertical = 10.dp),
                 ) {
                     Text(

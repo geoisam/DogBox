@@ -84,7 +84,7 @@ import pjs.dogbox.ui.screen.movie.MovieSearchScreen
 import pjs.dogbox.ui.screen.movie.MovieSearchScreenState
 import androidx.core.net.toUri
 import pjs.dogbox.ui.screen.movie.extractHost
-import pjs.dogbox.ui.screen.movie.extractVideoId
+import pjs.dogbox.ui.screen.movie.extractPath
 import pjs.dogbox.data.AppData
 import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.data.SharedData
@@ -268,12 +268,13 @@ fun BaseScreen(
                 state = searchState,
                 onBack = { navController.popBackStack() },
                 onPlayVideo = { url ->
-                    val videoId = extractVideoId(url)
                     val host = extractHost(url)
+                    val key = AppData.sourceKey(host)
+                    val detailPath = extractPath(url)
                     val historyItem = SharedData.getWatchHistory(context)
-                        .find { it.id == videoId && it.key == AppData.sourceKey(host) }
+                        .find { it.id == detailPath && it.key == key }
                     val episodeUrl = historyItem?.let {
-                        if (it.url.startsWith("http")) it.url else "${it.host}${it.url}"
+                        "${AppData.hostForKey(it.key)}${it.url}"
                     }
                     navController.navigate(
                         AppRoutes.play(url, historyItem?.progress ?: 0L, episodeUrl)
@@ -310,32 +311,10 @@ fun BaseScreen(
         composable(AppRoutes.WATCH_HISTORY) {
             WatchHistoryScreen(
                 onBack = { navController.popBackStack() },
-                onPlayMovie = { url, pos, host ->
-                    val episodeAbs = if (url.startsWith("http")) url else "$host$url"
-                    // 观看历史统一取详情页：episode -> detail
-                    val detailAbs = run {
-                        val vid = extractVideoId(episodeAbs)
-                        when {
-                            host.contains("nivod") -> "${extractHost(host)}/nivod/$vid/"
-                            host.contains("ylsp") || host.contains("59v") -> "${extractHost(host)}/voddetail/$vid/"
-                            host.contains("yxxq") -> "${extractHost(host)}/html/$vid.html"
-                            host.contains("fdzys") -> {
-                                // 去掉末尾集数段 /1?sid= -> 详情
-                                val uri = episodeAbs.toUri()
-                                val segs = uri.pathSegments
-                                val last = segs.lastOrNull() ?: ""
-                                val isEpisode = last.matches(Regex("\\d+")) || episodeAbs.contains("?sid=")
-                                if (isEpisode && segs.size >= 2) {
-                                    val detailPath = "/" + segs.dropLast(1).joinToString("/")
-                                    "${extractHost(host)}$detailPath"
-                                } else {
-                                    episodeAbs.substringBefore("?").trimEnd('/')
-                                }
-                            }
-                            else -> episodeAbs
-                        }
-                    }
-                    navController.navigate(AppRoutes.play(detailAbs, pos, episodeAbs))
+                onPlayMovie = { item ->
+                    val detailAbs = "${AppData.hostForKey(item.key)}${item.id}"
+                    val episodeAbs = "${AppData.hostForKey(item.key)}${item.url}"
+                    navController.navigate(AppRoutes.play(detailAbs, item.progress, episodeAbs))
                 },
             )
         }

@@ -161,11 +161,15 @@ internal class MovieDetailScreenState(
 
     val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext).build()
 
+    // videoUrl 即详情页链接，用于生成 id（详情页 path）
+    val detailUrl: String = videoUrl
+
     fun saveCurrentToHistory() {
         val epName = pageData.value?.routes?.getOrNull(selectedRouteIndex.value)
             ?.episodes?.getOrNull(selectedEpisodeIndex.value)?.name ?: ""
         saveWatchHistory(
             appContext,
+            detailUrl,
             currentEpisodeUrl.value,
             pageData.value?.title ?: "",
             pageData.value?.coverUrl ?: "",
@@ -203,39 +207,49 @@ internal fun extractHost(url: String): String {
     return if (idx > 0) url.substring(0, idx) else url
 }
 
+internal fun extractPath(url: String): String {
+    return try {
+        val p = url.toUri().encodedPath
+        if (!p.isNullOrEmpty()) p else url
+    } catch (_: Exception) {
+        url
+    }
+}
+
 private fun saveWatchHistory(
     context: android.content.Context,
-    videoUrl: String,
+    detailUrl: String,
+    episodeUrl: String,
     title: String,
     coverUrl: String,
     episodeName: String,
     player: ExoPlayer,
 ) {
-    val id = extractVideoId(videoUrl)
-    if (id.isEmpty()) return
+    val detailPath = extractPath(detailUrl).takeIf { it.isNotBlank() } ?: return
+    // 规范化：确保以 / 开头
+    val id = if (detailPath.startsWith("/")) detailPath else "/$detailPath"
+    if (id.isEmpty() || id == "/") return
     val position = player.currentPosition
     if (position < 10000) return
     val duration = player.duration.coerceAtLeast(position)
-    val path = try {
-        val uri = videoUrl.toUri()
-        uri.encodedPath ?: videoUrl
-    } catch (_: Exception) {
-        videoUrl
-    }
+    val epPathRaw = extractPath(episodeUrl)
+    val epPath = if (epPathRaw.startsWith("/")) epPathRaw else "/$epPathRaw"
+    val key = AppData.sourceKey(extractHost(detailUrl))
+    // coverUrl 存完整链接（host 可能与 key 的 host 不同，不能仅存 path）
+    val coverFull = coverUrl
     SharedData.addOrUpdateWatchHistory(
         context,
         WatchHistoryItem(
             id = id,
-            url = path,
-            coverUrl = coverUrl,
+            url = epPath,
+            coverUrl = coverFull,
             title = title,
             progress = position,
             duration = duration,
             timestamp = System.currentTimeMillis(),
             orientation = 0,
             episodeName = episodeName,
-            host = extractHost(videoUrl),
-            key = AppData.sourceKey(extractHost(videoUrl)),
+            key = key,
         ),
     )
 }
@@ -1312,7 +1326,7 @@ internal fun MovieDetailScreen(
                         ) {
                             ActionIconItem(
                                 icon = R.drawable.link_outlined,
-                                label = "复制链接",
+                                label = "链接工具",
                                 onClick = { showCopySheet = true },
                                 modifier = Modifier.weight(1f),
                             )
@@ -1511,8 +1525,16 @@ internal fun MovieDetailScreen(
                     },
                 )
                 SheetActionItem(
-                    icon = R.drawable.content_copy_outlined,
-                    label = "复制网页地址",
+                    icon = R.drawable.link_outlined,
+                    label = "复制详情页地址",
+                    onClick = {
+                        showCopySheet = false
+                        copyToClipboard(videoUrl)
+                    },
+                )
+                SheetActionItem(
+                    icon = R.drawable.link_outlined,
+                    label = "复制播放网页地址",
                     onClick = {
                         showCopySheet = false
                         copyToClipboard(currentEpisodeUrl)
@@ -1528,7 +1550,15 @@ internal fun MovieDetailScreen(
                 )
                 SheetActionItem(
                     icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开网页链接",
+                    label = "浏览器打开详情页地址",
+                    onClick = {
+                        showCopySheet = false
+                        openInBrowser(videoUrl)
+                    },
+                )
+                SheetActionItem(
+                    icon = R.drawable.open_in_browser_outlined,
+                    label = "浏览器打开播放网页地址",
                     onClick = {
                         showCopySheet = false
                         openInBrowser(currentEpisodeUrl)
@@ -1806,7 +1836,7 @@ private fun IntroBottomSheet(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
-                SheetSectionTitle("简介详情")
+                SheetSectionTitle("影片详情")
                 Column(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
