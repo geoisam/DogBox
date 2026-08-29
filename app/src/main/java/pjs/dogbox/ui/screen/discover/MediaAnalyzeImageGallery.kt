@@ -98,6 +98,19 @@ import pjs.dogbox.ui.components.SimpleDragHandle
 import java.io.File
 import java.util.Locale
 
+private fun imageHeadersForGallery(url: String, referer: String): NetworkHeaders {
+    val builder = NetworkHeaders.Builder()
+    if (referer.isNotBlank()) builder.set("Referer", referer)
+    builder.set("User-Agent", AppData.UA_CHROME_M)
+    return builder.build()
+}
+
+private fun refererMapForGallery(url: String, referer: String): Map<String, String> =
+    buildMap {
+        if (referer.isNotBlank()) put("Referer", referer)
+        put("User-Agent", AppData.UA_CHROME_M)
+    }
+
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
 
 private fun guessImageExt(url: String): String {
@@ -236,11 +249,21 @@ fun MediaAnalyzeImageGallery(
     var infoError by remember { mutableStateOf(false) }
 
     suspend fun fetchImageBytes(url: String): ByteArray? {
+        // 素材原图往往 2-8MB，5s 超时经常触发超时失败，而浏览器无此限制
         val result = withContext(Dispatchers.IO) {
             HttpUtil.getBytes(
                 url,
-                mapOf("Referer" to referer, "User-Agent" to AppData.UA_CHROME_M),
+                refererMapForGallery(url, referer),
+                connectTimeout = 10,
+                readTimeout = 15,
             )
+        }
+        // 若带 Referer 失败，尝试不带 Referer 重试一次（模拟浏览器直接访问）
+        if (result.isFailure) {
+            val retry = withContext(Dispatchers.IO) {
+                HttpUtil.getBytes(url, mapOf("User-Agent" to AppData.UA_CHROME_M), connectTimeout = 10, readTimeout = 15)
+            }
+            return retry.getOrNull() ?: result.getOrNull()
         }
         return result.getOrNull()
     }
@@ -638,11 +661,8 @@ private fun ZoomableAnalyzeImage(
             model = ImageRequest.Builder(context)
                 .data(url)
                 .crossfade(true)
-                .httpHeaders(
-                    NetworkHeaders.Builder()
-                        .set("Referer", referer)
-                        .build()
-                ).build(),
+                .httpHeaders(imageHeadersForGallery(url, referer))
+                .build(),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()

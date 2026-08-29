@@ -33,8 +33,16 @@ object HttpUtil {
         OkHttpClient.Builder()
             .retryOnConnectionFailure(true)
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .apply {
+                // 素材解析网格会同时发起 20-30 张图片请求，默认 perHost=5 会导致大量排队超时
+                // 提升并发以避免“经常性加载失败”假象（实际是排队+超时被当成功能失败）
+                dispatcher(okhttp3.Dispatcher().apply {
+                    maxRequests = 64
+                    maxRequestsPerHost = 16
+                })
+            }
             .addInterceptor { chain ->
                 val request = chain.request()
                 if (request.header("User-Agent") == null) {

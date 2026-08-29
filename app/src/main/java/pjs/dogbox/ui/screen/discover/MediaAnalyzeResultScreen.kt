@@ -73,6 +73,18 @@ import pjs.dogbox.R
 import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.data.AppData
 
+/**
+ * 按用户要求：Referer 直接使用输入框提取出来的原始分享链接，不做 CDN 适配。
+ * 浏览器直接打开图片不带 Referer 也能成功，说明 Referer 不是主因。
+ * 此处仅保证 Referer 非空时才发送，并统一使用 Chrome UA 与浏览器一致。
+ */
+private fun imageHeadersForAnalyze(url: String, shareLink: String): NetworkHeaders {
+    val builder = NetworkHeaders.Builder()
+    if (shareLink.isNotBlank()) builder.set("Referer", shareLink)
+    builder.set("User-Agent", AppData.UA_CHROME_M)
+    return builder.build()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaAnalyzeResultScreen(
@@ -334,12 +346,7 @@ private fun MediaCell(
                 model = ImageRequest.Builder(context)
                     .data(url)
                     .crossfade(true)
-                    .httpHeaders(
-                        NetworkHeaders.Builder()
-                            .set("Referer", shareLink)
-                            .set("User-Agent", AppData.UA_WECHAT_PC)
-                            .build()
-                    )
+                    .httpHeaders(imageHeadersForAnalyze(url, shareLink))
                     .build(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),

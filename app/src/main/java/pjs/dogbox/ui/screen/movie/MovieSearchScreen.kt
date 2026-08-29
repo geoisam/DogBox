@@ -81,14 +81,12 @@ import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Document
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import pjs.dogbox.R
 import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
@@ -204,33 +202,30 @@ private suspend fun fetchPage(
             else "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
         }
     }
-    // 全部源统一：默认超时 10s，超时或失败自动重试一次，仍失败才显示“点击重试”
-    val timeoutMs = 10_000L
+
+
     var lastError: Throwable? = null
     repeat(2) { attempt ->
         try {
-            val html = withTimeout(timeoutMs) {
-                HttpUtil.get(
-                    url, mapOf(
-                        "User-Agent" to AppData.UA_CHROME_PC,
-                        "Cache-Control" to "no-cache",
-                        "Origin" to source.host,
-                    )
-                ).getOrThrow()
-            }
+            val html = HttpUtil.get(
+                url, mapOf(
+                    "User-Agent" to AppData.UA_CHROME_PC,
+                    "Referer" to "${source.host}/",
+                    "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                    "Accept-Language" to "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+                )
+            ).getOrThrow()
             val result = when (source) {
                 SearchSource.FDZYS -> parseFdzysSearchResults(html, source.host, page)
                 SearchSource.PIANKU -> parsePiankuSearchResults(html, source.host, page)
                 else -> parseSearchResults(html, source.host, page)
             }
             return@withContext Result.success(result)
-        } catch (e: TimeoutCancellationException) {
-            lastError = IOException("请求超时", e)
         } catch (e: Throwable) {
             lastError = e
         }
         if (attempt == 0) {
-            try { delay(600) } catch (_: Throwable) {}
+            try { delay(666) } catch (_: Throwable) {}
         }
     }
     Result.failure(lastError ?: IOException("未知网络错误"))
