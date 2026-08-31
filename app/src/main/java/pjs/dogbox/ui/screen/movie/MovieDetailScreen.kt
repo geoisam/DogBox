@@ -304,6 +304,14 @@ private fun extractPlayerJson(html: String): String? {
     return null
 }
 
+private fun isBlockedVideoUrl(url: String): Boolean {
+    if (url.isBlank()) return false
+    val lower = url.lowercase()
+    return listOf(
+        "v.qq.com", "v.youku.com", "www.iqiyi.com", "www.mgtv.com", "www.bilibili.com"
+    ).any { blocked -> lower.contains(blocked) }
+}
+
 private fun isDirectVideoUrl(url: String): Boolean {
     if (url.isBlank()) return false
     val lower = url.lowercase()
@@ -521,6 +529,7 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             } catch (_: Exception) { rawUrl }
             else -> rawUrl
         }
+        if (isBlockedVideoUrl(m3u8Url)) return null
         val vodData = playerJson?.get("vod_data")?.jsonObject
         val isFdzys = baseUrl.contains("fdzys")
         val isPianku = baseUrl.contains("pianku")
@@ -982,6 +991,7 @@ internal fun MovieDetailScreen(
             onFailure = { "" },
         )
         if (rawUrl.isBlank()) return@withContext ""
+        if (isBlockedVideoUrl(rawUrl)) return@withContext ""
         // 若已是直链（.m3u8/.mp4 等）则直接返回播放
         if (isDirectVideoUrl(rawUrl)) return@withContext rawUrl
         // 否则认为是间接链接，需二次请求获取源码，正则匹配 "" 内包含 .m3u8 的路径

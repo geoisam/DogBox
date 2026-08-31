@@ -18,6 +18,7 @@ object AppRoutes {
     const val SPONSOR = "sponsor"
     const val CONTRIBUTOR = "contributor"
     const val LICENSE = "license"
+    const val CHANGE_LOG = "change_log"
     const val IMAGE_VIEWER = "image_viewer?url={url}&referer={referer}&title={title}"
     const val SETTINGS = "settings"
     const val CACHE_MANAGE = "cache_manage"

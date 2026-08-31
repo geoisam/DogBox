@@ -341,7 +341,7 @@ internal fun SpeedResetButton(
     useFixedDarkColors: Boolean = false,
 ) {
     val containerColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHigh
+    else MaterialTheme.colorScheme.surfaceContainerHighest
     val textColor = if (useFixedDarkColors) Color.White
     else MaterialTheme.colorScheme.onSurface
 
@@ -857,7 +857,7 @@ internal fun MoreSettingsContent(
                         )
                         Text(
                             text = playbackOrder.label,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = rowValueColor,
                         )
                         Spacer(Modifier.size(6.dp))
@@ -941,7 +941,7 @@ internal fun MoreSettingsContent(
                         )
                         Text(
                             text = "未开启",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = rowValueColor,
                         )
                         Spacer(Modifier.size(6.dp))
@@ -982,7 +982,7 @@ internal fun MoreSettingsContent(
                         )
                         Text(
                             text = "${"%.2f".format(longPressSpeed)}X",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = rowValueColor,
                         )
                     }

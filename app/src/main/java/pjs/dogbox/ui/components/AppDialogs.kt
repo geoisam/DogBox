@@ -15,13 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -271,7 +269,7 @@ fun UpdateBottomSheet(
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        shape = RoundedCornerShape(50),
+                        shape = MaterialTheme.shapes.large,
                         border = BorderStroke(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.outlineVariant,
@@ -294,7 +292,7 @@ fun UpdateBottomSheet(
                             val intent = Intent(Intent.ACTION_VIEW, downloadUrl.toUri())
                             context.startActivity(intent)
                         },
-                        shape = RoundedCornerShape(50),
+                        shape = MaterialTheme.shapes.large,
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp)

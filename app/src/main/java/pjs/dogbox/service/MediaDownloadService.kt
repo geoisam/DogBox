@@ -141,16 +141,27 @@ class MediaDownloadService : Service() {
     /** notificationId -> 系统 DownloadManager 任务 id 列表 */
     private val systemDownloadIds = mutableMapOf<Int, List<Long>>()
 
-    /** 内置 Ktor 下载客户端：大文件下载禁用整体超时，仅保留连接/读超时 */
+    /** 独立下载 OkHttp：不与 Coil/解析共用 Dispatcher，避免大文件与图片网格抢占 maxRequestsPerHost */
+    private val downloadOkHttpClient: okhttp3.OkHttpClient by lazy {
+        HttpUtil.okHttpClient.newBuilder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 })
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /** 内置 Ktor 下载客户端：大文件下载禁用整体超时，读空闲 120s 适配 30-300MB 视频弱网 */
     private val ktorClient: HttpClient by lazy {
         HttpClient(OkHttp) {
             engine {
-                preconfigured = HttpUtil.okHttpClient
+                preconfigured = downloadOkHttpClient
             }
             install(HttpTimeout) {
                 requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS
                 connectTimeoutMillis = 15_000
-                socketTimeoutMillis = 30_000
+                socketTimeoutMillis = 120_000
             }
         }
     }
@@ -265,7 +276,8 @@ class MediaDownloadService : Service() {
     }
 
     /**
-     * 使用内置 Ktor 客户端流式下载单个文件
+     * 使用内置 Ktor 客户端流式下载单个文件（大文件优化）
+     * 按需求：不带 Referer，UA 固定 UA_CHROME_M；大文件 30-300MB 需重试+ .tmp 原子重命名，避免单次抖动导致失败
      */
     private suspend fun downloadWithKtor(
         url: String,
@@ -280,47 +292,70 @@ class MediaDownloadService : Service() {
             "DogBox/Material/${CryptUtil.md5(title)}/$dirName",
         )
         if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, "${index}_${System.currentTimeMillis()}.$ext")
+        val finalFile = File(dir, "${index}_${System.currentTimeMillis()}.$ext")
+        val tmpFile = File(dir, "${finalFile.name}.tmp")
+
+        suspend fun tryOnce(): Boolean {
+            return try {
+                ktorClient.prepareGet(url) {
+                    header("User-Agent", AppData.UA_CHROME_M)
+                }.execute { response ->
+                    if (!response.status.isSuccess()) return@execute false
+                    val total = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
+                    val channel = response.bodyAsChannel()
+                    FileOutputStream(tmpFile).use { output ->
+                        val buffer = ByteArray(32 * 1024)
+                        var downloaded = 0L
+                        while (!channel.isClosedForRead) {
+                            val read = channel.readAvailable(buffer, 0, buffer.size)
+                            if (read == -1) break
+                            if (read <= 0) continue
+                            output.write(buffer, 0, read)
+                            downloaded += read
+                        }
+                        output.flush()
+                        downloaded > 0 && (total <= 0 || downloaded >= total)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+        }
 
         try {
-            val success = ktorClient.prepareGet(url) {
-                header("Referer", referer)
-                header("User-Agent", AppData.UA_CHROME_M)
-            }.execute { response ->
-                if (!response.status.isSuccess()) return@execute false
-                val total = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
-                val channel = response.bodyAsChannel()
-                FileOutputStream(file).use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var downloaded = 0L
-                    while (!channel.isClosedForRead) {
-                        val read = channel.readAvailable(buffer, 0, buffer.size)
-                        if (read == -1) break
-                        if (read <= 0) continue
-                        output.write(buffer, 0, read)
-                        downloaded += read
+            var success = false
+            repeat(3) { attempt ->
+                if (tmpFile.exists()) runCatching { tmpFile.delete() }
+                success = tryOnce()
+                if (success) {
+                    runCatching { tmpFile.renameTo(finalFile) }
+                    // rename 可能在跨分区失败，兜底拷贝
+                    if (!finalFile.exists() && tmpFile.exists()) {
+                        runCatching { tmpFile.copyTo(finalFile, overwrite = true); tmpFile.delete() }
                     }
-                    output.flush()
-                    downloaded > 0 && (total <= 0 || downloaded >= total)
+                    return@withContext true.also {
+                        MediaScannerConnection.scanFile(
+                            this@MediaDownloadService,
+                            arrayOf(finalFile.absolutePath),
+                            null,
+                            null,
+                        )
+                    }
                 }
+                if (attempt < 2) delay(800L * (attempt + 1))
             }
-
-            if (success) {
-                MediaScannerConnection.scanFile(
-                    this@MediaDownloadService,
-                    arrayOf(file.absolutePath),
-                    null,
-                    null,
-                )
-            } else {
-                runCatching { file.delete() }
-            }
-            success
+            runCatching { tmpFile.delete() }
+            runCatching { finalFile.delete() }
+            false
         } catch (e: CancellationException) {
-            runCatching { file.delete() }
+            runCatching { tmpFile.delete() }
+            runCatching { finalFile.delete() }
             throw e
         } catch (_: Exception) {
-            runCatching { file.delete() }
+            runCatching { tmpFile.delete() }
+            runCatching { finalFile.delete() }
             false
         }
     }
@@ -346,7 +381,6 @@ class MediaDownloadService : Service() {
                 val request = DownloadManager.Request(Uri.parse(url)).apply {
                     setTitle(fileName)
                     setDescription(title.ifBlank { typeNameForDirName(dirName) })
-                    addRequestHeader("Referer", referer)
                     addRequestHeader("User-Agent", AppData.UA_CHROME_M)
                     setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
                     setAllowedOverMetered(true)

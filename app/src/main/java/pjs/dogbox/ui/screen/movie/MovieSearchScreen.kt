@@ -211,8 +211,6 @@ private suspend fun fetchPage(
                 url, mapOf(
                     "User-Agent" to AppData.UA_CHROME_PC,
                     "Referer" to "${source.host}/",
-                    "Accept" to "text/html;q=0.9,*/*;q=0.8",
-                    "Accept-Language" to "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
                 )
             ).getOrThrow()
             val result = when (source) {

@@ -383,6 +383,7 @@ fun InviteMasterScreen(
                 } else {
                     configItems.forEach { item ->
                         val name = item["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val desc = item["desc"]?.jsonPrimitive?.contentOrNull ?: ""
                         val vip = item["vip"]?.jsonPrimitive?.contentOrNull ?: ""
                         val isSelected = name == selectedType
                         Row(
@@ -411,7 +412,7 @@ fun InviteMasterScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "每邀请一人得 $vip 天会员",
+                                    text = "$desc · 每邀请一人得 $vip 天会员",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                                     else MaterialTheme.colorScheme.onSurfaceVariant,

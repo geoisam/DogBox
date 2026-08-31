@@ -178,12 +178,27 @@ private suspend fun qingTingUrl(link: String): AnalyzeResult? {
         "origin" to "https://33tool.com",
         "referer" to "https://33tool.com/",
         "user-agent" to AppData.UA_WECHAT_PC,
+        "Cache-Control" to "no-cache",
+        "Pragma" to "no-cache",
     )
-    val body = buildJsonObject { put("url", link) }.toString()
-    val response = HttpUtil.post("https://api.33tool.com/api/client/parse/all", body, headers = headers).getOrNull()
-        ?: return null
-    val json = runCatching { Json.parseToJsonElement(response) }.getOrNull() ?: return null
-    return parseQingTing(json)
+    // QT 接口为 POST，偶发网络抖动/超时，重试一次
+    repeat(2) { attempt ->
+        val body = buildJsonObject { put("url", link) }.toString()
+        val result = HttpUtil.post("https://api.33tool.com/api/client/parse/all", body, headers = headers)
+        val response = result.getOrNull()
+        if (response != null) {
+            val json = runCatching { Json.parseToJsonElement(response) }.getOrNull()
+            if (json != null) {
+                val parsed = parseQingTing(json)
+                if (!parsed.isEmpty) return parsed
+                // 解析结果为空可能是接口返回错误码，重试一次
+                if (attempt == 0) kotlinx.coroutines.delay(600)
+                else return parsed
+            }
+        }
+        if (attempt == 0) kotlinx.coroutines.delay(600)
+    }
+    return null
 }
 
 fun generateRandomID(length: Int = 11): String {
@@ -316,7 +331,7 @@ private suspend fun analyzeWith(source: String, link: String): AnalyzeResult? = 
     if (source == "QT") {
         return@withContext qingTingUrl(link)
     }
-    val apiUrl = when (source) {
+    val baseApiUrl = when (source) {
         "JY" -> jingYinUrl(link, link.contains("douyin", ignoreCase = true))
         "AH" -> aHuaUrl(link)
         "EL" -> erLvUrl(link)
@@ -324,16 +339,33 @@ private suspend fun analyzeWith(source: String, link: String): AnalyzeResult? = 
         "HS" -> hongShuUrl(link)
         else -> return@withContext null
     }
-    val body = HttpUtil.get(apiUrl).getOrNull() ?: return@withContext null
-    val json = runCatching { Json.parseToJsonElement(body) }.getOrNull() ?: return@withContext null
-    when (source) {
-        "JY" -> parseJingYin(json)
-        "AH" -> parseAHua(json)
-        "EL" -> parseErLv(json)
-        "LX" -> parseLingXing(json)
-        "HS" -> parseHongShu(json)
-        else -> null
+    // 破缓存：每次追加时间戳，避免 OkHttp/Ktor 复用旧连接返回的缓存/304，以及服务端对同一 URL 的短时间去重限流
+    val apiUrl = baseApiUrl + (if (baseApiUrl.contains("?")) "&" else "?") + "_t=${System.currentTimeMillis()}"
+    val noCacheHeaders = mapOf(
+        "Cache-Control" to "no-cache",
+        "Pragma" to "no-cache",
+    )
+    var lastResult: AnalyzeResult? = null
+    repeat(2) { attempt ->
+        val body = HttpUtil.get(apiUrl, headers = noCacheHeaders).getOrNull()
+        if (body != null) {
+            val json = runCatching { Json.parseToJsonElement(body) }.getOrNull()
+            if (json != null) {
+                val parsed = when (source) {
+                    "JY" -> parseJingYin(json)
+                    "AH" -> parseAHua(json)
+                    "EL" -> parseErLv(json)
+                    "LX" -> parseLingXing(json)
+                    "HS" -> parseHongShu(json)
+                    else -> null
+                }
+                if (parsed != null && !parsed.isEmpty) return@withContext parsed
+                lastResult = parsed
+            }
+        }
+        if (attempt == 0) kotlinx.coroutines.delay(600)
     }
+    return@withContext lastResult
 }
 
 internal fun copyText(context: Context, text: String) {
@@ -465,6 +497,9 @@ fun MediaAnalyzeScreen(
         pendingDownload = null
     }
 
+    // 防止快速二次点击产生并发，以及保证 isAnalyzing 在异常/取消时也能复位
+    var analyzeJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
     fun ensureNotificationPermission(onGranted: () -> Unit): Boolean {
         if (Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(
@@ -481,6 +516,7 @@ fun MediaAnalyzeScreen(
     }
 
     fun startAnalyze() {
+        if (isAnalyzing) return
         val input = linkInput.trim()
         if (input.isEmpty()) {
             Toast.makeText(context, "请输入分享链接", Toast.LENGTH_SHORT).show()
@@ -492,17 +528,27 @@ fun MediaAnalyzeScreen(
             return
         }
         focusManager.clearFocus()
-        linkInput = link
+        // 只有当提取出的纯链接与原文不同时才回写，避免二次解析时因回写触发重组导致状态抖动
+        if (link != linkInput) linkInput = link
         result = null
         shareLink = link
         isAnalyzing = true
-        scope.launch {
-            val res = runCatching { analyzeWith(selectedSource, link) }.getOrNull()
-            isAnalyzing = false
-            if (res != null && !res.isEmpty) {
-                result = res
-            } else {
-                Toast.makeText(context, "解析失败，请检查链接或稍后重试", Toast.LENGTH_SHORT).show()
+        analyzeJob?.cancel()
+        // 捕获当前线路，避免协程启动后用户切换线路导致结果错乱
+        val currentSource = selectedSource
+        analyzeJob = scope.launch {
+            try {
+                val res = analyzeWith(currentSource, link)
+                if (res != null && !res.isEmpty) {
+                    result = res
+                } else {
+                    Toast.makeText(context, "解析失败，请检查链接或稍后重试", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Toast.makeText(context, "解析异常: ${e.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+            } finally {
+                isAnalyzing = false
             }
         }
     }

@@ -4,10 +4,7 @@ import pjs.dogbox.utils.openPermissionManager
 
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.core.LinearEasing
@@ -83,6 +80,7 @@ fun AboutMeScreen(
     onBack: () -> Unit = {},
     onNavigateToContributor: () -> Unit = {},
     onNavigateToLicense: () -> Unit = {},
+    onNavigateToChangeLog: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scienceGothic = FontFamily(Font(R.font.science_gothic))
@@ -132,7 +130,7 @@ fun AboutMeScreen(
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
-                                "https://github.com/geoisam/DogBox".toUri()
+                                AppData.GITHUB_PAGE.toUri()
                             )
                             context.startActivity(intent)
                         },
@@ -402,18 +400,8 @@ fun AboutMeScreen(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     AboutListItem(
-                        text = "历史版本",
-                        onClick = {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                "https://share.feijipan.com/s/f9dwRFYe".toUri()
-                            )
-                            context.startActivity(intent)
-                        }
-                    )
-                    AboutListItem(
-                        text = "更新记录",
-                        onClick = {}
+                        text = "更新日志",
+                        onClick = onNavigateToChangeLog
                     )
                     AboutListItem(
                         text = "特别鸣谢",

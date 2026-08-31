@@ -49,6 +49,7 @@ import pjs.dogbox.ui.screen.HomeScreenState
 import pjs.dogbox.ui.screen.ImageViewerScreen
 import pjs.dogbox.ui.screen.MineScreen
 import pjs.dogbox.ui.screen.about.ContributorScreen
+import pjs.dogbox.ui.screen.about.ChangeLogScreen
 import pjs.dogbox.ui.screen.about.LicenseScreen
 import pjs.dogbox.ui.screen.discover.AnimeRankScreen
 import pjs.dogbox.ui.screen.discover.AnimeRankScreenState
@@ -447,6 +448,7 @@ fun BaseScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToContributor = { navController.navigate(AppRoutes.CONTRIBUTOR) },
                 onNavigateToLicense = { navController.navigate(AppRoutes.LICENSE) },
+                onNavigateToChangeLog = { navController.navigate(AppRoutes.CHANGE_LOG) },
             )
         }
 
@@ -465,6 +467,10 @@ fun BaseScreen(
 
         composable(AppRoutes.LICENSE) {
             LicenseScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(AppRoutes.CHANGE_LOG) {
+            ChangeLogScreen(onBack = { navController.popBackStack() })
         }
 
         composable(AppRoutes.SETTINGS) {

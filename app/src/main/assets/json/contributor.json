@@ -14,37 +14,49 @@
   {
     "name": "OpenCode",
     "desc": "开发辅助",
-    "icon": "https://a.favicon.im/opencode.ai",
-    "link": "https://github.com/anomalyco/opencode"
+    "icon": "https://favicon.cccyun.cc/opencode.ai",
+    "link": "https://opencode.ai"
   },
   {
     "name": "DeepSeek",
     "desc": "编程建议、开发辅助",
-    "icon": "https://a.favicon.im/deepseek.com",
+    "icon": "https://favicon.cccyun.cc/deepseek.com",
     "link": "https://deepseek.com"
   },
   {
     "name": "ChatGLM",
     "desc": "编程建议、开发辅助",
-    "icon": "https://a.favicon.im/chatglm.cn",
+    "icon": "https://favicon.cccyun.cc/chatglm.cn",
     "link": "https://chatglm.cn"
   },
   {
     "name": "MiMo",
     "desc": "编程建议、开发辅助",
-    "icon": "https://a.favicon.im/mimo.mi.com",
+    "icon": "https://favicon.cccyun.cc/mimo.mi.com",
     "link": "https://mimo.mi.com"
+  },
+  {
+    "name": "YuanBao",
+    "desc": "编程建议、开发辅助",
+    "icon": "https://favicon.cccyun.cc/yuanbao.tencent.com",
+    "link": "https://yuanbao.tencent.com"
   },
   {
     "name": "ChatGPT",
     "desc": "图标设计、编程建议",
-    "icon": "https://a.favicon.im/chatgpt.com",
+    "icon": "https://favicon.cccyun.cc/chatgpt.com",
     "link": "https://chatgpt.com"
   },
   {
     "name": "Grok",
     "desc": "图标设计、编程建议",
-    "icon": "https://a.favicon.im/grok.com",
+    "icon": "https://favicon.cccyun.cc/grok.com",
     "link": "https://grok.com"
+  },
+  {
+    "name": "DouBao",
+    "desc": "精神抚慰、图标设计",
+    "icon": "https://favicon.cccyun.cc/doubao.com",
+    "link": "https://doubao.com"
   }
 ]

@@ -245,7 +245,7 @@ private fun SettingsRowValue(valueText: String?) {
     if (valueText == null) return
     Text(
         text = valueText,
-        style = MaterialTheme.typography.bodySmall,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.size(6.dp))
@@ -385,11 +385,22 @@ private fun LongPressSpeedBottomSheet(
         ) {
             SheetSectionTitle("长按倍速")
             Spacer(Modifier.height(8.dp))
-            Text(
-                "${"%.2f".format(sliderSpeed)}x",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "自定义倍速",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "${"%.2f".format(sliderSpeed)}x",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
             Spacer(Modifier.height(8.dp))
             Slider(
                 value = sliderSpeed,

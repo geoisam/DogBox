@@ -2,7 +2,7 @@
   {
     "name": "Jetpack Compose Libraries BOM",
     "module": "androidx.compose:compose-bom",
-    "version": "2026.06.01",
+    "version": "2026.08.00",
     "license": "Apache 2.0",
     "homepage": "https://developer.android.com/jetpack"
   },
@@ -91,13 +91,6 @@
     "homepage": "https://developer.android.com/jetpack/androidx/releases/documentfile"
   },
   {
-    "name": "Graphics Shapes",
-    "module": "androidx.graphics:graphics-shapes",
-    "version": "1.1.0",
-    "license": "Apache 2.0",
-    "homepage": "https://developer.android.com/jetpack/androidx/releases/graphics"
-  },
-  {
     "name": "Activity Compose",
     "module": "androidx.activity:activity-compose",
     "version": "1.13.0",
@@ -177,21 +170,21 @@
   {
     "name": "Coil",
     "module": "io.coil-kt.coil3:coil",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "license": "Apache 2.0",
     "homepage": "https://github.com/coil-kt/coil"
   },
   {
     "name": "Coil Compose",
     "module": "io.coil-kt.coil3:coil-compose",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "license": "Apache 2.0",
     "homepage": "https://github.com/coil-kt/coil"
   },
   {
     "name": "Coil Network OkHttp",
     "module": "io.coil-kt.coil3:coil-network-okhttp",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "license": "Apache 2.0",
     "homepage": "https://github.com/coil-kt/coil"
   },
@@ -247,7 +240,7 @@
   {
     "name": "MaterialKolor",
     "module": "com.materialkolor:material-kolor",
-    "version": "5.0.0",
+    "version": "5.0.1",
     "license": "MIT",
     "homepage": "https://github.com/jordond/materialkolor"
   },
@@ -268,7 +261,7 @@
   {
     "name": "Android Application",
     "module": "com.android.application",
-    "version": "9.3.1",
+    "version": "9.3.2",
     "license": "Apache 2.0",
     "homepage": "https://developer.android.com/studio/build"
   },

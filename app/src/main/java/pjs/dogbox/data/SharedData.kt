@@ -21,9 +21,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class WatchHistoryItem(
-    val id: String, // 详情页路径，如 /nivod/123/ /html/123.html /voddetail/123/
-    val url: String, // 当前播放集路径，如 /play/xxx.html /fdzys/.../1
-    val coverUrl: String, // 封面图完整链接（host 可能与 key 的 host 不同，故存全链）
+    val id: String,
+    val url: String,
+    val coverUrl: String,
     val title: String,
     val progress: Long,
     val duration: Long,
