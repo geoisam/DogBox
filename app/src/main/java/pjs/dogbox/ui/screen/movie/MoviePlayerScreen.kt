@@ -67,9 +67,6 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -80,6 +77,7 @@ import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
 import pjs.dogbox.ui.components.SimpleDragHandle
 import java.text.SimpleDateFormat
@@ -350,22 +348,7 @@ fun MoviePlayerScreen(
         }
     }
 
-    val lifecycleOwner = remember(context) { context as? LifecycleOwner }
-    val currentBackgroundPlayback by rememberUpdatedState(backgroundPlayback)
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                if (!currentBackgroundPlayback && exoPlayer.isPlaying) {
-                    exoPlayer.pause()
-                }
-            }
-        }
-        lifecycleOwner?.lifecycle?.addObserver(observer)
-        onDispose {
-            lifecycleOwner?.lifecycle?.removeObserver(observer)
-        }
-    }
+    PauseOnBackground(exoPlayer)
 
     fun onInteraction() {
         if (showControls) {
@@ -578,14 +561,50 @@ fun MoviePlayerScreen(
                                     }
                                     lastTapTime = downTime
                                     var pastTouchSlop = false
+                                    var longPressFired = false
+                                    val longPressIsRight = down.position.x > size.width / 2
+                                    fun fireLongPress() {
+                                        if (longPressFired || pastTouchSlop) return
+                                        longPressFired = true
+                                        singleTapJob?.cancel()
+                                        singleTapJob = null
+                                        if (longPressIsRight) isFastForwarding = true
+                                        else isRewinding = true
+                                    }
                                     var dragAxis =
                                         0 // 0=none, 1=horizontal(seek), 2=vertical(volume/brightness)
                                     var lastPos = down.position
                                     while (true) {
-                                        val event = awaitPointerEvent(PointerEventPass.Main)
+                                        if (!longPressFired && !pastTouchSlop) {
+                                            val elapsed =
+                                                System.currentTimeMillis() - downTime
+                                            if (elapsed >= viewConfig.longPressTimeoutMillis) {
+                                                fireLongPress()
+                                            }
+                                        }
+                                        val remaining =
+                                            if (!longPressFired && !pastTouchSlop) {
+                                                (viewConfig.longPressTimeoutMillis - (System.currentTimeMillis() - downTime)).coerceAtLeast(
+                                                    1L
+                                                )
+                                            } else 0L
+                                        val event = if (remaining > 0) {
+                                            withTimeoutOrNull(remaining) {
+                                                awaitPointerEvent(PointerEventPass.Main)
+                                            }
+                                        } else {
+                                            awaitPointerEvent(PointerEventPass.Main)
+                                        }
+                                        if (event == null) {
+                                            fireLongPress()
+                                            continue
+                                        }
                                         val change = event.changes.first()
                                         if (!change.pressed) {
-                                            if (!pastTouchSlop) {
+                                            if (longPressFired) {
+                                                isRewinding = false
+                                                isFastForwarding = false
+                                            } else if (!pastTouchSlop) {
                                                 singleTapJob?.cancel()
                                                 singleTapJob = scope.launch {
                                                     delay(viewConfig.doubleTapTimeoutMillis)
@@ -594,7 +613,7 @@ fun MoviePlayerScreen(
                                             }
                                             break
                                         }
-                                        if (!pastTouchSlop) {
+                                        if (!pastTouchSlop && !longPressFired) {
                                             val dx = change.position.x - down.position.x
                                             val dy = change.position.y - down.position.y
                                             if (abs(dx) > viewConfiguration.touchSlop || abs(dy) > viewConfiguration.touchSlop) {
@@ -603,6 +622,8 @@ fun MoviePlayerScreen(
                                                 if (dragAxis == 2) {
                                                     volumeHideJob?.cancel()
                                                     brightnessHideJob?.cancel()
+                                                    isAdjustingVolume = false
+                                                    isAdjustingBrightness = false
                                                 } else {
                                                     seekHideJob?.cancel()
                                                     seekPreviewPosition = exoPlayer.currentPosition
@@ -643,6 +664,10 @@ fun MoviePlayerScreen(
                                                     if (!isAdjustingVolume) {
                                                         isAdjustingVolume = true
                                                     }
+                                                    if (isAdjustingBrightness) {
+                                                        brightnessHideJob?.cancel()
+                                                        isAdjustingBrightness = false
+                                                    }
                                                 } else {
                                                     @Suppress("DEPRECATION")
                                                     val lp = window?.attributes ?: continue
@@ -657,6 +682,10 @@ fun MoviePlayerScreen(
                                                     brightnessPercent = (b * 100).toInt()
                                                     if (!isAdjustingBrightness) {
                                                         isAdjustingBrightness = true
+                                                    }
+                                                    if (isAdjustingVolume) {
+                                                        volumeHideJob?.cancel()
+                                                        isAdjustingVolume = false
                                                     }
                                                 }
                                             } else if (dragAxis == 1 && playerDuration > 0) {
@@ -673,7 +702,7 @@ fun MoviePlayerScreen(
                                         }
                                         lastPos = change.position
                                     }
-                                    if (pastTouchSlop) {
+                                    if (pastTouchSlop && !longPressFired) {
                                         if (dragAxis == 2) {
                                             if (isAdjustingVolume) {
                                                 volumeHideJob = scope.launch {

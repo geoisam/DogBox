@@ -86,6 +86,7 @@ import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.MoreSettingsContent
+import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SeekBar
@@ -238,6 +239,8 @@ fun MediaAnalyzePreview(
             .setMediaSourceFactory(sourceFactory)
             .build()
     }
+
+    PauseOnBackground(exoPlayer)
 
     LaunchedEffect(currentVideoUrl) {
         exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(currentVideoUrl)))

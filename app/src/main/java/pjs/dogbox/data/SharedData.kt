@@ -30,7 +30,7 @@ data class WatchHistoryItem(
     val timestamp: Long,
     val orientation: Int = 0,
     val episodeName: String = "",
-    val key: String = AppData.NIVOD_KEY,
+    val key: String = AppData.YXXQ_KEY,
 ) {
     // host 不再持久化，按 key 动态获取
     val host: String
@@ -119,7 +119,7 @@ object SharedData {
         return try {
             val key = obj["key"]?.jsonPrimitive?.contentOrNull
                 ?: obj["host"]?.jsonPrimitive?.contentOrNull?.let { AppData.sourceKey(it) }
-                ?: AppData.NIVOD_KEY
+                ?: AppData.YXXQ_KEY
             WatchHistoryItem(
                 id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                 url = obj["url"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -165,6 +165,8 @@ object SharedData {
         return try {
             val arr = Json.parseToJsonElement(jsonStr).jsonArray
             arr.mapNotNull { jsonToWatchItem(it.jsonObject) }
+                // 已下线来源的历史记录不再展示
+                .filterNot { it.key == "NIVOD" || it.key == "YLSP" }
                 .sortedByDescending { it.timestamp }
         } catch (_: Exception) {
             emptyList()

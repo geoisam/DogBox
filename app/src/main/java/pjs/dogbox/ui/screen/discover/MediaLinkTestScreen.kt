@@ -64,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
@@ -97,6 +98,8 @@ fun MediaLinkTestScreen(
 
     var playerVideoWidth by remember { mutableIntStateOf(0) }
     var playerVideoHeight by remember { mutableIntStateOf(0) }
+
+    PauseOnBackground(exoPlayer)
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {

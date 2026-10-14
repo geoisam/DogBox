@@ -91,21 +91,44 @@ import pjs.dogbox.R
 import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.PagerTabFollowEffect
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import pjs.dogbox.data.ApiSite
+import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
-internal enum class SearchSource(
+internal data class SearchSource(
+    val key: String,
     val label: String,
     val host: String,
     val searchUrl: String,
+    /** 非空表示 CMS JSON 接口片源（assets/json/sites.json），值为接口基址 api */
+    val api: String? = null,
 ) {
-    YXXQ("映像星球", AppData.YXXQ_HOST, AppData.YXXQ_SEARCH),
-    YLSP("永乐视频", AppData.YLSP_HOST, AppData.YLSP_SEARCH),
-    NIVOD("泥视频", AppData.NIVOD_HOST, AppData.NIVOD_SEARCH),
-    FDZYS("饭搭子", AppData.FDZYS_HOST, ""),
-    PIANKU("片库网", AppData.PIANKU_HOST, AppData.PIANKU_SEARCH),
+    val isApi: Boolean get() = api != null
+
+    companion object {
+        fun defaults(): List<SearchSource> = listOf(
+            SearchSource(AppData.YXXQ_KEY, "映像星球", AppData.YXXQ_HOST, AppData.YXXQ_SEARCH),
+            SearchSource(AppData.FDZYS_KEY, "饭搭子", AppData.FDZYS_HOST, ""),
+        )
+
+        fun fromApiSite(site: ApiSite): SearchSource = SearchSource(
+            key = site.key,
+            label = site.name,
+            host = ApiSites.originOf(site.api),
+            searchUrl = "",
+            api = site.api,
+        )
+    }
 }
 
 internal data class SearchItem(
@@ -136,7 +159,7 @@ private fun parseSearchResults(
     val doc = Ksoup.parse(html)
     val cardElements = doc.select("div.module-card-item").filterNot { it.hasClass("mac-ad-card") }
     val items = cardElements.mapNotNull { card ->
-        // 四个源统一取详情页：.module-card-item 第一个 a 的 href
+        // 映像星球统一取详情页：.module-card-item 第一个 a 的 href
         val linkEl = card.select("a").firstOrNull()
             ?: return@mapNotNull null
         val imgEl = card.select("img[data-original]").firstOrNull()
@@ -153,7 +176,7 @@ private fun parseSearchResults(
         if (linkText.contains("/go/ad/")) return@mapNotNull null
         val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
         val coverText = imgEl.attr("data-original").ifBlank { imgEl.attr("data-src") }.ifBlank { imgEl.attr("src") }.trim()
-        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
+        if (coverText.isBlank() || coverText.startsWith("data:") || coverText.contains("loading.png") || coverText.contains("load.gif")) return@mapNotNull null
         val cover = when {
             coverText.startsWith("http") -> coverText
             coverText.startsWith("//") -> "https:$coverText"
@@ -185,19 +208,69 @@ private fun parseSearchResults(
     return items to pageInfo
 }
 
+private val vodListJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+private fun JsonObject.optStr(name: String): String =
+    this[name]?.jsonPrimitive?.contentOrNull?.trim() ?: ""
+
+/**
+ * CMS JSON 接口搜索解析（sites.json 片源）。
+ * vod_id→详情ID，vod_name→标题，vod_class→封面底部阴影，
+ * vod_year→年份，vod_remarks→封面右上角，vod_pic→封面。
+ */
+private fun parseApiSearchResults(
+    json: String,
+    source: SearchSource,
+    currentPage: Int = 1,
+): Pair<List<SearchItem>, PageInfo> {
+    val api = source.api ?: return emptyList<SearchItem>() to PageInfo(hasNext = false, nextUrl = null)
+    val origin = ApiSites.originOf(api)
+    val root = vodListJson.parseToJsonElement(json).jsonObject
+    val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())
+    val items = arr.mapNotNull { el ->
+        val o = el as? JsonObject ?: return@mapNotNull null
+        val vodId = o.optStr("vod_id")
+        if (vodId.isBlank()) return@mapNotNull null
+        val title = o.optStr("vod_name")
+        if (title.isBlank()) return@mapNotNull null
+        val coverRaw = o.optStr("vod_pic")
+        val cover = when {
+            coverRaw.startsWith("http") -> coverRaw
+            coverRaw.startsWith("//") -> "https:$coverRaw"
+            coverRaw.startsWith("/") -> origin + coverRaw
+            coverRaw.isNotBlank() -> "$origin/$coverRaw"
+            else -> ""
+        }
+        SearchItem(
+            link = ApiSites.detailUrl(api, vodId),
+            cover = cover,
+            title = title,
+            note = o.optStr("vod_remarks"),
+            year = o.optStr("vod_year"),
+            subtitle = o.optStr("vod_class"),
+            host = origin,
+        )
+    }
+    val pageNo = root["page"]?.jsonPrimitive?.intOrNull ?: currentPage
+    val pageCount = root["pagecount"]?.jsonPrimitive?.intOrNull ?: 0
+    val hasNext = if (pageCount > 0) pageNo < pageCount else items.isNotEmpty()
+    return items to PageInfo(hasNext = hasNext, nextUrl = null)
+}
+
 private suspend fun fetchPage(
     source: SearchSource,
     keyword: String,
     page: Int,
 ): Result<Pair<List<SearchItem>, PageInfo>> = withContext(Dispatchers.IO) {
     val encoded = URLEncoder.encode(keyword, "UTF-8").replace("+", "%20")
-    val url = when (source) {
-        SearchSource.FDZYS -> {
+    val url = if (source.isApi) {
+        ApiSites.searchUrl(source.api!!, keyword, page)
+    } else when (source.key) {
+        AppData.FDZYS_KEY -> {
             val base = "${AppData.FDZYS_HOST}/yu-${encoded}-xianguan-de-yingpian-shippin-zhibo"
             if (page <= 1) base else "$base?page=$page"
         }
-        SearchSource.NIVOD, SearchSource.YLSP, SearchSource.PIANKU -> "${source.searchUrl}$encoded&page=$page"
-        SearchSource.YXXQ -> {
+        else -> {
             if (page <= 1) "${source.searchUrl}$encoded"
             else "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
         }
@@ -213,9 +286,10 @@ private suspend fun fetchPage(
                     "Referer" to "${source.host}/",
                 )
             ).getOrThrow()
-            val result = when (source) {
-                SearchSource.FDZYS -> parseFdzysSearchResults(html, source.host, page)
-                SearchSource.PIANKU -> parsePiankuSearchResults(html, source.host, page)
+            val result = if (source.isApi) {
+                parseApiSearchResults(html, source, page)
+            } else when (source.key) {
+                AppData.FDZYS_KEY -> parseFdzysSearchResults(html, source.host, page)
                 else -> parseSearchResults(html, source.host, page)
             }
             return@withContext Result.success(result)
@@ -282,64 +356,6 @@ private fun parseFdzysSearchResults(
     return items to PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
 }
 
-private fun parsePiankuSearchResults(
-    html: String,
-    host: String,
-    currentPage: Int = 1,
-): Pair<List<SearchItem>, PageInfo> {
-    val doc = Ksoup.parse(html)
-    val cardElements = doc.select("div.public-list-box")
-    val items = cardElements.mapNotNull { card ->
-        // 详情页链接：.public-list-box第一个a的href
-        val linkEl = card.select("a").firstOrNull() ?: return@mapNotNull null
-        val linkText = linkEl.attr("href").trim()
-        if (linkText.isBlank()) return@mapNotNull null
-        if (linkText.contains("/go/ad/")) return@mapNotNull null
-        val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
-        // 影片名称：.public-list-button
-        val titleEl = card.select(".public-list-button").firstOrNull()
-            ?: card.select("a.time-title").firstOrNull()
-            ?: return@mapNotNull null
-        val title = titleEl.text().trim().ifBlank { linkEl.attr("title").trim() }
-        if (title.isBlank()) return@mapNotNull null
-        // 标题下面没有为空 的卡片才保留，已通过 title 判空实现
-
-        // 封面：.public-list-div img的src（兼容 data-src/data-original）
-        val imgEl = card.select(".public-list-div img[data-src]").firstOrNull()
-            ?: card.select(".public-list-div img[data-original]").firstOrNull()
-            ?: card.select(".public-list-div img").firstOrNull()
-            ?: card.select("img[data-src]").firstOrNull()
-            ?: card.select("img").firstOrNull()
-            ?: return@mapNotNull null
-        var coverText = imgEl.attr("data-src").ifBlank { imgEl.attr("data-original") }
-            .ifBlank { imgEl.attr("src") }.trim()
-        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
-        val cover = when {
-            coverText.startsWith("http") -> coverText
-            coverText.startsWith("//") -> "https:$coverText"
-            else -> "$host$coverText"
-        }
-        // 封面右上角：.public-list-div .public-prt
-        val note = card.select(".public-list-div .public-prt").firstOrNull()?.text()?.trim() ?: ""
-        // 封面下面阴影部分：.public-list-div .public-list-prb
-        val subtitle = card.select(".public-list-div .public-list-prb").firstOrNull()?.text()?.trim() ?: ""
-        // 标题下面没有 year 信息，置空
-        val year = ""
-
-        SearchItem(
-            link = link,
-            cover = cover,
-            title = title,
-            note = note,
-            year = year,
-            subtitle = subtitle,
-            host = host,
-        )
-    }
-    // 无限页：只要本页有数据就认为还有下一页
-    return items to PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
-}
-
 internal class SourceState {
     var itemList by mutableStateOf<List<SearchItem>>(emptyList())
     var isLoading by mutableStateOf(false)
@@ -361,10 +377,14 @@ internal class SourceState {
     }
 }
 
-internal class MovieSearchScreenState(initialQuery: String) {
+internal class MovieSearchScreenState(
+    initialQuery: String,
+    apiSites: List<ApiSite> = emptyList(),
+) {
     val searchText = mutableStateOf(initialQuery)
     val activeQuery = mutableStateOf(initialQuery)
-    val sources = SearchSource.entries
+    val sources: List<SearchSource> =
+        SearchSource.defaults() + apiSites.map { SearchSource.fromApiSite(it) }
     val sourceStates = sources.associateWith { SourceState() }
     val orderedSources = mutableStateOf<List<SearchSource>>(sources)
     val retryKey = mutableIntStateOf(0)

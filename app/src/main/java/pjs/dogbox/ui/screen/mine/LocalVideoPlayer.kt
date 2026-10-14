@@ -107,6 +107,7 @@ import pjs.dogbox.R
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
 import pjs.dogbox.ui.screen.movie.MoreSettingsContent
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
+import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
@@ -286,6 +287,8 @@ fun LocalVideoPreview(
             else -> Player.REPEAT_MODE_OFF
         }
     }
+
+    PauseOnBackground(exoPlayer)
 
     val playerListener = remember {
         object : Player.Listener {

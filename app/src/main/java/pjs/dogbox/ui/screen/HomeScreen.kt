@@ -59,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,6 +89,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
@@ -96,7 +98,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
 import java.net.URLEncoder
 
 internal data class HomeItem(
@@ -110,7 +111,7 @@ internal data class HomeItem(
 )
 
 private const val DOUBAN_API = "https://frodo.douban.com/api/v2"
-private const val APIKEY = "?apikey=0ac44ae016490db2204ce0a042db2916"
+private const val DOUBAN_APIKEY = "0ac44ae016490db2204ce0a042db2916"
 
 private data class TabDef(
     val label: String,
@@ -291,6 +292,20 @@ internal fun HomeScreen(
                 }
             }
 
+            // 筛选头外提常驻：不随 pager 页面滑动而滑动/重建，切标签时仅标签高亮变化，
+            // 筛选栏本身不跟随刷新；下方卡片区各自转圈加载。
+            if (firstTabLoaded && filterState == STATE_LOADED) {
+                val currentTab = tabs.getOrNull(pagerState.currentPage) ?: tabs[0]
+                val currentTabState = tabCache.get(currentTab.label)
+                key(currentTab.label) {
+                    HomeFilterHeader(
+                        tab = currentTab,
+                        filterData = filterData,
+                        tabState = currentTabState,
+                    )
+                }
+            }
+
             when (filterState) {
                 STATE_LOADING -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -389,6 +404,102 @@ internal fun HomeScreen(
     }
 }
 
+@Composable
+private fun HomeFilterHeader(
+    tab: TabDef,
+    filterData: HomeFilterData?,
+    tabState: FilterableTabState,
+) {
+    if (tab.categories.isEmpty()) return
+    // tabState 对象本身稳定（来自 TabStateCache），回调只创建一次；
+    // 切换某个筛选时，其它行的 onSelect 实例不变，可跳过重组
+    val selectHandlers = remember(tabState) {
+        mapOf<String, (String) -> Unit>(
+            "sort" to { v -> tabState.selectedSort = v },
+            "year" to { v -> tabState.selectedYear = v },
+            "movie-type" to { v -> tabState.selectedMovieType = v },
+            "movie-area" to { v -> tabState.selectedMovieArea = v },
+            "tv-type" to { v -> tabState.selectedTvType = v },
+            "tv-area" to { v -> tabState.selectedTvArea = v },
+            "tv-form" to { v -> tabState.selectedTvForm = v },
+            "show-type" to { v -> tabState.selectedShowType = v },
+        )
+    }
+    fun optionsFor(category: String): List<Pair<String, String>> {
+        val d = filterData ?: return emptyList()
+        return when (category) {
+            "sort" -> d.sortOptions
+            "year" -> d.yearOptions
+            "movie-type" -> d.movieTypeOptions
+            "movie-area" -> d.movieAreaOptions
+            "tv-type" -> d.tvTypeOptions
+            "tv-area" -> d.tvAreaOptions
+            "tv-form" -> d.tvFormOptions
+            "show-type" -> d.showTypeOptions
+            else -> emptyList()
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        AnimatedVisibility(
+            visible = tabState.showFilters,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                tab.categories.forEach { category ->
+                    key(tab.label + "_" + category) {
+                        val options = optionsFor(category)
+                        val onSelect = selectHandlers[category]
+                        if (options.isNotEmpty() && onSelect != null) {
+                            val selectedVal = when (category) {
+                                "sort" -> tabState.selectedSort
+                                "year" -> tabState.selectedYear
+                                "movie-type" -> tabState.selectedMovieType
+                                "movie-area" -> tabState.selectedMovieArea
+                                "tv-type" -> tabState.selectedTvType
+                                "tv-area" -> tabState.selectedTvArea
+                                "tv-form" -> tabState.selectedTvForm
+                                "show-type" -> tabState.selectedShowType
+                                else -> ""
+                            }
+
+                            FilterRowWithDialog(
+                                options = options,
+                                selectedValue = selectedVal,
+                                onSelect = onSelect,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { tabState.showFilters = !tabState.showFilters }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(if (tabState.showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
+                contentDescription = if (tabState.showFilters) "收起" else "展开",
+                modifier = Modifier
+                    .size(20.dp)
+                    .padding(end = 4.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = if (tabState.showFilters) "收起筛选" else "展开筛选",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -400,23 +511,15 @@ private fun FilterableTabContent(
     onViewImage: (String, String, String) -> Unit,
     onDataLoaded: () -> Unit = {},
 ) {
-    val categoryFilterMap = mapOf(
-        "sort" to filterData.sortOptions,
-        "year" to filterData.yearOptions,
-        "movie-type" to filterData.movieTypeOptions,
-        "movie-area" to filterData.movieAreaOptions,
-        "tv-type" to filterData.tvTypeOptions,
-        "tv-area" to filterData.tvAreaOptions,
-        "tv-form" to filterData.tvFormOptions,
-        "show-type" to filterData.showTypeOptions,
-    )
 
-    val maxPages = if (tab.useSuggestionApi) 2 else Int.MAX_VALUE
+    // movie_showing 接口 total 约 50+，count=20 取 3 页兜底；空页即止
+    val maxPages = if (tab.useSuggestionApi) 3 else Int.MAX_VALUE
 
     suspend fun fetchPage(page: Int): List<HomeItem> {
-        val start = page * 32
+        val pageSize = if (tab.useSuggestionApi) 20 else 32
+        val start = page * pageSize
         val url = if (tab.useSuggestionApi) {
-            "$DOUBAN_API/movie/suggestion$APIKEY&start=$start&count=32&new_struct=1&with_review=1"
+            "$DOUBAN_API/subject_collection/movie_showing/items?start=$start&count=$pageSize&apikey=$DOUBAN_APIKEY"
         } else {
             val tagParts = mutableListOf<String>()
             if (tab.fixedTag != null) tagParts.add(tab.fixedTag)
@@ -444,7 +547,7 @@ private fun FilterableTabContent(
             val tags = withContext(Dispatchers.IO) {
                 URLEncoder.encode(tagParts.joinToString(","), "UTF-8")
             }
-            "$DOUBAN_API/${tab.apiType}/recommend${APIKEY}&sort=${tabState.selectedSort}&tags=$tags&start=$start&count=32"
+            "$DOUBAN_API/${tab.apiType}/recommend?apikey=$DOUBAN_APIKEY&sort=${tabState.selectedSort}&tags=$tags&start=$start&count=32"
         }
         return withContext(Dispatchers.IO) {
             HttpUtil.get(
@@ -457,38 +560,35 @@ private fun FilterableTabContent(
             onSuccess = { response ->
                 try {
                     val json = Json.parseToJsonElement(response).jsonObject
-                    json["items"]?.jsonArray?.mapNotNull { element ->
-                        val obj = element.jsonObject
-                        val picObj = obj["pic"]?.jsonObject
-                        val rawCover =
-                            picObj?.get("normal")?.jsonPrimitive?.contentOrNull
-                                ?: obj["cover"]?.jsonPrimitive?.contentOrNull
+                    if (tab.useSuggestionApi) {
+                        // movie_showing：subject_collection_items，cover.url / rating.value / card_subtitle / year
+                        json["subject_collection_items"]?.jsonArray?.mapNotNull { element ->
+                            val obj = runCatching { element.jsonObject }.getOrNull()
                                 ?: return@mapNotNull null
-                        val rawLarge = picObj?.get("large")?.jsonPrimitive?.contentOrNull
-                            ?: rawCover
-                        val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
-                            "http://",
-                            "https://"
-                        ) else rawCover
-                        val coverLarge = if (rawLarge.startsWith("http://")) rawLarge.replaceFirst(
-                            "http://",
-                            "https://"
-                        ) else rawLarge
-                        val ratingVal =
-                            obj["rating"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull
-                                ?: obj["rating"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-                        val subtitle = obj["card_subtitle"]?.jsonPrimitive?.contentOrNull ?: ""
-                        val y = obj["year"]?.jsonPrimitive?.contentOrNull ?: ""
-                        HomeItem(
-                            id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
-                            cover = cover,
-                            coverLarge = coverLarge,
-                            title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
-                            subtitle = subtitle,
-                            rating = ratingVal,
-                            year = y,
-                        )
-                    } ?: emptyList()
+                            val rawCover = (obj["cover"] as? JsonObject)
+                                ?.get("url")?.jsonPrimitive?.contentOrNull
+                                ?: return@mapNotNull null
+                            if (rawCover.isBlank() || rawCover.startsWith("data:")) return@mapNotNull null
+                            val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
+                                "http://",
+                                "https://"
+                            ) else rawCover
+                            // 部分条目 rating 为 null，无评分则按 0 处理（右上角不显示）
+                            val ratingVal = (obj["rating"] as? JsonObject)
+                                ?.get("value")?.jsonPrimitive?.doubleOrNull ?: 0.0
+                            HomeItem(
+                                id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+                                cover = cover,
+                                coverLarge = cover,
+                                title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
+                                subtitle = obj["card_subtitle"]?.jsonPrimitive?.contentOrNull ?: "",
+                                rating = ratingVal,
+                                year = obj["year"]?.jsonPrimitive?.contentOrNull ?: "",
+                            )
+                        } ?: emptyList()
+                    } else {
+                        parseRecommendItems(json)
+                    }
                 } catch (_: Exception) {
                     emptyList()
                 }
@@ -511,7 +611,11 @@ private fun FilterableTabContent(
         tabState.prevRefreshKey = tabState.refreshKey
         tabState.loadPage = 0
         tabState.lastLoadPage = 0
-        if (!isRefresh) tabState.itemList = emptyList()
+        if (!isRefresh) {
+            // 筛选切换/切标签：清空旧卡片，走默认全屏转圈；
+            // 下拉刷新则保留旧列表，只转顶部/底部
+            tabState.itemList = emptyList()
+        }
         tabState.isLoading = true
         tabState.isRefreshing = isRefresh
         val result = fetchPage(0)
@@ -519,6 +623,11 @@ private fun FilterableTabContent(
         tabState.hasMore = result.isNotEmpty()
         tabState.isLoading = false
         tabState.isRefreshing = false
+        // 筛选变化后数据已换，回顶部（首屏已在顶部，无副作用）
+        try {
+            tabState.gridState.scrollToItem(0)
+        } catch (_: Exception) {
+        }
         if (!tabState.firstApiLoaded) {
             tabState.firstApiLoaded = true
             onDataLoaded()
@@ -591,81 +700,8 @@ private fun FilterableTabContent(
     val showFab by remember { derivedStateOf { !isAtTop && !isScrollingDown } }
     val scope = rememberCoroutineScope()
 
-    val isDataEmpty = tabState.itemList.isEmpty()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        if (!isDataEmpty) {
-            AnimatedVisibility(
-                visible = tabState.showFilters,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    tab.categories.forEach { category ->
-                        val options = categoryFilterMap[category] ?: return@forEach
-                        val selectedVal = when (category) {
-                            "sort" -> tabState.selectedSort
-                            "year" -> tabState.selectedYear
-                            "movie-type" -> tabState.selectedMovieType
-                            "movie-area" -> tabState.selectedMovieArea
-                            "tv-type" -> tabState.selectedTvType
-                            "tv-area" -> tabState.selectedTvArea
-                            "tv-form" -> tabState.selectedTvForm
-                            "show-type" -> tabState.selectedShowType
-                            else -> ""
-                        }
-                        val onSelect: (String) -> Unit = when (category) {
-                            "sort" -> { v -> tabState.selectedSort = v }
-                            "year" -> { v -> tabState.selectedYear = v }
-                            "movie-type" -> { v -> tabState.selectedMovieType = v }
-                            "movie-area" -> { v -> tabState.selectedMovieArea = v }
-                            "tv-type" -> { v -> tabState.selectedTvType = v }
-                            "tv-area" -> { v -> tabState.selectedTvArea = v }
-                            "tv-form" -> { v -> tabState.selectedTvForm = v }
-                            "show-type" -> { v -> tabState.selectedShowType = v }
-                            else -> { _ -> }
-                        }
-
-                        FilterRowWithDialog(
-                            options = options,
-                            selectedValue = selectedVal,
-                            onSelect = onSelect,
-                        )
-                    }
-                }
-            }
-
-            if (tab.categories.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { tabState.showFilters = !tabState.showFilters }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(if (tabState.showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
-                        contentDescription = if (tabState.showFilters) "收起" else "展开",
-                        modifier = Modifier
-                            .size(20.dp)
-                            .padding(end = 4.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = if (tabState.showFilters) "收起筛选" else "展开筛选",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        }
-
-        PullToRefreshBox(
+    // 筛选头已外提常驻，这里只负责卡片区：空列表+加载中 => 默认全屏转圈
+    PullToRefreshBox(
             isRefreshing = tabState.isRefreshing,
             onRefresh = { tabState.refreshKey++ },
             modifier = Modifier
@@ -735,7 +771,42 @@ private fun FilterableTabContent(
                 }
             }
         }
-    }
+}
+
+// 非推荐 tab（movie/tv recommend 接口）：items + pic.normal/large + rating.value
+private fun parseRecommendItems(json: JsonObject): List<HomeItem> {
+    return json["items"]?.jsonArray?.mapNotNull { element ->
+        val obj = element.jsonObject
+        val picObj = obj["pic"]?.jsonObject
+        val rawCover =
+            picObj?.get("normal")?.jsonPrimitive?.contentOrNull
+                ?: obj["cover"]?.jsonPrimitive?.contentOrNull
+                ?: return@mapNotNull null
+        val rawLarge = picObj?.get("large")?.jsonPrimitive?.contentOrNull
+            ?: rawCover
+        val cover = if (rawCover.startsWith("http://")) rawCover.replaceFirst(
+            "http://",
+            "https://"
+        ) else rawCover
+        val coverLarge = if (rawLarge.startsWith("http://")) rawLarge.replaceFirst(
+            "http://",
+            "https://"
+        ) else rawLarge
+        val ratingVal =
+            obj["rating"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull
+                ?: obj["rating"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+        val subtitle = obj["card_subtitle"]?.jsonPrimitive?.contentOrNull ?: ""
+        val y = obj["year"]?.jsonPrimitive?.contentOrNull ?: ""
+        HomeItem(
+            id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+            cover = cover,
+            coverLarge = coverLarge,
+            title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
+            subtitle = subtitle,
+            rating = ratingVal,
+            year = y,
+        )
+    } ?: emptyList()
 }
 
 @SuppressLint("DefaultLocale")
@@ -871,36 +942,38 @@ private fun <T> FilterRowWithDialog(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             options.forEach { (value, label) ->
-                val isSelected = value == selectedValue
-                val chipColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceContainerHigh,
-                    animationSpec = tween(200),
-                )
-                val textColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = tween(200),
-                )
-
-                Box(
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.large)
-                        .background(chipColor)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { onSelect(value) },
-                        )
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = textColor,
-                        maxLines = 1,
+                key(value) {
+                    val isSelected = value == selectedValue
+                    val chipColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        animationSpec = tween(200),
                     )
+                    val textColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(200),
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.large)
+                            .background(chipColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { onSelect(value) },
+                            )
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
@@ -937,12 +1010,13 @@ private fun <T> FilterRowWithDialog(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     options.forEach { (value, label) ->
-                        val isSelected = value == selectedValue
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            animationSpec = tween(200),
-                        )
+                        key(value) {
+                            val isSelected = value == selectedValue
+                            val bgColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                animationSpec = tween(200),
+                            )
                         val txtColor by animateColorAsState(
                             targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurface,
@@ -962,13 +1036,14 @@ private fun <T> FilterRowWithDialog(
                                     },
                                 )
                                 .padding(horizontal = 20.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = txtColor,
-                            )
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = txtColor,
+                                )
+                            }
                         }
                     }
                 }

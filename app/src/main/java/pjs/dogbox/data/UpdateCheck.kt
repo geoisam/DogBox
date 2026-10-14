@@ -20,10 +20,10 @@ data class UpdateInfo(
 
 suspend fun fetchRemoteConfig(): kotlinx.serialization.json.JsonObject? {
     val urls = listOf(
-        "https://gh-proxy.org/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
+        "https://gh-proxy.com/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
         "https://ghfast.top/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
+        "https://ghproxy.icu/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
         "https://ghproxy.net/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
-        "https://githubdog.com/raw.githubusercontent.com/geoisam/geoisam/main/data/base.json",
     )
 
     var result: kotlinx.serialization.json.JsonObject? = null

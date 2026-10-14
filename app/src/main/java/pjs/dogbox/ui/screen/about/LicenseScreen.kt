@@ -219,11 +219,6 @@ private fun LicenseCard(item: LicenseItem) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
-                PillText(
-                    text = item.version,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                )
             }
         }
     }

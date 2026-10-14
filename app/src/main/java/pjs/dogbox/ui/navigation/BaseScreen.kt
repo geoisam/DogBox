@@ -86,6 +86,8 @@ import pjs.dogbox.ui.screen.movie.MovieSearchScreenState
 import androidx.core.net.toUri
 import pjs.dogbox.ui.screen.movie.extractHost
 import pjs.dogbox.ui.screen.movie.extractPath
+import pjs.dogbox.ui.screen.movie.extractPathWithQuery
+import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
 import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.data.SharedData
@@ -260,7 +262,7 @@ fun BaseScreen(
         ) { entry ->
             val query = entry.arguments?.getString("query") ?: ""
             val searchState = rememberEntryState(registry, entry) {
-                MovieSearchScreenState(query)
+                MovieSearchScreenState(query, ApiSites.ensureLoaded(context))
             }
             val onViewImage: (String, String, String) -> Unit = { url, referer, title ->
                 navController.navigate(AppRoutes.imageViewer(url, referer, title))
@@ -269,13 +271,17 @@ fun BaseScreen(
                 state = searchState,
                 onBack = { navController.popBackStack() },
                 onPlayVideo = { url ->
+                    ApiSites.ensureLoaded(context)
                     val host = extractHost(url)
                     val key = AppData.sourceKey(host)
-                    val detailPath = extractPath(url)
+                    // API 详情链接 path 相同，仅 query(ids=) 能区分影片，需 path+query 定位历史
+                    val detailPath = if (ApiSites.isApiDetailUrl(url)) extractPathWithQuery(url) else extractPath(url)
                     val historyItem = SharedData.getWatchHistory(context)
                         .find { it.id == detailPath && it.key == key }
                     val episodeUrl = historyItem?.let {
-                        "${AppData.hostForKey(it.key)}${it.url}"
+                        // API 选集存的是完整直链，原样使用；旧数据存 path，需拼 host
+                        if (it.url.startsWith("http")) it.url
+                        else "${AppData.hostForKey(it.key)}${it.url}"
                     }
                     navController.navigate(
                         AppRoutes.play(url, historyItem?.progress ?: 0L, episodeUrl)
@@ -313,8 +319,11 @@ fun BaseScreen(
             WatchHistoryScreen(
                 onBack = { navController.popBackStack() },
                 onPlayMovie = { item ->
-                    val detailAbs = "${AppData.hostForKey(item.key)}${item.id}"
-                    val episodeAbs = "${AppData.hostForKey(item.key)}${item.url}"
+                    ApiSites.ensureLoaded(context)
+                    val origin = AppData.hostForKey(item.key)
+                    // 兼容旧数据（存 path）与 API 数据（url 可能是完整直链）
+                    val detailAbs = if (item.id.startsWith("http")) item.id else "$origin${item.id}"
+                    val episodeAbs = if (item.url.startsWith("http")) item.url else "$origin${item.url}"
                     navController.navigate(AppRoutes.play(detailAbs, item.progress, episodeAbs))
                 },
             )

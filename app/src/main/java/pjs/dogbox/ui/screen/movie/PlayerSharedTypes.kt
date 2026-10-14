@@ -106,6 +106,7 @@ import androidx.media3.ui.PlayerView
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
 import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.SimpleDragHandle
@@ -1312,7 +1313,9 @@ internal fun PlayerCore(
                                             if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
                                         if (dragAxis == 2) {
                                             brightnessHideJob?.cancel()
+                                            volumeHideJob?.cancel()
                                             isAdjustingBrightnessChange(true)
+                                            isAdjustingVolumeChange(false)
                                         } else {
                                             seekHideJob?.cancel()
                                             seekPreviewPositionChange(exoPlayer.currentPosition)
@@ -1453,7 +1456,9 @@ internal fun PlayerCore(
                                             if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
                                         if (dragAxis == 2) {
                                             volumeHideJob?.cancel()
+                                            brightnessHideJob?.cancel()
                                             isAdjustingVolumeChange(true)
+                                            isAdjustingBrightnessChange(false)
                                             val maxVol =
                                                 audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                                             val curVol =

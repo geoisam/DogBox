@@ -128,7 +128,6 @@ internal class AnimeRankOrderState {
     var refreshKey by mutableIntStateOf(0)
     var prevRefreshKey by mutableIntStateOf(0)
     var lastFetchKey by mutableStateOf("")
-    var showFilters by mutableStateOf(true)
     val gridState = LazyGridState()
 }
 
@@ -139,6 +138,7 @@ internal class AnimeRankScreenState {
     val selectedYear = mutableStateOf("-1")
     val selectedStyleId = mutableIntStateOf(-1)
     val sortMode = mutableIntStateOf(0)
+    val showFilters = mutableStateOf(true)
     val tabCache = TabStateCache { AnimeRankOrderState() }
 }
 
@@ -218,6 +218,7 @@ internal fun AnimeRankScreen(
         pageCount = { filterData?.orderOptions?.size ?: 1 }
     )
     val tabCache = state.tabCache
+    var showFilters by state.showFilters
 
     Column(
         modifier = modifier
@@ -269,6 +270,14 @@ internal fun AnimeRankScreen(
 
             else -> {
                 filterData?.let { data ->
+                    fun resetAllTabs() {
+                        tabCache.forEach { s ->
+                            s.currentPage = 1
+                            s.animeList = emptyList()
+                            s.hasMore = true
+                            s.lastFetchKey = ""
+                        }
+                    }
                     OrderTabBar(
                         options = data.orderOptions,
                         pagerState = pagerState,
@@ -278,28 +287,88 @@ internal fun AnimeRankScreen(
                         },
                     )
 
+                    // 筛选栏外提常驻：切换标签时仅标签高亮变化，筛选栏不跟随刷新；
+                    // 卡片区各自转圈加载。
+                    AnimatedVisibility(
+                        visible = showFilters,
+                        enter = expandVertically(),
+                        exit = shrinkVertically(),
+                    ) {
+                        FilterBar(
+                            filterData = data,
+                            sortMode = sortMode,
+                            isFinish = isFinish,
+                            selectedYear = selectedYear,
+                            selectedStyleId = selectedStyleId,
+                            onSortChange = {
+                                if (it != sortMode) {
+                                    sortMode = it
+                                    resetAllTabs()
+                                }
+                            },
+                            onIsFinishChange = {
+                                if (it != isFinish) {
+                                    isFinish = it
+                                    resetAllTabs()
+                                }
+                            },
+                            onYearChange = {
+                                if (it != selectedYear) {
+                                    selectedYear = it
+                                    resetAllTabs()
+                                }
+                            },
+                            onStyleIdChange = {
+                                if (it != selectedStyleId) {
+                                    selectedStyleId = it
+                                    resetAllTabs()
+                                }
+                            },
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showFilters = !showFilters }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = painterResource(if (showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
+                            contentDescription = if (showFilters) "收起" else "展开",
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(end = 4.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = if (showFilters) "收起筛选" else "展开筛选",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
                     HorizontalPager(
                         state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().weight(1f),
                         beyondViewportPageCount = 0,
                     ) { page ->
-                        key(page) {
+                        key(data.orderOptions.getOrNull(page)?.first ?: page) {
                             AnimeRankOrderContent(
                                 order = data.orderOptions.getOrNull(page)?.first ?: 1,
-                                filterData = data,
                                 isFinish = isFinish,
                                 selectedYear = selectedYear,
                                 selectedStyleId = selectedStyleId,
                                 sortMode = sortMode,
-                                onSortChange = { sortMode = it },
-                                onIsFinishChange = { isFinish = it },
-                                onYearChange = { selectedYear = it },
-                                onStyleIdChange = { selectedStyleId = it },
                                 onSearchMovie = onSearchMovie,
                                 onViewImage = onViewImage,
                                 tabState = tabCache.get(
                                     (data.orderOptions.getOrNull(page)?.first ?: 1).toString()
                                 ),
+                                showFilters = showFilters,
+                                onShowFiltersChange = { showFilters = it },
                             )
                         }
                     }
@@ -313,18 +382,15 @@ internal fun AnimeRankScreen(
 @Composable
 private fun AnimeRankOrderContent(
     order: Int,
-    filterData: FilterData,
     isFinish: Int,
     selectedYear: String,
     selectedStyleId: Int,
     sortMode: Int,
-    onSortChange: (Int) -> Unit,
-    onIsFinishChange: (Int) -> Unit,
-    onYearChange: (String) -> Unit,
-    onStyleIdChange: (Int) -> Unit,
     onSearchMovie: (String) -> Unit = {},
     onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     tabState: AnimeRankOrderState,
+    showFilters: Boolean,
+    onShowFiltersChange: (Boolean) -> Unit,
 ) {
     LaunchedEffect(
         order,
@@ -344,6 +410,7 @@ private fun AnimeRankOrderContent(
         val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
         tabState.prevRefreshKey = tabState.refreshKey
         if (tabState.currentPage == 1 && !isRefresh) {
+            // 筛选切换/切标签：清空旧卡片，走默认全屏转圈；下拉刷新保留旧列表
             tabState.animeList = emptyList()
         }
         tabState.isLoading = true
@@ -397,6 +464,12 @@ private fun AnimeRankOrderContent(
         }
         tabState.isLoading = false
         tabState.isRefreshing = false
+        if (tabState.currentPage == 1) {
+            try {
+                tabState.gridState.scrollToItem(0)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     val lazyGridState = tabState.gridState
@@ -438,17 +511,17 @@ private fun AnimeRankOrderContent(
                 isScrollingDown = currentTotal > lastKnownOffset
                 lastKnownOffset = currentTotal
                 if (isScrollingDown) {
-                    tabState.showFilters = false
+                    onShowFiltersChange(false)
                 }
             }
         }
     }
 
-    val overscrollConnection = remember {
+    val overscrollConnection = remember(isAtTop, showFilters) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y > 0f && isAtTop && !tabState.showFilters) {
-                    tabState.showFilters = true
+                if (available.y > 0f && isAtTop && !showFilters) {
+                    onShowFiltersChange(true)
                 }
                 return Offset.Zero
             }
@@ -461,62 +534,17 @@ private fun AnimeRankOrderContent(
         }
     }
 
-    val isDataEmpty = tabState.animeList.isEmpty()
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (!isDataEmpty) {
-            AnimatedVisibility(
-                visible = tabState.showFilters,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                FilterBar(
-                    filterData = filterData,
-                    sortMode = sortMode,
-                    isFinish = isFinish,
-                    selectedYear = selectedYear,
-                    selectedStyleId = selectedStyleId,
-                    onSortChange = { onSortChange(it) },
-                    onIsFinishChange = { onIsFinishChange(it) },
-                    onYearChange = { onYearChange(it) },
-                    onStyleIdChange = { onStyleIdChange(it) },
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { tabState.showFilters = !tabState.showFilters }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(if (tabState.showFilters) R.drawable.keyboard_double_arrow_up_outlined else R.drawable.keyboard_double_arrow_down_outlined),
-                    contentDescription = if (tabState.showFilters) "收起" else "展开",
-                    modifier = Modifier
-                        .size(20.dp)
-                        .padding(end = 4.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = if (tabState.showFilters) "收起筛选" else "展开筛选",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        PullToRefreshBox(
-            isRefreshing = tabState.isRefreshing,
-            onRefresh = {
-                tabState.currentPage = 1
-                tabState.refreshKey++
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(overscrollConnection),
-        ) {
+    // 筛选栏已外提常驻，这里只负责卡片区：空列表+加载中 => 默认全屏转圈
+    PullToRefreshBox(
+        isRefreshing = tabState.isRefreshing,
+        onRefresh = {
+            tabState.currentPage = 1
+            tabState.refreshKey++
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(overscrollConnection),
+    ) {
             when {
                 tabState.animeList.isEmpty() && tabState.isLoading -> {
                     Box(
@@ -585,7 +613,7 @@ private fun AnimeRankOrderContent(
                     onClick = {
                         scope.launch {
                             lazyGridState.animateScrollToItem(0)
-                            tabState.showFilters = true
+                            onShowFiltersChange(true)
                         }
                     },
                     modifier = Modifier
@@ -600,7 +628,6 @@ private fun AnimeRankOrderContent(
                 }
             }
         }
-    }
 }
 
 @SuppressLint("DefaultLocale")

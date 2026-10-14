@@ -11,6 +11,10 @@ class TabStateCache<T : Any>(private val factory: () -> T) {
     private val states = mutableMapOf<String, T>()
 
     fun get(key: String): T = states.getOrPut(key) { factory() }
+
+    fun forEach(action: (T) -> Unit) {
+        states.values.forEach(action)
+    }
 }
 
 @Composable

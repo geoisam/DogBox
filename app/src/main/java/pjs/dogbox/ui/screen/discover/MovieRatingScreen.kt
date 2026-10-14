@@ -299,18 +299,38 @@ internal fun MovieRatingScreen(
                     }
                 }
 
+                // 筛选栏外提：常驻于标签行之下，不随 pager 销毁/重建，
+                // 切换标签时仅标签高亮变化，筛选栏本身不刷新；卡片区各自转圈加载。
+                if (typeOptions.isNotEmpty()) {
+                    FilterChipBar(
+                        options = typeOptions,
+                        selectedValue = selectedType,
+                        onValueChange = { newType ->
+                            if (newType != selectedType) {
+                                selectedType = newType
+                                // 所有标签页的分页/列表一起重置，切过去时走全屏转圈；
+                                // 回顶部由内容区加载完成后统一 scrollToItem(0)
+                                categories.forEach { cat ->
+                                    val s = tabCache.get(cat)
+                                    s.currentPage = 0
+                                    s.movieList = emptyList()
+                                    s.hasMore = true
+                                    s.lastFetchKey = ""
+                                }
+                            }
+                        },
+                    )
+                }
+
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().weight(1f),
                     beyondViewportPageCount = 0,
                 ) { page ->
                     key(categories[page]) {
                         MovieCategoryContent(
                             category = categories[page],
-                            typeOptions = typeOptions,
-                            filterState = filterState,
                             selectedType = selectedType,
-                            onTypeChange = { selectedType = it },
                             onSearchMovie = onSearchMovie,
                             onViewImage = onViewImage,
                             tabState = tabCache.get(categories[page]),
@@ -373,14 +393,11 @@ internal fun MovieRatingScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MovieCategoryContent(
     category: String,
-    typeOptions: List<Pair<String, String>>,
-    filterState: Int,
     selectedType: String,
-    onTypeChange: (String) -> Unit,
     onSearchMovie: (String) -> Unit = {},
     onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
     tabState: MovieCategoryState,
@@ -394,6 +411,7 @@ private fun MovieCategoryContent(
         val isRefresh = tabState.prevRefreshKey != tabState.refreshKey
         tabState.prevRefreshKey = tabState.refreshKey
         if (tabState.currentPage == 0 && !isRefresh) {
+            // 筛选切换/切标签：清空旧卡片，走默认全屏转圈；下拉刷新则保留旧列表只转顶部
             tabState.movieList = emptyList()
         }
         tabState.isLoading = true
@@ -453,6 +471,12 @@ private fun MovieCategoryContent(
         }
         tabState.isLoading = false
         tabState.isRefreshing = false
+        if (tabState.currentPage == 0) {
+            try {
+                tabState.gridState.scrollToItem(0)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     val lazyGridState = tabState.gridState
@@ -480,58 +504,22 @@ private fun MovieCategoryContent(
 
     val scope = rememberCoroutineScope()
 
-    when (filterState) {
-        STATE_LOADING -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(56.dp))
-            }
+    // 筛选栏已外提常驻，这里只负责卡片区：空列表+加载中 => 默认全屏转圈
+    if (tabState.isLoading && tabState.movieList.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(56.dp))
         }
-
-        STATE_ERROR -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "暂无数据",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        STATE_LOADED -> {
-            if (tabState.isLoading && tabState.movieList.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                }
-            } else {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    if (typeOptions.isNotEmpty() && tabState.movieList.isNotEmpty()) {
-                        FilterChipBar(
-                            options = typeOptions,
-                            selectedValue = selectedType,
-                            onValueChange = {
-                                onTypeChange(it)
-                                tabState.currentPage = 0
-                            },
-                        )
-                    }
-
-                    PullToRefreshBox(
+    } else {
+        PullToRefreshBox(
                         isRefreshing = tabState.isRefreshing,
                         onRefresh = {
                             tabState.currentPage = 0
                             tabState.refreshKey++
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         if (tabState.movieList.isEmpty() && !tabState.isLoading) {
                             Box(
@@ -604,9 +592,6 @@ private fun MovieCategoryContent(
                             }
                         }
                     }
-                }
-            }
-        }
     }
 }
 

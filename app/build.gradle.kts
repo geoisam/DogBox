@@ -16,8 +16,8 @@ android {
         applicationId = "pjs.dogbox"
         minSdk = 29
         targetSdk = 37
-        versionCode = 26083115
-        versionName = "0.3.3"
+        versionCode = 26101500
+        versionName = "0.4.0"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a"))

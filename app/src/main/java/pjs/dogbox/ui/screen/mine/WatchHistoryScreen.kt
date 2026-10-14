@@ -67,6 +67,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
+import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
 import pjs.dogbox.data.SharedData
 import pjs.dogbox.data.WatchHistoryItem
@@ -78,6 +79,7 @@ fun WatchHistoryScreen(
     onPlayMovie: (WatchHistoryItem) -> Unit = {},
 ) {
     val context = LocalContext.current
+    remember { ApiSites.ensureLoaded(context) }
     var items by remember { mutableStateOf(SharedData.getWatchHistory(context)) }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<String>() }
