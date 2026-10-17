@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,26 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -76,9 +60,27 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.R
-import pjs.dogbox.ui.theme.AppColorThemes
 import pjs.dogbox.data.SharedData
+import pjs.dogbox.ui.components.grayTextFieldColors
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.ColorPalette
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import kotlin.math.roundToInt
 
 private enum class ScrollDirection {
@@ -97,13 +99,15 @@ private enum class VerticalPosition {
 }
 
 private fun colorToHex(color: Color): String =
-    String.format("#%06X", 0xFFFFFF and color.toArgb())
+    String.format("#%08X", color.toArgb())
 
-private fun colorFromHex(hex: Int): Color = Color(
-    red = ((hex shr 16) and 0xFF) / 255f,
-    green = ((hex shr 8) and 0xFF) / 255f,
-    blue = (hex and 0xFF) / 255f
-)
+private fun colorFromHex(hex: String): Color? = runCatching {
+    var clean = hex.trim().removePrefix("#")
+    // 参考 lyricon parseHexColor：6 位自动补 FF，8 位保留 alpha
+    if (clean.length == 6) clean = "FF$clean"
+    require(clean.length == 8) { "Invalid color: $hex" }
+    Color(clean.toULong(16).toLong())
+}.getOrNull()
 
 @Composable
 private fun ColorPickerDialog(
@@ -111,76 +115,92 @@ private fun ColorPickerDialog(
     onColorSelected: (Color) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val presetColors = remember {
-        listOf(Color.Black, Color.White) + AppColorThemes.map { it.primary }
-    }
     var selectedColor by remember(currentColor) { mutableStateOf(currentColor) }
-    var hexInput by remember(currentColor) { mutableStateOf(colorToHex(currentColor)) }
+    var hexInput by remember(currentColor) { mutableStateOf(colorToHex(currentColor).removePrefix("#")) }
 
-    fun select(color: Color) {
-        selectedColor = color
-        hexInput = colorToHex(color)
-    }
-
-    AlertDialog(
+    OverlayDialog(
+        show = true,
+        title = "选择颜色",
         onDismissRequest = onDismiss,
-        title = { Text("选择颜色") },
-        text = {
-            Column {
-                presetColors.chunked(7).forEach { rowColors ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        rowColors.forEach { color ->
-                            val isSelected = selectedColor.toArgb() == color.toArgb()
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .border(
-                                        width = if (isSelected) 3.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else Color.Gray.copy(alpha = 0.4f),
-                                        shape = CircleShape
-                                    )
-                                    .clickable { select(color) }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                }
-                OutlinedTextField(
-                    value = hexInput,
-                    onValueChange = { newValue ->
-                        hexInput = newValue
-                        val clean = newValue.trimStart('#').take(6)
-                        if (clean.length == 6 && clean.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
-                            try {
-                                selectedColor = colorFromHex(clean.toInt(16))
-                            } catch (_: NumberFormatException) {
-                            }
-                        }
-                    },
-                    label = { Text("颜色代码 (#RRGGBB)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ColorPalette(
+                color = selectedColor,
+                onColorChanged = { newColor ->
+                    selectedColor = newColor
+                    hexInput = colorToHex(newColor).removePrefix("#")
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            MiuixText(
+                text = "HEX:#",
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+            )
+            Spacer(Modifier.height(4.dp))
+            TextField(
+                value = hexInput,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isLetterOrDigit() }.take(8)
+                    hexInput = filtered
+                    colorFromHex("#$filtered")?.let { selectedColor = it }
+                },
+                singleLine = true,
+                colors = grayTextFieldColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(
+                    text = "取消",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    text = "确定",
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    onClick = { onColorSelected(selectedColor) },
+                    modifier = Modifier.weight(1f),
                 )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onColorSelected(selectedColor) }) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+        }
+    }
+}
+
+/**
+ * 参考 lyricon ColorBox.drawCheckerboard：透明色预览必须垫棋盘格，否则透明看起来像黑色。
+ */
+@Composable
+private fun TransparentColorPreview(
+    color: Color,
+    size: androidx.compose.ui.unit.Dp = 28.dp,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.foundation.Canvas(
+        modifier = modifier.size(size).clip(CircleShape).border(1.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
+    ) {
+        val checker = 4.dp.toPx()
+        drawRect(color = Color(0xFFE0E0E0))
+        val sizePx = size.toPx()
+        val columns = (sizePx / checker).toInt() + 1
+        val rows = (sizePx / checker).toInt() + 1
+        for (i in 0 until columns) {
+            for (j in 0 until rows) {
+                if ((i + j) % 2 != 0) {
+                    drawRect(
+                        color = Color(0xFFB0B0B0),
+                        topLeft = androidx.compose.ui.geometry.Offset(i * checker, j * checker),
+                        size = androidx.compose.ui.geometry.Size(checker, checker),
+                    )
+                }
             }
         }
-    )
+        drawCircle(color = color)
+    }
 }
 
 @Composable
@@ -208,11 +228,14 @@ private fun MarqueeText(
 
     val isDynamic = speedSeconds > 0
     val actualSpeed = if (isDynamic) speedSeconds * 1000 else 6000
+    // lineHeightSp = 0 时使用系统默认行高，避免 lineHeight = fontSize 导致裁剪；
+    // 仅在用户显式设置行高时才覆盖（参考 lyricon 文本 margins/paddings 逻辑：默认不干预）。
+    val resolvedLineHeight = if (lineHeightSp > 0) (fontSizeSp + lineHeightSp).sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val textStyle = TextStyle(
         color = textColor,
         fontSize = fontSizeSp.sp,
         letterSpacing = letterSpacingSp.sp,
-        lineHeight = (fontSizeSp + lineHeightSp).sp,
+        lineHeight = resolvedLineHeight,
         fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
         fontStyle = if (isItalic) FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (isUnderline) TextDecoration.Underline else TextDecoration.None
@@ -262,9 +285,10 @@ private fun MarqueeText(
 
                     ScrollDirection.LEFT_TO_RIGHT ->
                         (-textWidth - margin) + totalDistance * progress
+                    else -> 0f
                 }
 
-                Text(
+                MiuixText(
                     text = text,
                     style = textStyle,
                     softWrap = false,
@@ -287,9 +311,10 @@ private fun MarqueeText(
 
                     ScrollDirection.TOP_TO_BOTTOM ->
                         (-textHeight - margin) + totalDistance * progress
+                    else -> 0f
                 }
 
-                Text(
+                MiuixText(
                     text = text,
                     style = textStyle,
                     softWrap = false,
@@ -337,7 +362,7 @@ private fun MarqueeText(
             },
             contentAlignment = contentAlignment
         ) {
-            Text(
+            MiuixText(
                 text = text,
                 style = textStyle,
                 textAlign = textAlign,
@@ -358,33 +383,45 @@ private fun SliderSetting(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val steps = (range.last - range.first) / increment - 1
+    val safeIncrement = increment.coerceAtLeast(1)
+    // steps = 区间数 - 1（Miuix/Compose Slider 语义），不足一档时为 0（连续滑动）
+    val steps = ((range.last - range.first) / safeIncrement - 1).coerceAtLeast(0)
+    val keyPointCount = (range.last - range.first) / safeIncrement + 1
+    val keyPoints = remember(range.first, range.last, safeIncrement) {
+        List(keyPointCount) { (range.first + it * safeIncrement).toFloat() }
+    }
     Column(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
+            MiuixText(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary
             )
-            Text(
+            MiuixText(
                 text = if (value == 0 && zeroLabel != null) zeroLabel else "$value",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.primary
             )
         }
         Slider(
             value = value.toFloat(),
             onValueChange = {
+                // 以 range.first 为基准吸附，避免 range 不从 0 起始时错位
                 val snapped =
-                    ((it / increment).roundToInt() * increment).coerceIn(range.first, range.last)
+                    (((it - range.first) / safeIncrement).roundToInt() * safeIncrement + range.first)
+                        .coerceIn(range.first, range.last)
                 onValueChange(snapped)
             },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = steps,
+            showKeyPoints = true,
+            keyPoints = keyPoints,
+            magnetThreshold = 0.03f,
+            hapticEffect = SliderDefaults.SliderHapticEffect.Step,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -397,76 +434,23 @@ private fun StyleToggle(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (selected) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.surfaceContainerHigh
-    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    val containerColor = if (selected) MiuixTheme.colorScheme.primary
+    else MiuixTheme.colorScheme.surfaceContainerHigh
+    val contentColor = if (selected) MiuixTheme.colorScheme.onPrimary
+    else MiuixTheme.colorScheme.onSurfaceSecondary
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(12.dp))
             .background(containerColor)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
+        MiuixText(
             text = label,
             color = contentColor,
-            style = MaterialTheme.typography.labelLarge
+            style = MiuixTheme.textStyles.body1
         )
-    }
-}
-
-@Composable
-private fun <T> SettingDropdownRow(
-    label: String,
-    value: String,
-    options: List<Pair<T, String>>,
-    onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.width(4.dp))
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(R.drawable.arrow_drop_down_outlined),
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { (option, optionLabel) ->
-                    DropdownMenuItem(
-                        text = { Text(optionLabel) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -484,19 +468,13 @@ private fun SettingColorRow(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
+        MiuixText(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(color)
-                .border(1.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
-        )
+        TransparentColorPreview(color = color, size = 28.dp)
     }
 }
 
@@ -529,22 +507,22 @@ private fun FullScreenPlayback(
     ) {
         val dialogView = LocalView.current
 
-        DisposableEffect(Unit) {
+        DisposableEffect(bgColor) {
             val activity = view.context as? Activity
             val activityWindow = activity?.window
 
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
-            // Configure dialog for immersive fullscreen
+            // 参考 lyricon Theme 的状态栏写法：优先走 WindowInsetsControllerCompat，
+            // 废弃的 systemUiVisibility 仅作为低版本兜底，避免与 edge-to-edge 冲突。
             val rootView = dialogView.rootView
-            rootView.systemUiVisibility = (
-                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-                            or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    )
+            val insetsController = activityWindow?.let { WindowInsetsControllerCompat(it, rootView) }
+            // 全屏播放时隐藏系统栏，滑动可短暂唤出
+            insetsController?.let {
+                it.hide(WindowInsetsCompat.Type.systemBars())
+                it.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
             if (Build.VERSION.SDK_INT >= 30) {
                 rootView.windowInsetsController?.let { controller ->
                     controller.hide(
@@ -554,6 +532,16 @@ private fun FullScreenPlayback(
                     controller.systemBarsBehavior =
                         android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 }
+            } else {
+                @Suppress("DEPRECATION")
+                rootView.systemUiVisibility = (
+                        android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                                or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        )
             }
             // Configure cutout mode on the dialog window
             (rootView.layoutParams as? WindowManager.LayoutParams)?.let { params ->
@@ -586,11 +574,8 @@ private fun FullScreenPlayback(
                 activityWindow.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
                 activityWindow.statusBarColor = bgColor.toArgb()
                 activityWindow.navigationBarColor = bgColor.toArgb()
-                activityWindow.decorView.systemUiVisibility = (
-                        android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        )
+                WindowInsetsControllerCompat(activityWindow, activityWindow.decorView)
+                    .isAppearanceLightStatusBars = bgColor.luminance() > 0.5f
             }
 
             onDispose {
@@ -598,15 +583,8 @@ private fun FullScreenPlayback(
                 if (activityWindow != null) {
                     activityWindow.statusBarColor = android.graphics.Color.TRANSPARENT
                     activityWindow.navigationBarColor = android.graphics.Color.TRANSPARENT
-                    activityWindow.decorView.systemUiVisibility = (
-                            android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            )
                 }
-                if (dialogView.rootView !== activityWindow?.decorView) {
-                    dialogView.rootView.systemUiVisibility =
-                        android.view.View.SYSTEM_UI_FLAG_VISIBLE
-                }
+                insetsController?.show(WindowInsetsCompat.Type.systemBars())
             }
         }
 
@@ -636,7 +614,6 @@ private fun FullScreenPlayback(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scrollState = rememberScrollState()
@@ -669,23 +646,6 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var showFullScreenPlayback by remember { mutableStateOf(false) }
     var showBgColorPicker by remember { mutableStateOf(false) }
     var showTextColorPicker by remember { mutableStateOf(false) }
-
-    val directionLabel = when (direction) {
-        ScrollDirection.RIGHT_TO_LEFT -> "从右到左"
-        ScrollDirection.LEFT_TO_RIGHT -> "从左到右"
-        ScrollDirection.BOTTOM_TO_TOP -> "从下到上"
-        ScrollDirection.TOP_TO_BOTTOM -> "从上到下"
-    }
-    val horizontalLabel = when (horizontalAlignment) {
-        HorizontalPosition.LEFT -> "居左"
-        HorizontalPosition.CENTER -> "居中"
-        HorizontalPosition.RIGHT -> "居右"
-    }
-    val verticalLabel = when (verticalAlignment) {
-        VerticalPosition.TOP -> "居上"
-        VerticalPosition.CENTER -> "居中"
-        VerticalPosition.BOTTOM -> "居下"
-    }
 
     val focusManager = LocalFocusManager.current
 
@@ -740,35 +700,79 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        TopAppBar(
-            title = { Text("滚动字幕", fontWeight = FontWeight.Bold) },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            navigationIcon = {
-                FilledTonalIconButton(
-                    onClick = onBack,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    )
+    MiuixScaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = "滚动字幕",
+                navigationIcon = {
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            contentDescription = "返回",
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                },
+            )
+        },
+        bottomBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MiuixTheme.colorScheme.surfaceContainer),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_back_outlined),
-                        contentDescription = "返回",
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            resetDefaults()
+                        },
+                    ) {
+                        MiuixText("重置默认值")
+                    }
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            SharedData.saveScrollingTextConfig(
+                                context,
+                                SharedData.ScrollingTextConfig(
+                                    text = text,
+                                    direction = direction.ordinal,
+                                    speedSeconds = speedSeconds,
+                                    fontSizeSp = fontSizeSp,
+                                    letterSpacingSp = letterSpacingSp,
+                                    lineHeightSp = lineHeightSp,
+                                    horizontalAlignment = horizontalAlignment.ordinal,
+                                    verticalAlignment = verticalAlignment.ordinal,
+                                    isBold = isBold,
+                                    isItalic = isItalic,
+                                    isUnderline = isUnderline,
+                                    bgColor = bgColor.toArgb(),
+                                    textColor = textColor.toArgb(),
+                                )
+                            )
+                            showFullScreenPlayback = true
+                        },
+                        enabled = text.isNotBlank(),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                    ) {
+                        MiuixText("全屏播放")
+                    }
                 }
             }
-        )
-
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxSize()
+                .padding(padding)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
@@ -776,18 +780,15 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
+                insideMargin = PaddingValues(16.dp),
             ) {
-                OutlinedTextField(
+                TextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("输入文字内容") },
+                    label = "输入文字内容",
+                    colors = grayTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
                         .heightIn(min = 120.dp),
                     maxLines = 100,
                 )
@@ -797,12 +798,9 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
+                insideMargin = PaddingValues(16.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     SliderSetting(
                         label = "播放速度（秒）",
                         value = speedSeconds,
@@ -835,10 +833,10 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
                     Spacer(Modifier.height(4.dp))
 
-                    Text(
+                    MiuixText(
                         "文字样式",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -871,54 +869,31 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
             ) {
-                Column {
-                    SettingDropdownRow(
-                        label = "滚动方向",
-                        value = directionLabel,
-                        options = listOf(
-                            ScrollDirection.RIGHT_TO_LEFT to "从右到左",
-                            ScrollDirection.LEFT_TO_RIGHT to "从左到右",
-                            ScrollDirection.BOTTOM_TO_TOP to "从下到上",
-                            ScrollDirection.TOP_TO_BOTTOM to "从上到下"
-                        ),
-                        onSelected = { direction = it }
-                    )
-                    SettingDropdownRow(
-                        label = "水平位置",
-                        value = horizontalLabel,
-                        options = listOf(
-                            HorizontalPosition.LEFT to "居左",
-                            HorizontalPosition.CENTER to "居中",
-                            HorizontalPosition.RIGHT to "居右"
-                        ),
-                        onSelected = { horizontalAlignment = it }
-                    )
-                    SettingDropdownRow(
-                        label = "垂直位置",
-                        value = verticalLabel,
-                        options = listOf(
-                            VerticalPosition.TOP to "居上",
-                            VerticalPosition.CENTER to "居中",
-                            VerticalPosition.BOTTOM to "居下"
-                        ),
-                        onSelected = { verticalAlignment = it }
-                    )
-                }
+                OverlayDropdownPreference(
+                    title = "滚动方向",
+                    items = listOf("从右到左", "从左到右", "从下到上", "从上到下"),
+                    selectedIndex = direction.ordinal,
+                    onSelectedIndexChange = { direction = ScrollDirection.entries[it] },
+                )
+                OverlayDropdownPreference(
+                    title = "水平位置",
+                    items = listOf("居左", "居中", "居右"),
+                    selectedIndex = horizontalAlignment.ordinal,
+                    onSelectedIndexChange = { horizontalAlignment = HorizontalPosition.entries[it] },
+                )
+                OverlayDropdownPreference(
+                    title = "垂直位置",
+                    items = listOf("居上", "居中", "居下"),
+                    selectedIndex = verticalAlignment.ordinal,
+                    onSelectedIndexChange = { verticalAlignment = VerticalPosition.entries[it] },
+                )
             }
 
             Spacer(Modifier.height(12.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
             ) {
                 Column {
                     SettingColorRow(
@@ -935,60 +910,6 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
 
             Spacer(Modifier.height(32.dp))
-        }
-
-        // ── Bottom Action Bar ──
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 3.dp,
-            shadowElevation = 8.dp,
-            color = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        focusManager.clearFocus()
-                        resetDefaults()
-                    },
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Text("重置默认值")
-                }
-                Button(
-                    onClick = {
-                        focusManager.clearFocus()
-                        SharedData.saveScrollingTextConfig(
-                            context,
-                            SharedData.ScrollingTextConfig(
-                                text = text,
-                                direction = direction.ordinal,
-                                speedSeconds = speedSeconds,
-                                fontSizeSp = fontSizeSp,
-                                letterSpacingSp = letterSpacingSp,
-                                lineHeightSp = lineHeightSp,
-                                horizontalAlignment = horizontalAlignment.ordinal,
-                                verticalAlignment = verticalAlignment.ordinal,
-                                isBold = isBold,
-                                isItalic = isItalic,
-                                isUnderline = isUnderline,
-                                bgColor = bgColor.toArgb(),
-                                textColor = textColor.toArgb(),
-                            )
-                        )
-                        showFullScreenPlayback = true
-                    },
-                    enabled = text.isNotBlank(),
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Text("全屏播放")
-                }
-            }
         }
     }
 }

@@ -13,7 +13,6 @@ object AppRoutes {
     const val ANALYZE_PLAY = "analyze_play?urls={urls}&index={index}&title={title}&referer={referer}"
     const val ANALYZE_IMAGE_GALLERY = "analyze_image_gallery?urls={urls}&index={index}&referer={referer}&title={title}"
     const val ANALYZE_RESULT = "analyze_result?type={type}&urls={urls}&referer={referer}&title={title}"
-    const val MY_THEME = "my_theme"
     const val ABOUT_ME = "about_me"
     const val SPONSOR = "sponsor"
     const val CONTRIBUTOR = "contributor"

@@ -84,18 +84,17 @@ androidComponents {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.text)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material3.navigation)
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.foundation.layout)
-    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.activity)
+
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.preference)
+    implementation(libs.miuix.icons)
+    implementation(libs.miuix.squircle)
+    implementation(libs.miuix.nav)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.documentfile)
-    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
@@ -122,7 +121,6 @@ dependencies {
     implementation(libs.androidx.media3.compose)
     implementation(libs.androidx.media3.transformer)
 
-    implementation(libs.materialKolor)
     implementation(libs.fleeksoft.ksoup)
     implementation(libs.com.tyme)
 

@@ -2,11 +2,9 @@ package pjs.dogbox.ui.screen.mine
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,22 +24,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -71,8 +54,18 @@ import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
 import pjs.dogbox.data.SharedData
 import pjs.dogbox.data.WatchHistoryItem
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun WatchHistoryScreen(
     onBack: () -> Unit = {},
@@ -96,19 +89,13 @@ fun WatchHistoryScreen(
         selectedIds.clear()
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("观看历史", fontWeight = FontWeight.Bold) },
+            SmallTopAppBar(
+                title = "观看历史",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
@@ -117,39 +104,28 @@ fun WatchHistoryScreen(
                 },
                 actions = {
                     if (isDeleteMode) {
-                        FilledTonalIconButton(
+                        MiuixIconButton(
                             onClick = {
                                 isDeleteMode = false
                                 selectedIds.clear()
                             },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.close_outlined),
                                 contentDescription = "取消",
-                                modifier = Modifier.size(24.dp),
-                            )
+                            modifier = Modifier.size(24.dp),
+                        )
                         }
                     } else if (items.isNotEmpty()) {
-                        FilledTonalIconButton(
-                            onClick = { isDeleteMode = true },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
-                        ) {
-                            Icon(
+                        MiuixIconButton(onClick = { isDeleteMode = true }) {
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.delete_outlined),
                                 contentDescription = "删除",
-                                modifier = Modifier.size(24.dp),
-                            )
+                            modifier = Modifier.size(24.dp),
+                        )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
         bottomBar = {
@@ -157,11 +133,11 @@ fun WatchHistoryScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .background(MiuixTheme.colorScheme.surfaceContainer)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 val filtered = items.filter { it.orientation == pagerState.currentPage }
                                 val allKeys = filtered.map { "${it.key}|${it.id}" }
@@ -170,10 +146,10 @@ fun WatchHistoryScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("全选")
+                            MiuixText("全选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 val filtered = items.filter { it.orientation == pagerState.currentPage }
                                 val allKeys = filtered.map { "${it.key}|${it.id}" }
@@ -184,17 +160,17 @@ fun WatchHistoryScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("反选")
+                            MiuixText("反选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 isDeleteMode = false
                                 selectedIds.clear()
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("取消")
+                            MiuixText("取消")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -205,13 +181,15 @@ fun WatchHistoryScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
+                            color = MiuixTheme.colorScheme.error,
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = selectedIds.isNotEmpty(),
                     ) {
-                        Text("删除（${selectedIds.size}）")
+                        MiuixText(
+                            text = "删除（${selectedIds.size}）",
+                            color = MiuixTheme.colorScheme.onError,
+                        )
                     }
                 }
             }
@@ -232,19 +210,19 @@ fun WatchHistoryScreen(
                     val selected = pagerState.currentPage == value
                     Box(
                         modifier = Modifier
-                            .clip(MaterialTheme.shapes.medium)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceContainerHighest
+                                if (selected) MiuixTheme.colorScheme.primary
+                                else MiuixTheme.colorScheme.surfaceContainerHighest
                             )
                             .clickable { scope.launch { pagerState.animateScrollToPage(value) } }
                             .padding(horizontal = 20.dp, vertical = 6.dp),
                     ) {
-                        Text(
+                        MiuixText(
                             text = label,
-                            color = if (selected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) MiuixTheme.colorScheme.onPrimary
+                            else MiuixTheme.colorScheme.onSurfaceSecondary,
+                            style = MiuixTheme.textStyles.footnote1,
                         )
                     }
                 }
@@ -256,23 +234,23 @@ fun WatchHistoryScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.history_outlined),
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            tint = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.4f),
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "暂无观看记录",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyLarge,
+                        MiuixText(
+                            text = "暂无观看记录",
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                            style = MiuixTheme.textStyles.body1,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "观看影视超过10秒将自动记录",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.bodySmall,
+                        MiuixText(
+                            text = "观看影视超过10秒将自动记录",
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.6f),
+                            style = MiuixTheme.textStyles.footnote1,
                         )
                     }
                 }
@@ -318,32 +296,42 @@ fun WatchHistoryScreen(
         }
     }
 
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除", fontWeight = FontWeight.Bold) },
-            text = { Text("确认删除这${selectedIds.size}项内容？删除后将无法查看。") },
-            confirmButton = {
-                Button(onClick = {
+    OverlayDialog(
+        show = showDeleteDialog,
+        title = "删除",
+        summary = "确认删除这${selectedIds.size}项内容？删除后将无法查看。",
+        onDismissRequest = { showDeleteDialog = false },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(
+                text = "取消",
+                onClick = { showDeleteDialog = false },
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
                     showDeleteDialog = false
                     SharedData.removeWatchHistory(context, selectedIds.toSet())
                     selectedIds.clear()
                     isDeleteMode = false
                     refresh()
-                }) {
-                    Text("确认删除")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            },
-        )
+                },
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                ),
+            ) {
+                MiuixText(
+                    text = "确认删除",
+                    color = MiuixTheme.colorScheme.onError,
+                )
+            }
+        }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryGridItem(
     item: WatchHistoryItem,
@@ -357,30 +345,20 @@ private fun HistoryGridItem(
         if (item.duration > 0) "${item.progress * 100 / item.duration}%" else "0%"
 
     Card(
-        modifier = Modifier
-            .then(
-                if (isDeleteMode) {
-                    Modifier.clickable { onSelect() }
-                } else {
-                    Modifier.combinedClickable(
-                        onClick = { onClick() },
-                        onLongClick = { onLongClick() },
-                    )
-                }
-            )
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        2.dp,
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.shapes.medium
-                    )
-                } else Modifier
-            ),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        modifier = Modifier.then(
+            if (isSelected) {
+                Modifier.border(
+                    2.dp,
+                    MiuixTheme.colorScheme.primary,
+                    RoundedCornerShape(16.dp)
+                )
+            } else Modifier
         ),
+        cornerRadius = 16.dp,
+        onClick = {
+            if (isDeleteMode) onSelect() else onClick()
+        },
+        onLongPress = { onLongClick() },
     ) {
         Box {
             Column {
@@ -398,7 +376,7 @@ private fun HistoryGridItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(3f / 4f)
-                            .clip(MaterialTheme.shapes.medium),
+                            .clip(RoundedCornerShape(16.dp)),
                         contentScale = ContentScale.Crop,
                     )
 
@@ -407,15 +385,15 @@ private fun HistoryGridItem(
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                shape = MaterialTheme.shapes.medium,
+                                color = MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(8.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
-                        Text(
+                        MiuixText(
                             text = AppData.sourceName(item.key),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelMedium,
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            style = MiuixTheme.textStyles.footnote1,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -428,10 +406,10 @@ private fun HistoryGridItem(
                             .background(Color.Black.copy(alpha = 0.5f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
+                        MiuixText(
                             text = progressPercentText,
                             color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MiuixTheme.textStyles.title4,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -451,10 +429,10 @@ private fun HistoryGridItem(
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
+                        MiuixText(
                             text = item.episodeName,
                             color = Color.White,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                         )
                     }
@@ -465,21 +443,21 @@ private fun HistoryGridItem(
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp, vertical = 4.dp),
                 ) {
-                    Text(
+                    MiuixText(
                         text = item.title,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MiuixTheme.textStyles.body2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MiuixTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
+                    MiuixText(
                         text = item.formattedDate,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MiuixTheme.textStyles.footnote1,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
                 }
             }
@@ -492,16 +470,16 @@ private fun HistoryGridItem(
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
+                            if (isSelected) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isSelected) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.close_outlined),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                            tint = MiuixTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(14.dp),
                         )
                     }

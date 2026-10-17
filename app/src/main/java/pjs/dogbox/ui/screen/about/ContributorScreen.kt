@@ -2,10 +2,10 @@ package pjs.dogbox.ui.screen.about
 
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,17 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +43,13 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.MiuixEmptyText
+import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.MiuixSubScreen
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
@@ -67,7 +62,6 @@ private data class ContributorItem(
     val link: String,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributorScreen(
     onBack: () -> Unit = {},
@@ -99,64 +93,16 @@ fun ContributorScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = {
-            TopAppBar(
-                title = { Text("特别鸣谢", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
-        },
-    ) { paddingValues ->
+    MiuixSubScreen(title = "特别鸣谢", onBack = onBack) { padding ->
         when (loadState) {
-            STATE_LOADING -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                }
-            }
-
-            STATE_ERROR -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "暂无数据",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
+            STATE_LOADING -> MiuixLoading(modifier = Modifier.padding(padding))
+            STATE_ERROR -> MiuixEmptyText(modifier = Modifier.padding(padding))
             else -> {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp)
-                        .padding(paddingValues),
+                        .padding(padding)
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
@@ -178,24 +124,20 @@ fun ContributorScreen(
 private fun ContributorCard(item: ContributorItem) {
     val context = LocalContext.current
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                if (item.link.isNotEmpty()) {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, item.link.toUri())
-                    )
-                }
-            },
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = {
+            if (item.link.isNotEmpty()) {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, item.link.toUri())
+                )
+            }
+        },
+        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -218,21 +160,20 @@ private fun ContributorCard(item: ContributorItem) {
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                MiuixText(
                     text = item.name,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
+                MiuixText(
                     text = item.desc,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                 )
             }
         }

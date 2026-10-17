@@ -5,7 +5,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -33,21 +32,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -82,13 +68,25 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.components.MiuixEmptyText
+import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
 import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
+import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator as MiuixCircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import pjs.dogbox.ui.components.AppBottomSheet
 import java.net.URLEncoder
 
 internal data class MovieItem(
@@ -132,7 +130,6 @@ internal class MovieRatingScreenState {
     val tabCache = TabStateCache { MovieCategoryState() }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MovieRatingScreen(
     state: MovieRatingScreenState,
@@ -147,7 +144,6 @@ internal fun MovieRatingScreen(
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val tabCache = state.tabCache
     var showTabSheet by remember { mutableStateOf(false) }
-    val tabSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val context = LocalContext.current
     var filterState by state.filterState
@@ -180,220 +176,185 @@ internal fun MovieRatingScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        TopAppBar(
-            title = { Text("高分电影", fontWeight = FontWeight.Bold) },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            navigationIcon = {
-                FilledTonalIconButton(
-                    onClick = onBack,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_back_outlined),
-                        contentDescription = "返回",
-                        modifier = Modifier.size(24.dp),
-                    )
+    MiuixSubScreen(
+        title = "高分电影",
+        onBack = onBack,
+    ) { padding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (filterState) {
+                STATE_LOADING -> {
+                    MiuixLoading(modifier = Modifier.fillMaxSize())
                 }
-            },
-        )
 
-        when (filterState) {
-            STATE_LOADING -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(56.dp))
+                STATE_ERROR -> {
+                    MiuixEmptyText(modifier = Modifier.fillMaxSize())
                 }
-            }
 
-            STATE_ERROR -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "暂无数据",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            else -> {
-                val tabScrollState = rememberLazyListState()
-                PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LazyRow(
-                        state = tabScrollState,
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                else -> {
+                    val tabScrollState = rememberLazyListState()
+                    PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        itemsIndexed(tabs) { index, tab ->
-                            val selected = pagerState.currentPage == index
-                            val chipColor by animateColorAsState(
-                                targetValue = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                animationSpec = tween(200),
-                            )
-                            val textColor by animateColorAsState(
-                                targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                animationSpec = tween(200),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(chipColor)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = {
-                                            scope.launch {
-                                                pagerState.animateScrollToPage(
-                                                    index
-                                                )
-                                            }
-                                        },
-                                    )
-                                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                            ) {
-                                Text(
-                                    text = tab,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    color = textColor,
-                                    maxLines = 1,
+                        LazyRow(
+                            state = tabScrollState,
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            itemsIndexed(tabs) { index, tab ->
+                                val selected = pagerState.currentPage == index
+                                val chipColor by animateColorAsState(
+                                    targetValue = if (selected) MiuixTheme.colorScheme.primary
+                                    else MiuixTheme.colorScheme.surfaceContainerHigh,
+                                    animationSpec = tween(200),
                                 )
+                                val textColor by animateColorAsState(
+                                    targetValue = if (selected) MiuixTheme.colorScheme.onPrimary
+                                    else MiuixTheme.colorScheme.onSurfaceSecondary,
+                                    animationSpec = tween(200),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(chipColor)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = {
+                                                scope.launch {
+                                                    pagerState.animateScrollToPage(
+                                                        index
+                                                    )
+                                                }
+                                            },
+                                        )
+                                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                                ) {
+                                    MiuixText(
+                                        text = tab,
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = textColor,
+                                        maxLines = 1,
+                                    )
+                                }
                             }
+                        }
+
+                        MiuixIconButton(
+                            onClick = { showTabSheet = true },
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(32.dp),
+                        ) {
+                            MiuixIcon(
+                                painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
+                                contentDescription = "展开",
+                                modifier = Modifier.size(20.dp),
+                            )
                         }
                     }
 
-                    FilledTonalIconButton(
-                        onClick = { showTabSheet = true },
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        modifier = Modifier
-                            .padding(start = 4.dp)
-                            .size(32.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
-                            contentDescription = "展开",
-                            modifier = Modifier.size(20.dp),
+                    // 筛选栏外提：常驻于标签行之下，不随 pager 销毁/重建，
+                    // 切换标签时仅标签高亮变化，筛选栏本身不刷新；卡片区各自转圈加载。
+                    if (typeOptions.isNotEmpty()) {
+                        FilterChipBar(
+                            options = typeOptions,
+                            selectedValue = selectedType,
+                            onValueChange = { newType ->
+                                if (newType != selectedType) {
+                                    selectedType = newType
+                                    // 所有标签页的分页/列表一起重置，切过去时走全屏转圈；
+                                    // 回顶部由内容区加载完成后统一 scrollToItem(0)
+                                    categories.forEach { cat ->
+                                        val s = tabCache.get(cat)
+                                        s.currentPage = 0
+                                        s.movieList = emptyList()
+                                        s.hasMore = true
+                                        s.lastFetchKey = ""
+                                    }
+                                }
+                            },
                         )
                     }
-                }
 
-                // 筛选栏外提：常驻于标签行之下，不随 pager 销毁/重建，
-                // 切换标签时仅标签高亮变化，筛选栏本身不刷新；卡片区各自转圈加载。
-                if (typeOptions.isNotEmpty()) {
-                    FilterChipBar(
-                        options = typeOptions,
-                        selectedValue = selectedType,
-                        onValueChange = { newType ->
-                            if (newType != selectedType) {
-                                selectedType = newType
-                                // 所有标签页的分页/列表一起重置，切过去时走全屏转圈；
-                                // 回顶部由内容区加载完成后统一 scrollToItem(0)
-                                categories.forEach { cat ->
-                                    val s = tabCache.get(cat)
-                                    s.currentPage = 0
-                                    s.movieList = emptyList()
-                                    s.hasMore = true
-                                    s.lastFetchKey = ""
-                                }
-                            }
-                        },
-                    )
-                }
-
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize().weight(1f),
-                    beyondViewportPageCount = 0,
-                ) { page ->
-                    key(categories[page]) {
-                        MovieCategoryContent(
-                            category = categories[page],
-                            selectedType = selectedType,
-                            onSearchMovie = onSearchMovie,
-                            onViewImage = onViewImage,
-                            tabState = tabCache.get(categories[page]),
-                        )
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                        beyondViewportPageCount = 0,
+                    ) { page ->
+                        key(categories[page]) {
+                            MovieCategoryContent(
+                                category = categories[page],
+                                selectedType = selectedType,
+                                onSearchMovie = onSearchMovie,
+                                onViewImage = onViewImage,
+                                tabState = tabCache.get(categories[page]),
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    if (showTabSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showTabSheet = false },
-            sheetState = tabSheetState,
-            dragHandle = { SimpleDragHandle() },
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    tabs.forEachIndexed { index, label ->
-                        val isSelected = pagerState.currentPage == index
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        )
-                        val txtColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurface,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(bgColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        scope.launch { pagerState.animateScrollToPage(index) }
-                                        showTabSheet = false
-                                    },
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = txtColor,
+    AppBottomSheet(
+        show = showTabSheet,
+        onDismissRequest = { showTabSheet = false },
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                tabs.forEachIndexed { index, label ->
+                    val isSelected = pagerState.currentPage == index
+                    val bgColor by animateColorAsState(
+                        targetValue = if (isSelected) MiuixTheme.colorScheme.primary
+                        else MiuixTheme.colorScheme.surfaceContainerHigh,
+                    )
+                    val txtColor by animateColorAsState(
+                        targetValue = if (isSelected) MiuixTheme.colorScheme.onPrimary
+                        else MiuixTheme.colorScheme.onSurface,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(bgColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    scope.launch { pagerState.animateScrollToPage(index) }
+                                    showTabSheet = false
+                                },
                             )
-                        }
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                    ) {
+                        MiuixText(
+                            text = label,
+                            style = MiuixTheme.textStyles.footnote1,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = txtColor,
+                        )
                     }
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MovieCategoryContent(
     category: String,
@@ -506,96 +467,87 @@ private fun MovieCategoryContent(
 
     // 筛选栏已外提常驻，这里只负责卡片区：空列表+加载中 => 默认全屏转圈
     if (tabState.isLoading && tabState.movieList.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(56.dp))
-        }
+        MiuixLoading(modifier = Modifier.fillMaxSize())
     } else {
-        PullToRefreshBox(
-                        isRefreshing = tabState.isRefreshing,
-                        onRefresh = {
-                            tabState.currentPage = 0
-                            tabState.refreshKey++
-                        },
+        Box(modifier = Modifier.fillMaxSize()) {
+            MiuixPullToRefresh(
+                isRefreshing = tabState.isRefreshing,
+                onRefresh = {
+                    tabState.currentPage = 0
+                    tabState.refreshKey++
+                },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                if (tabState.movieList.isEmpty() && !tabState.isLoading) {
+                    MiuixEmptyText(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        state = lazyGridState,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        if (tabState.movieList.isEmpty() && !tabState.isLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    "暂无数据",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
-                                state = lazyGridState,
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                items(
-                                    tabState.movieList,
-                                    key = { "${it.id}_${it.title}" }) { item ->
-                                    MovieGridItem(
-                                        item = item,
-                                        onClick = {
-                                            if (item.id.isNotEmpty()) {
-                                                onSearchMovie(item.title)
-                                            }
-                                        },
-                                        onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
-                                    )
-                                }
-
-                                if (tabState.isLoading) {
-                                    item(span = { GridItemSpan(3) }) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            CircularProgressIndicator(modifier = Modifier.size(36.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!isAtTop) {
-                            FloatingActionButton(
+                        items(
+                            tabState.movieList,
+                            key = { "${it.id}_${it.title}" }) { item ->
+                            MovieGridItem(
+                                item = item,
                                 onClick = {
-                                    scope.launch {
-                                        lazyGridState.animateScrollToItem(0)
+                                    if (item.id.isNotEmpty()) {
+                                        onSearchMovie(item.title)
                                     }
                                 },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(20.dp),
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                                    contentDescription = "回到顶部",
-                                    modifier = Modifier.size(28.dp),
-                                )
+                                onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
+                            )
+                        }
+
+                        if (tabState.isLoading) {
+                            item(span = { GridItemSpan(3) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    MiuixCircularProgressIndicator(size = 36.dp)
+                                }
                             }
                         }
                     }
+                }
+            }
+
+            if (!isAtTop) {
+                MiuixFab(
+                    onClick = {
+                        scope.launch {
+                            lazyGridState.animateScrollToItem(0)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(20.dp),
+                    containerColor = MiuixTheme.colorScheme.primaryContainer,
+                ) {
+                    MiuixIcon(
+                        painter = painterResource(R.drawable.arrow_upward_outlined),
+                        contentDescription = "回到顶部",
+                        modifier = Modifier.size(28.dp),
+                        tint = MiuixTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterChipBar(
     options: List<Pair<String, String>>,
@@ -603,7 +555,6 @@ private fun FilterChipBar(
     onValueChange: (String) -> Unit,
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
 
     Row(
@@ -621,22 +572,22 @@ private fun FilterChipBar(
                 val isSelected = selectedValue == value
                 val chipColor by animateColorAsState(
                     targetValue = if (isSelected)
-                        MaterialTheme.colorScheme.primary
+                        MiuixTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                        MiuixTheme.colorScheme.surfaceContainerHigh,
                     animationSpec = tween(200),
                 )
                 val textColor by animateColorAsState(
                     targetValue = if (isSelected)
-                        MaterialTheme.colorScheme.onPrimary
+                        MiuixTheme.colorScheme.onPrimary
                     else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                        MiuixTheme.colorScheme.onSurfaceSecondary,
                     animationSpec = tween(200),
                 )
 
                 Box(
                     modifier = Modifier
-                        .clip(MaterialTheme.shapes.large)
+                        .clip(RoundedCornerShape(50))
                         .background(chipColor)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -645,9 +596,9 @@ private fun FilterChipBar(
                         )
                         .padding(horizontal = 14.dp, vertical = 7.dp),
                 ) {
-                    Text(
+                    MiuixText(
                         text = label,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MiuixTheme.textStyles.footnote1,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = textColor,
                         maxLines = 1,
@@ -658,16 +609,13 @@ private fun FilterChipBar(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        FilledTonalIconButton(
+        MiuixIconButton(
             onClick = { showSheet = true },
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
             modifier = Modifier
                 .padding(start = 4.dp)
                 .size(32.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
                 contentDescription = "展开",
                 modifier = Modifier.size(18.dp),
@@ -675,60 +623,58 @@ private fun FilterChipBar(
         }
     }
 
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = sheetState,
-            dragHandle = { SimpleDragHandle() },
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    options.forEach { (value, label) ->
-                        val isSelected = selectedValue == value
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.surfaceContainerHigh,
-                            animationSpec = tween(200),
-                        )
-                        val txtColor by animateColorAsState(
-                            targetValue = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurface,
-                            animationSpec = tween(200),
-                        )
+    AppBottomSheet(
+        show = showSheet,
+        onDismissRequest = { showSheet = false },
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                options.forEach { (value, label) ->
+                    val isSelected = selectedValue == value
+                    val bgColor by animateColorAsState(
+                        targetValue = if (isSelected)
+                            MiuixTheme.colorScheme.primary
+                        else
+                            MiuixTheme.colorScheme.surfaceContainerHigh,
+                        animationSpec = tween(200),
+                    )
+                    val txtColor by animateColorAsState(
+                        targetValue = if (isSelected)
+                            MiuixTheme.colorScheme.onPrimary
+                        else
+                            MiuixTheme.colorScheme.onSurface,
+                        animationSpec = tween(200),
+                    )
 
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(bgColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        onValueChange(value)
-                                        showSheet = false
-                                    },
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = txtColor,
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(bgColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    onValueChange(value)
+                                    showSheet = false
+                                },
                             )
-                        }
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                    ) {
+                        MiuixText(
+                            text = label,
+                            style = MiuixTheme.textStyles.footnote1,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = txtColor,
+                        )
                     }
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
@@ -742,14 +688,13 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
     val rest =
         if (slashIndex >= 0) item.subtitle.substring(slashIndex + 1).trim() else item.subtitle
 
-    Card(
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
-        ),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    MiuixCard(
+        onClick = onClick,
+        onLongPress = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        colors = MiuixCardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surfaceContainer,
         ),
     ) {
         Column {
@@ -767,7 +712,7 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(3f / 4f)
-                        .clip(MaterialTheme.shapes.medium),
+                        .clip(RoundedCornerShape(12.dp)),
                 )
 
                 if (item.rating > 0.0) {
@@ -776,15 +721,15 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                shape = MaterialTheme.shapes.medium,
+                                color = MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(8.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
-                        Text(
+                        MiuixText(
                             text = String.format("%.1f", item.rating),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelMedium,
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            style = MiuixTheme.textStyles.footnote1,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -806,10 +751,10 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
+                        MiuixText(
                             text = rest.replace(Regex("\\s+"), "/").replace(Regex("/+"), "/"),
                             color = Color.White,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -822,22 +767,22 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 4.dp),
             ) {
-                Text(
+                MiuixText(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.body2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MiuixTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                 )
                 if (year.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
+                    MiuixText(
                         text = year,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MiuixTheme.textStyles.footnote1,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
                 }
             }

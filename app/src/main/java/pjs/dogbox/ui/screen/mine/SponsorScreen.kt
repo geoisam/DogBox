@@ -1,8 +1,8 @@
 package pjs.dogbox.ui.screen.mine
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,18 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,12 +21,19 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.graphics.BitmapFactory
 import pjs.dogbox.R
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SponsorScreen(
     onBack: () -> Unit = {},
@@ -47,70 +42,63 @@ fun SponsorScreen(
     val notice = "此应用程序完全免费，感谢您的支持"
     val context = LocalContext.current
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("捐赠支持", fontWeight = FontWeight.Bold) },
+            SmallTopAppBar(
+                title = "捐赠支持",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
-    ) { paddingValues ->
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp)
-                .padding(paddingValues),
+                .padding(padding)
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.fillMaxWidth()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.primaryContainer,
+                    ),
+                    insideMargin = PaddingValues(16.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Icon(
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.app_badging_outlined),
                             contentDescription = "通知",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            tint = MiuixTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
+                        MiuixText(
                             text = notice,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
 
-            items(
-                count = 2,
-            ) { index ->
+            items(count = 2) { index ->
                 val assetName = if (index == 0) "alipay" else "wechat"
                 val resTitle = if (index == 0) "支付宝" else "微信"
                 Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillParentMaxHeight(0.5f),
+                    pressFeedbackType = PressFeedbackType.Sink,
+                    showIndication = true,
                     onClick = {
                         onViewImage(
                             "file:///android_asset/img/$assetName.jpg",
@@ -118,22 +106,14 @@ fun SponsorScreen(
                             resTitle,
                         )
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillParentMaxHeight(0.5f),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    ),
+                    insideMargin = PaddingValues(12.dp),
                 ) {
                     val bitmap = rememberAssetImage(context, "img/$assetName.jpg")
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap,
                             contentDescription = resTitle,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp),
+                            modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit,
                         )
                     }

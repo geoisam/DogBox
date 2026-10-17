@@ -12,13 +12,12 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,22 +27,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,9 +58,19 @@ import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.utils.openPermissionManager
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
+import pjs.dogbox.ui.components.MiuixSubScreen
+import pjs.dogbox.ui.components.grayTextFieldColors
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import java.net.URLEncoder
-import java.security.SecureRandom
 
 private data class AnalyzeSource(val key: String, val name: String, val desc: String)
 
@@ -374,44 +369,21 @@ internal fun copyText(context: Context, text: String) {
     Toast.makeText(context, "已复制链接", Toast.LENGTH_SHORT).show()
 }
 
-internal fun pasteFromClipboard(context: Context): String? {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clip = clipboard.primaryClip ?: return null
-    if (clip.itemCount == 0) return null
-    return clip.getItemAt(0).coerceToText(context)?.toString()?.takeIf { it.isNotBlank() }
-}
-
 @Composable
 internal fun ClipboardActionRow(
-    onClear: () -> Unit,
-    onPaste: () -> Unit,
     actionText: String,
     onAction: () -> Unit,
     modifier: Modifier = Modifier,
     actionEnabled: Boolean = true,
 ) {
-    Row(
+    TextActionButton(
+        text = actionText,
+        onClick = onAction,
+        enabled = actionEnabled,
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TextActionButton(
-            text = "清空",
-            onClick = onClear,
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        TextActionButton(
-            text = "粘贴",
-            onClick = onPaste,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        TextActionButton(
-            text = actionText,
-            onClick = onAction,
-            enabled = actionEnabled,
-            containerColor = MaterialTheme.colorScheme.primary,
-            textColor = MaterialTheme.colorScheme.onPrimary,
-        )
-    }
+        containerColor = MiuixTheme.colorScheme.primary,
+        textColor = MiuixTheme.colorScheme.onPrimary,
+    )
 }
 
 @Composable
@@ -420,21 +392,28 @@ internal fun TextActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    containerColor: Color = Color.Unspecified,
+    textColor: Color = Color.Unspecified,
 ) {
+    val resolvedContainer = if (containerColor == Color.Unspecified) {
+        MiuixTheme.colorScheme.surfaceContainerHigh
+    } else containerColor
+    val resolvedText = if (textColor == Color.Unspecified) {
+        MiuixTheme.colorScheme.onSurface
+    } else textColor
     Row(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
-            .background(containerColor.copy(alpha = if (enabled) 1f else 0.38f))
+            .clip(RoundedCornerShape(12.dp))
+            .background(resolvedContainer.copy(alpha = if (enabled) 1f else 0.38f))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
+        MiuixText(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = textColor.copy(alpha = if (enabled) 1f else 0.38f),
+            style = MiuixTheme.textStyles.body1,
+            color = resolvedText.copy(alpha = if (enabled) 1f else 0.38f),
         )
     }
 }
@@ -468,7 +447,6 @@ internal fun ensureFileAccess(context: Context): Boolean {
     return false
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaAnalyzeScreen(
     onBack: () -> Unit,
@@ -480,8 +458,10 @@ fun MediaAnalyzeScreen(
     val focusManager = LocalFocusManager.current
 
     var selectedSource by rememberSaveable { mutableStateOf(analyzeSources.first().key) }
-    var showSheet by remember { mutableStateOf(false) }
     var linkInput by rememberSaveable { mutableStateOf("") }
+    val sourceItems = remember {
+        analyzeSources.map { DropdownItem(text = it.name, summary = it.desc) }
+    }
     var isAnalyzing by remember { mutableStateOf(false) }
     var result by rememberSaveable(stateSaver = analyzeResultSaver) {
         mutableStateOf<AnalyzeResult?>(null)
@@ -553,6 +533,12 @@ fun MediaAnalyzeScreen(
         }
     }
 
+    fun stopAnalyze() {
+        analyzeJob?.cancel()
+        analyzeJob = null
+        isAnalyzing = false
+    }
+
     fun downloadMusic() {
         val res = result ?: return
         if (res.musicUrl.isBlank()) return
@@ -570,57 +556,36 @@ fun MediaAnalyzeScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text("素材解析", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            )
-        },
+    MiuixSubScreen(
+        title = "素材解析",
+        onBack = onBack,
     ) { paddingValues ->
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 12.dp),
         ) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.fillMaxWidth()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primaryContainer),
+                insideMargin = PaddingValues(16.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.app_badging_outlined),
                         contentDescription = "通知",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = MiuixTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
+                    MiuixText(
                         text = "仅供测试使用，禁止用于非法用途",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MiuixTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -630,98 +595,68 @@ fun MediaAnalyzeScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
+                insideMargin = PaddingValues(0.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Card(
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OverlaySpinnerPreference(
+                        title = "解析线路",
+                        dialogButtonString = "取消",
+                        items = sourceItems,
+                        selectedIndex = analyzeSources
+                            .indexOfFirst { it.key == selectedSource }
+                            .coerceAtLeast(0),
+                        onSelectedIndexChange = { index ->
+                            analyzeSources.getOrNull(index)?.let { selectedSource = it.key }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { showSheet = true },
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Transparent,
-                        ),
-                        border = BorderStroke(
-                            if (showSheet) 2.dp else 1.dp,
-                            if (showSheet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
+                            .padding(16.dp),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.app_registration_outlined),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(24.dp),
+                        TextField(
+                            value = linkInput,
+                            onValueChange = { linkInput = it },
+                            label = "分享链接",
+                            colors = grayTextFieldColors(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 120.dp),
+                            maxLines = 100,
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (isAnalyzing) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            Text(
-                                text = analyzeSources.firstOrNull { it.key == selectedSource }?.name
-                                    ?: selectedSource,
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
+
+                        ClipboardActionRow(
+                            actionText = if (isAnalyzing) "停止解析" else "开始解析",
+                            onAction = { if (isAnalyzing) stopAnalyze() else startAnalyze() },
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = linkInput,
-                        onValueChange = { linkInput = it },
-                        label = { Text("分享链接") },
-                        placeholder = { Text("请输入分享链接") },
-                        singleLine = false,
-                        maxLines = 100,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 120.dp),
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    ClipboardActionRow(
-                        onClear = {
-                            focusManager.clearFocus()
-                            linkInput = ""
-                        },
-                        onPaste = {
-                            focusManager.clearFocus()
-                            val pasted = pasteFromClipboard(context)
-                            if (pasted != null) {
-                                linkInput = pasted
-                            } else {
-                                Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        actionText = if (isAnalyzing) "解析中..." else "开始解析",
-                        actionEnabled = !isAnalyzing,
-                        onAction = ::startAnalyze,
-                    )
                 }
             }
 
             result?.let { res ->
                 Spacer(modifier = Modifier.height(20.dp))
-                Text(
+                MiuixText(
                     text = "解析结果",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (res.title.isNotBlank()) {
-                    Text(
+                    MiuixText(
                         text = res.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -734,10 +669,10 @@ fun MediaAnalyzeScreen(
                             count = res.imageUrls.size,
                             onClick = { onOpenResult("image", res.imageUrls, shareLink, res.title) },
                             trailing = {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.pending_outlined),
                                     contentDescription = "展开",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     modifier = Modifier.size(22.dp),
                                 )
                             },
@@ -750,10 +685,10 @@ fun MediaAnalyzeScreen(
                             count = res.videoUrls.size,
                             onClick = { onOpenResult("video", res.videoUrls, shareLink, res.title) },
                             trailing = {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.pending_outlined),
                                     contentDescription = "展开",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     modifier = Modifier.size(22.dp),
                                 )
                             },
@@ -773,32 +708,32 @@ fun MediaAnalyzeScreen(
                             },
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    FilledTonalIconButton(
-                                        onClick = { copyText(context, res.musicUrl) },
-                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ),
-                                        modifier = Modifier.size(36.dp),
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                                            .clickable { copyText(context, res.musicUrl) }
+                                            .padding(7.dp),
                                     ) {
-                                        Icon(
+                                        MiuixIcon(
                                             painter = painterResource(R.drawable.content_copy_outlined),
                                             contentDescription = "复制音乐链接",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                                             modifier = Modifier.size(22.dp),
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    FilledTonalIconButton(
-                                        onClick = ::downloadMusic,
-                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        ),
-                                        modifier = Modifier.size(36.dp),
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                                            .clickable { downloadMusic() }
+                                            .padding(7.dp),
                                     ) {
-                                        Icon(
+                                        MiuixIcon(
                                             painter = painterResource(R.drawable.cloud_download_outlined),
                                             contentDescription = "下载音乐",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                                             modifier = Modifier.size(22.dp),
                                         )
                                     }
@@ -809,67 +744,6 @@ fun MediaAnalyzeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-
-    if (showSheet) {
-        focusManager.clearFocus()
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            dragHandle = { SimpleDragHandle() },
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 32.dp)
-            ) {
-                analyzeSources.forEach { source ->
-                    val isSelected = source.key == selectedSource
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedSource = source.key
-                                showSheet = false
-                            }
-                            .then(
-                                if (isSelected) Modifier.background(
-                                    MaterialTheme.colorScheme.primaryContainer,
-                                    MaterialTheme.shapes.medium
-                                ) else Modifier
-                            )
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = source.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = source.desc,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (isSelected) {
-                            Icon(
-                                painter = painterResource(R.drawable.check_outlined),
-                                contentDescription = "已选择",
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -884,28 +758,26 @@ private fun MediaTypeCard(
     trailing: @Composable () -> Unit,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MiuixTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
+            MiuixText(
                 text = "$label（$count）",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MiuixTheme.textStyles.body1,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
@@ -913,4 +785,3 @@ private fun MediaTypeCard(
         }
     }
 }
-

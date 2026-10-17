@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import androidx.core.content.edit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -74,8 +73,6 @@ object SharedData {
     private const val KEY_WATCH_HISTORY = "watch_history"
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
-    private const val KEY_COLOR_THEME = "color_theme"
-    private const val KEY_CUSTOM_PRIMARY_COLOR = "custom_primary_color"
     private const val KEY_DYNAMIC_COLOR_STYLE = "dynamic_color_style"
     private const val KEY_AUTO_CHECK_UPDATE = "auto_check_update"
     private const val KEY_SCROLL_TEXT_CONFIG = "scroll_text_config"
@@ -253,26 +250,6 @@ object SharedData {
 
     fun setDynamicColor(context: Context, enabled: Boolean) {
         getPrefs(context).edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
-    }
-
-    fun getColorTheme(context: Context): Int {
-        return getPrefs(context).getInt(KEY_COLOR_THEME, 1)
-    }
-
-    fun setColorTheme(context: Context, theme: Int) {
-        getPrefs(context).edit { putInt(KEY_COLOR_THEME, theme) }
-    }
-
-    fun getCustomPrimaryColor(context: Context): Color {
-        val colorInt = getPrefs(context).getInt(KEY_CUSTOM_PRIMARY_COLOR, 0xFF6750A4.toInt())
-        return Color(colorInt)
-    }
-
-    fun setCustomPrimaryColor(context: Context, color: Color) {
-        val colorInt = ((color.red * 255).toInt() shl 16) or
-                ((color.green * 255).toInt() shl 8) or
-                ((color.blue * 255).toInt())
-        getPrefs(context).edit { putInt(KEY_CUSTOM_PRIMARY_COLOR, colorInt) }
     }
 
     fun getDynamicColorStyle(context: Context): String {

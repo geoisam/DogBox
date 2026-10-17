@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,13 +14,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -32,25 +29,9 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -64,10 +45,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -88,7 +72,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.PagerTabFollowEffect
 import kotlinx.serialization.json.Json
@@ -102,7 +85,20 @@ import pjs.dogbox.data.ApiSite
 import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.grayTextFieldColors
 import java.net.URLEncoder
 
 internal data class SearchSource(
@@ -391,7 +387,7 @@ internal class MovieSearchScreenState(
     val lastSearchKey = mutableStateOf("")
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun MovieSearchScreen(
     state: MovieSearchScreenState,
@@ -409,15 +405,18 @@ internal fun MovieSearchScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { orderedSources.size })
     val tabScrollState = rememberLazyListState()
     var showSourceSheet by remember { mutableStateOf(false) }
-    val sourceSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
 
     var retryKey by state.retryKey
     var lastSearchKey by state.lastSearchKey
 
     LaunchedEffect(Unit) {
-        focusManager.clearFocus()
+        delay(100)
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     LaunchedEffect(activeQuery, retryKey) {
@@ -524,88 +523,18 @@ internal fun MovieSearchScreen(
         }
     }
 
-    Scaffold(
+    MiuixScaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            SmallTopAppBar(
+                title = "影片搜索",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
-                    }
-                },
-                title = {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(MaterialTheme.shapes.medium)
-                            .background(MaterialTheme.colorScheme.surfaceContainer)
-                            .padding(start = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Spacer(modifier = Modifier.width(2.dp))
-                        TextField(
-                            value = searchText,
-                            onValueChange = { searchText = it },
-                            placeholder = {
-                                Text(
-                                    "输入关键词搜索",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                            ),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { triggerSearch(searchText) }),
-                        )
-                        if (searchText.isNotEmpty()) {
-                            IconButton(
-                                onClick = { searchText = "" },
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.close_outlined),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    contentDescription = "清空",
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary)
-                                .clickable { triggerSearch(searchText) }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "搜索",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        }
                     }
                 },
             )
@@ -616,6 +545,41 @@ internal fun MovieSearchScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
+            MiuixTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                label = "输入关键词搜索",
+                useLabelAsPlaceholder = true,
+                singleLine = true,
+                colors = grayTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { triggerSearch(searchText) }),
+                leadingIcon = {
+                    MiuixIcon(
+                        painter = painterResource(R.drawable.search_outlined),
+                        contentDescription = "搜索",
+                        tint = MiuixTheme.colorScheme.onSurfaceSecondary,
+                        modifier = Modifier
+                            .padding(start = 16.dp, end = 8.dp)
+                            .size(20.dp),
+                    )
+                },
+                trailingIcon = {
+                    if (searchText.isNotEmpty()) {
+                        MiuixIconButton(onClick = { searchText = "" }) {
+                            MiuixIcon(
+                                painter = painterResource(R.drawable.close_outlined),
+                                contentDescription = "清空",
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .focusRequester(focusRequester),
+            )
             PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
             Row(
                 modifier = Modifier
@@ -631,18 +595,18 @@ internal fun MovieSearchScreen(
                     itemsIndexed(orderedSources) { index, source ->
                         val selected = pagerState.currentPage == index
                         val chipColor by animateColorAsState(
-                            targetValue = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            targetValue = if (selected) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.surfaceContainerHigh,
                             animationSpec = tween(200),
                         )
                         val textColor by animateColorAsState(
-                            targetValue = if (selected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            targetValue = if (selected) MiuixTheme.colorScheme.onPrimary
+                            else MiuixTheme.colorScheme.onSurfaceSecondary,
                             animationSpec = tween(200),
                         )
                         Box(
                             modifier = Modifier
-                                .clip(MaterialTheme.shapes.large)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(chipColor)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
@@ -655,9 +619,9 @@ internal fun MovieSearchScreen(
                                 )
                                 .padding(horizontal = 14.dp, vertical = 7.dp),
                         ) {
-                            Text(
+                            MiuixText(
                                 text = source.label,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MiuixTheme.textStyles.footnote1,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                 color = textColor,
                                 maxLines = 1,
@@ -666,16 +630,13 @@ internal fun MovieSearchScreen(
                     }
                 }
 
-                FilledTonalIconButton(
+                MiuixIconButton(
                     onClick = { showSourceSheet = true },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
                     modifier = Modifier
                         .padding(start = 4.dp)
                         .size(32.dp),
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.keyboard_double_arrow_right_outlined),
                         contentDescription = "展开",
                         modifier = Modifier.size(20.dp),
@@ -709,58 +670,54 @@ internal fun MovieSearchScreen(
         }
     }
 
-    if (showSourceSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSourceSheet = false },
-            sheetState = sourceSheetState,
-            dragHandle = { SimpleDragHandle() },
+    AppBottomSheet(
+        show = showSourceSheet,
+        onDismissRequest = { showSourceSheet = false },
+    ) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                FlowRow(
+            orderedSources.forEach { source ->
+                val pageIndex = orderedSources.indexOf(source)
+                val isSelected = pageIndex == pagerState.currentPage
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) MiuixTheme.colorScheme.primary
+                    else MiuixTheme.colorScheme.surfaceContainerHigh,
+                )
+                val txtColor by animateColorAsState(
+                    targetValue = if (isSelected) MiuixTheme.colorScheme.onPrimary
+                    else MiuixTheme.colorScheme.onSurface,
+                )
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(bgColor)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(pageIndex)
+                                }
+                                showSourceSheet = false
+                            },
+                        )
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
-                    orderedSources.forEach { source ->
-                        val pageIndex = orderedSources.indexOf(source)
-                        val isSelected = pageIndex == pagerState.currentPage
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        )
-                        val txtColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurface,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(bgColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        scope.launch {
-                                            pagerState.animateScrollToPage(pageIndex)
-                                        }
-                                        showSourceSheet = false
-                                    },
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = source.label,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = txtColor,
-                            )
-                        }
-                    }
+                    MiuixText(
+                        text = source.label,
+                        style = MiuixTheme.textStyles.footnote1,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = txtColor,
+                    )
                 }
             }
         }
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -864,32 +821,32 @@ private fun SourceTabContent(
     ) {
         if (state.isLoading && state.itemList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(56.dp))
+                CircularProgressIndicator(size = 56.dp)
             }
         } else if (state.loadError && state.itemList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
-                        .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MiuixTheme.colorScheme.primaryContainer)
                         .clickable { onRetrySearch() }
                         .padding(horizontal = 24.dp, vertical = 10.dp),
                 ) {
-                    Text(
+                    MiuixText(
                         text = "点击重试",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
+                        color = MiuixTheme.colorScheme.onPrimaryContainer,
+                        style = MiuixTheme.textStyles.footnote1,
                         fontWeight = FontWeight.Bold,
                     )
                 }
             }
         } else if (state.itemList.isEmpty() && state.hasSearched) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("未找到相关结果", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MiuixText("未找到相关结果", color = MiuixTheme.colorScheme.onSurfaceSecondary)
             }
         } else if (state.itemList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MiuixText("输入关键词开始搜索", color = MiuixTheme.colorScheme.onSurfaceSecondary)
             }
         } else {
             LazyVerticalGrid(
@@ -923,7 +880,7 @@ private fun SourceTabContent(
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(36.dp))
+                            CircularProgressIndicator(size = 36.dp)
                         }
                     }
                 } else if (state.loadError) {
@@ -936,15 +893,15 @@ private fun SourceTabContent(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MiuixTheme.colorScheme.primaryContainer)
                                     .clickable { onRetryLoadMore() }
                                     .padding(horizontal = 24.dp, vertical = 10.dp),
                             ) {
-                                Text(
+                                MiuixText(
                                     text = "点击重试",
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                    style = MiuixTheme.textStyles.footnote1,
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
@@ -961,9 +918,10 @@ private fun SourceTabContent(
                     .align(Alignment.BottomEnd)
                     .padding(24.dp),
             ) {
-                Icon(
+                MiuixIcon(
                     painter = painterResource(R.drawable.arrow_upward_outlined),
                     contentDescription = "回到顶部",
+                    tint = MiuixTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(28.dp),
                 )
             }
@@ -974,12 +932,12 @@ private fun SourceTabContent(
 @Composable
 private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
     Card(
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = { onViewImage(item.cover, item.host, item.title) },
-        ),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        onClick = onClick,
+        onLongPress = { onViewImage(item.cover, item.host, item.title) },
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
+        insideMargin = PaddingValues(0.dp),
     ) {
         Column {
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -996,7 +954,7 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(3f / 4f)
-                        .clip(MaterialTheme.shapes.medium),
+                        .clip(RoundedCornerShape(8.dp)),
                 )
 
                 if (item.note.isNotEmpty()) {
@@ -1005,15 +963,15 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                shape = MaterialTheme.shapes.medium,
+                                color = MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(8.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                     ) {
-                        Text(
+                        MiuixText(
                             text = item.note,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelMedium,
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             fontWeight = FontWeight.Bold,
@@ -1037,10 +995,10 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
+                        MiuixText(
                             text = item.subtitle,
                             color = Color.White,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -1053,22 +1011,22 @@ private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 4.dp),
             ) {
-                Text(
+                MiuixText(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.body2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MiuixTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                 )
                 if (item.year.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
+                    MiuixText(
                         text = item.year,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MiuixTheme.textStyles.footnote1,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
                 }
             }

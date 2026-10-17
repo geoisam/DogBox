@@ -7,18 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,8 +19,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -75,7 +64,6 @@ import pjs.dogbox.ui.screen.mine.AboutMeScreen
 import pjs.dogbox.ui.screen.mine.CacheManageScreen
 import pjs.dogbox.ui.screen.mine.LocalVideoPreview
 import pjs.dogbox.ui.screen.mine.LocalVideosScreen
-import pjs.dogbox.ui.screen.mine.MyThemeScreen
 import pjs.dogbox.ui.screen.mine.SettingsScreen
 import pjs.dogbox.ui.screen.mine.SponsorScreen
 import pjs.dogbox.ui.screen.mine.WatchHistoryScreen
@@ -94,11 +82,16 @@ import pjs.dogbox.data.SharedData
 import pjs.dogbox.ui.components.UpdateBottomSheet
 import pjs.dogbox.data.fetchRemoteConfig
 import pjs.dogbox.data.parseUpdateInfo
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BaseScreen(
-    onThemeChanged: (mode: Int, dynamic: Boolean, colorTheme: Int, dynamicStyle: String) -> Unit = { _, _, _, _ -> },
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
@@ -445,13 +438,6 @@ fun BaseScreen(
             }
         }
 
-        composable(AppRoutes.MY_THEME) {
-            MyThemeScreen(
-                onBack = { navController.popBackStack() },
-                onThemeChanged = onThemeChanged,
-            )
-        }
-
         composable(AppRoutes.ABOUT_ME) {
             AboutMeScreen(
                 onBack = { navController.popBackStack() },
@@ -485,7 +471,7 @@ fun BaseScreen(
         composable(AppRoutes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToTheme = { navController.navigate(AppRoutes.MY_THEME) },
+                onThemeChanged = onThemeChanged,
                 onNavigateToCacheManage = { navController.navigate(AppRoutes.CACHE_MANAGE) },
             )
         }
@@ -533,11 +519,10 @@ fun BaseScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScaffold(
     homeState: HomeScreenState,
-    onThemeChanged: (mode: Int, dynamic: Boolean, colorTheme: Int, dynamicStyle: String) -> Unit,
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit,
     onSearchMovie: (String) -> Unit,
     onNavigateToDetail: (DiscoverPage) -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -561,114 +546,71 @@ private fun MainScaffold(
         currentPageIndex = pagerState.currentPage
     }
 
-    val navigationItemColors = NavigationSuiteDefaults.itemColors(
-        navigationBarItemColors = NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-        )
-    )
-
-    NavigationSuiteScaffold(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        navigationSuiteItems = {
-            AppDestinations.entries.forEachIndexed { index, dest ->
-                item(
-                    icon = {
-                        Icon(
-                            painter = painterResource(
-                                if (dest == currentDestination) dest.selectedIcon else dest.icon
-                            ),
-                            contentDescription = dest.label,
-                            modifier = Modifier.size(24.dp)
+    MiuixScaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = currentDestination.label,
+                actions = {
+                    MiuixIconButton(onClick = { onSearchMovie("") }) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.search_outlined),
+                            contentDescription = "搜索",
+                            modifier = Modifier.size(24.dp),
                         )
-                    },
-                    label = { Text(dest.label) },
-                    selected = dest == currentDestination,
-                    onClick = {
-                        scope.launch { pagerState.animateScrollToPage(index) }
-                    },
-                    colors = navigationItemColors
-                )
-            }
-        }
-    ) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.surface,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            currentDestination.label,
-                            fontWeight = FontWeight.Bold,
+                    }
+                    MiuixIconButton(onClick = { onNavigateToSettings() }) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.settings_outlined),
+                            contentDescription = "设置",
+                            modifier = Modifier.size(24.dp),
                         )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    actions = {
-                        FilledTonalIconButton(
-                            onClick = {
-                                onSearchMovie("")
-                            },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.search_outlined),
-                                contentDescription = "搜索",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        FilledTonalIconButton(
-                            onClick = {
-                                onNavigateToSettings()
-                            },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.settings_outlined),
-                                contentDescription = "设置",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    },
-                )
-            },
-            modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            HorizontalPager(
-                state = pagerState,
-                userScrollEnabled = false,
-                beyondViewportPageCount = 1,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) { page ->
-                when (AppDestinations.entries[page]) {
-                    AppDestinations.HOME -> HomeScreen(
-                        state = homeState,
-                        onSearchMovie = onSearchMovie,
-                        onViewImage = onViewImage,
-                    )
-
-                    AppDestinations.DISCOVER -> DiscoverScreen(
-                        onNavigateToDetail = onNavigateToDetail,
-                    )
-
-                    AppDestinations.MINE -> MineScreen(
-                        onNavigateToHistory = onNavigateToHistory,
-                        onNavigateToLocalVideos = onNavigateToLocalVideos,
-                        onNavigateToAboutMe = onNavigateToAboutMe,
-                        onNavigateToSponsor = onNavigateToSponsor,
+                    }
+                },
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                AppDestinations.entries.forEachIndexed { index, dest ->
+                    NavigationBarItem(
+                        selected = dest == currentDestination,
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        icon = ImageVector.vectorResource(
+                            if (dest == currentDestination) dest.selectedIcon else dest.icon
+                        ),
+                        label = dest.label,
                     )
                 }
+            }
+        },
+    ) { padding ->
+        HorizontalPager(
+            state = pagerState,
+            userScrollEnabled = false,
+            beyondViewportPageCount = 1,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) { page ->
+            when (AppDestinations.entries[page]) {
+                AppDestinations.HOME -> HomeScreen(
+                    state = homeState,
+                    onSearchMovie = onSearchMovie,
+                    onViewImage = onViewImage,
+                )
+
+                AppDestinations.DISCOVER -> DiscoverScreen(
+                    onNavigateToDetail = onNavigateToDetail,
+                )
+
+                AppDestinations.MINE -> MineScreen(
+                    onNavigateToHistory = onNavigateToHistory,
+                    onNavigateToLocalVideos = onNavigateToLocalVideos,
+                    onNavigateToAboutMe = onNavigateToAboutMe,
+                    onNavigateToSponsor = onNavigateToSponsor,
+                )
             }
         }
     }

@@ -36,15 +36,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -97,7 +90,11 @@ import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
 import pjs.dogbox.ui.screen.movie.refreshEndedFrame
 import pjs.dogbox.data.AppData
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
 
 private fun setSystemBarsVisible(
     controller: WindowInsetsControllerCompat?,
@@ -115,7 +112,6 @@ private fun setSystemBarsVisible(
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaAnalyzePreview(
     videoUrls: List<String>,
@@ -458,14 +454,15 @@ fun MediaAnalyzePreview(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                FilledTonalIconButton(
-                    onClick = { togglePlayPause() },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = Color.Black.copy(0.3f),
-                    ),
-                    modifier = Modifier.size(64.dp),
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(0.3f))
+                        .clickable { togglePlayPause() },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.play_filled),
                         contentDescription = "播放",
                         tint = Color.White,
@@ -499,32 +496,32 @@ fun MediaAnalyzePreview(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(
+                MiuixIconButton(onClick = onBack) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.arrow_back_outlined),
                         contentDescription = "返回",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                Text(
+                MiuixText(
                     text = title,
                     modifier = Modifier.weight(1f),
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                IconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
-                    Icon(
+                MiuixIconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.sync_alt_outlined),
                         contentDescription = "切换背景色",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                IconButton(onClick = { showMoreSheet = true }) {
-                    Icon(
+                MiuixIconButton(onClick = { showMoreSheet = true }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.more_horiz_filled),
                         contentDescription = "更多",
                         tint = Color.White,
@@ -563,10 +560,10 @@ fun MediaAnalyzePreview(
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
+                    MiuixText(
                         text = "${formatTime(playerCurrentPosition)} / ${formatTime(playerDuration)}",
                         color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MiuixTheme.textStyles.body2,
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     PlayerSeekButton(
@@ -604,8 +601,8 @@ fun MediaAnalyzePreview(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    IconButton(onClick = { togglePlayPause() }) {
-                        Icon(
+                    MiuixIconButton(onClick = { togglePlayPause() }) {
+                        MiuixIcon(
                             painter = painterResource(
                                 if (isPlaying) R.drawable.pause_filled else R.drawable.play_filled
                             ),
@@ -614,8 +611,8 @@ fun MediaAnalyzePreview(
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    IconButton(onClick = { toggleMute() }) {
-                        Icon(
+                    MiuixIconButton(onClick = { toggleMute() }) {
+                        MiuixIcon(
                             painter = painterResource(
                                 if (isMuted) R.drawable.volume_off_outlined
                                 else R.drawable.volume_up_outlined
@@ -626,19 +623,19 @@ fun MediaAnalyzePreview(
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(
+                    MiuixText(
                         text = "${pagerState.currentPage + 1}/${videoUrls.size}",
                         color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MiuixTheme.textStyles.footnote1,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
+                    MiuixText(
                         text = getQualityLabel(videoWidth, videoHeight),
                         color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MiuixTheme.textStyles.footnote1,
                     )
-                    IconButton(onClick = { setFullscreen(true) }) {
-                        Icon(
+                    MiuixIconButton(onClick = { setFullscreen(true) }) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.fullscreen_filled),
                             contentDescription = "全屏播放",
                             tint = Color.White,
@@ -706,34 +703,29 @@ fun MediaAnalyzePreview(
         )
     }
 
-    if (showMoreSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { showMoreSheet = false },
-            sheetState = sheetState,
-            dragHandle = { SimpleDragHandle() },
+    AppBottomSheet(
+        show = showMoreSheet,
+        onDismissRequest = { showMoreSheet = false },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth(),
-            ) {
-                MoreSettingsContent(
-                    flipHorizontal = flipHorizontal,
-                    flipVertical = flipVertical,
-                    backgroundPlayback = backgroundPlayback,
-                    adsFilter = GlobalPlayerConfig.adsFilter,
-                    playbackOrder = playbackOrder,
-                    longPressSpeed = longPressSpeed,
-                    onFlipHorizontalChange = { flipHorizontal = it },
-                    onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
-                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
-                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
-                    onDismiss = { showMoreSheet = false },
-                    useFixedDarkColors = false,
-                )
-            }
+            MoreSettingsContent(
+                flipHorizontal = flipHorizontal,
+                flipVertical = flipVertical,
+                backgroundPlayback = backgroundPlayback,
+                adsFilter = GlobalPlayerConfig.adsFilter,
+                playbackOrder = playbackOrder,
+                longPressSpeed = longPressSpeed,
+                onFlipHorizontalChange = { flipHorizontal = it },
+                onFlipVerticalChange = { flipVertical = it },
+                onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
+                onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
+                onDismiss = { showMoreSheet = false },
+                useFixedDarkColors = false,
+            )
         }
     }
 }
@@ -750,16 +742,16 @@ private fun PlayerActionItem(
             .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
             tint = Color.White,
             modifier = Modifier.size(22.dp),
         )
-        Text(
+        MiuixText(
             text = label,
             color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
+            style = MiuixTheme.textStyles.footnote2,
         )
     }
 }

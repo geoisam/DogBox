@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,15 +41,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -94,7 +86,12 @@ import pjs.dogbox.utils.openPermissionManager
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
 import java.io.File
 import java.util.Locale
 
@@ -186,7 +183,6 @@ private fun setSystemBarsVisible(
     else controller.hide(WindowInsetsCompat.Type.systemBars())
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaAnalyzeImageGallery(
     imageUrls: List<String>,
@@ -240,7 +236,6 @@ fun MediaAnalyzeImageGallery(
     var bgColorIndex by remember { mutableIntStateOf(0) }
 
     var showSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var imageBytesUrl by remember { mutableStateOf<String?>(null) }
     var imageWidth by remember { mutableIntStateOf(0) }
@@ -467,15 +462,15 @@ fun MediaAnalyzeImageGallery(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(
+                MiuixIconButton(onClick = onBack) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.arrow_back_outlined),
                         contentDescription = "返回",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                Text(
+                MiuixText(
                     text = title,
                     modifier = Modifier
                         .weight(1f)
@@ -483,20 +478,20 @@ fun MediaAnalyzeImageGallery(
                             detectTapGestures(onDoubleTap = { copyTitle() })
                         },
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                IconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
-                    Icon(
+                MiuixIconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.sync_alt_outlined),
                         contentDescription = "切换背景色",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                IconButton(onClick = { showSheet = true }) {
-                    Icon(
+                MiuixIconButton(onClick = { showSheet = true }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.more_horiz_filled),
                         contentDescription = "更多设置",
                         tint = Color.White,
@@ -528,90 +523,93 @@ fun MediaAnalyzeImageGallery(
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
+                MiuixText(
                     text = "${pagerState.currentPage + 1} / ${imageUrls.size}",
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     fontWeight = FontWeight.Bold,
                 )
             }
         }
     }
 
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = sheetState,
-            dragHandle = { SimpleDragHandle() },
-        ) {
-            val sheetView = LocalView.current
-            SideEffect {
-                val ctrl = ViewCompat.getWindowInsetsController(sheetView)
-                val light = bgColors[bgColorIndex] == Color.White
-                ctrl?.isAppearanceLightStatusBars = light
-                ctrl?.isAppearanceLightNavigationBars = light
-            }
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = resolutionText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = sizeText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                HorizontalDivider()
-                ImageSheetItem(
-                    icon = R.drawable.download_outlined,
-                    label = "保存图片",
-                    onClick = {
-                        showSheet = false
-                        requestDownloadPermission()
-                    },
+    AppBottomSheet(
+        show = showSheet,
+        onDismissRequest = { showSheet = false },
+    ) {
+        val sheetView = LocalView.current
+        SideEffect {
+            val ctrl = ViewCompat.getWindowInsetsController(sheetView)
+            val light = bgColors[bgColorIndex] == Color.White
+            ctrl?.isAppearanceLightStatusBars = light
+            ctrl?.isAppearanceLightNavigationBars = light
+        }
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiuixText(
+                    text = resolutionText,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurface,
                 )
-                ImageSheetItem(
-                    icon = R.drawable.content_copy_outlined,
-                    label = "复制链接",
-                    onClick = {
-                        showSheet = false
-                        copyLink()
-                    },
-                )
-                ImageSheetItem(
-                    icon = R.drawable.share_filled,
-                    label = "分享链接",
-                    onClick = {
-                        showSheet = false
-                        shareLink()
-                    },
-                )
-                ImageSheetItem(
-                    icon = R.drawable.image_arrow_up_outlined,
-                    label = "以图片分享",
-                    onClick = {
-                        showSheet = false
-                        shareImage()
-                    },
-                )
-                ImageSheetItem(
-                    icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开",
-                    onClick = {
-                        showSheet = false
-                        openInBrowser()
-                    },
+                MiuixText(
+                    text = sizeText,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                 )
             }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MiuixTheme.colorScheme.dividerLine),
+            )
+            ImageSheetItem(
+                icon = R.drawable.download_outlined,
+                label = "保存图片",
+                onClick = {
+                    showSheet = false
+                    requestDownloadPermission()
+                },
+            )
+            ImageSheetItem(
+                icon = R.drawable.content_copy_outlined,
+                label = "复制链接",
+                onClick = {
+                    showSheet = false
+                    copyLink()
+                },
+            )
+            ImageSheetItem(
+                icon = R.drawable.share_filled,
+                label = "分享链接",
+                onClick = {
+                    showSheet = false
+                    shareLink()
+                },
+            )
+            ImageSheetItem(
+                icon = R.drawable.image_arrow_up_outlined,
+                label = "以图片分享",
+                onClick = {
+                    showSheet = false
+                    shareImage()
+                },
+            )
+            ImageSheetItem(
+                icon = R.drawable.open_in_browser_outlined,
+                label = "浏览器打开",
+                onClick = {
+                    showSheet = false
+                    openInBrowser()
+                },
+            )
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -679,12 +677,12 @@ private fun ZoomableAnalyzeImage(
             contentScale = ContentScale.Fit,
             loading = {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator()
                 }
             },
             error = {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
+                    MiuixText(
                         text = "图片加载失败",
                         color = Color.White,
                         textAlign = TextAlign.Center,
@@ -708,18 +706,18 @@ private fun ImageSheetItem(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
             modifier = Modifier.size(22.dp),
         )
         Spacer(modifier = Modifier.width(16.dp))
-        Text(
+        MiuixText(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MiuixTheme.colorScheme.onSurface,
         )
     }
 }

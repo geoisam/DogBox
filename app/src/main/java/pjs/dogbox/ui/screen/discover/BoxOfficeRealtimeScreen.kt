@@ -3,6 +3,7 @@ package pjs.dogbox.ui.screen.discover
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -18,24 +19,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,14 +48,25 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.MiuixEmptyText
+import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.utils.HttpUtil
-import java.text.SimpleDateFormat
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
+import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.NumberPicker as MiuixNumberPicker
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getDayData"
+
+private const val MIN_DATE_YEAR = 2017
 
 private data class RealtimeMovieItem(
     val name: String,
@@ -107,8 +105,6 @@ private val scrollableColumns = listOf(
     ColumnDef("上座率", 80.dp, TextAlign.End),
 )
 
-private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-
 @SuppressLint("DefaultLocale")
 private fun formatWanYi(value: Double): String {
     return if (value >= 10000) {
@@ -134,8 +130,15 @@ private fun releaseLabel(item: RealtimeMovieItem): String {
     }
 }
 
+private fun daysInMonth(year: Int, month: Int): Int {
+    return Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, month - 1)
+        set(Calendar.DAY_OF_MONTH, 1)
+    }.getActualMaximum(Calendar.DAY_OF_MONTH)
+}
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var selectedDate by remember { mutableStateOf("") }
@@ -205,214 +208,225 @@ fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        TopAppBar(
-            title = { Text("实时票房", fontWeight = FontWeight.Bold) },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            navigationIcon = {
-                FilledTonalIconButton(
-                    onClick = onBack,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_back_outlined),
-                        contentDescription = "返回",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            },
-            actions = {
-                FilledTonalIconButton(
-                    onClick = { showDatePicker = true },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.calendar_month_outlined),
-                        contentDescription = "选择日期",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        )
-
-        if (isLoading && realtimeData == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(56.dp))
-            }
-        } else {
-            val data = realtimeData
-            if (data != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    ),
-                ) {
-                    Row(
+    MiuixScaffold(
+        topBar = {
+            SmallTopAppBar(
+                title = "实时票房",
+                navigationIcon = {
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            contentDescription = "返回",
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                },
+                actions = {
+                    MiuixIconButton(onClick = { showDatePicker = true }) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.calendar_month_outlined),
+                            contentDescription = "选择日期",
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (isLoading && realtimeData == null) {
+                MiuixLoading(modifier = Modifier.fillMaxSize())
+            } else {
+                val data = realtimeData
+                if (data != null) {
+                    MiuixCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        colors = MiuixCardDefaults.defaultColors(
+                            color = MiuixTheme.colorScheme.surfaceContainer,
+                        ),
                     ) {
-                        val isToday = selectedDate == currentDateStr
-                        Column {
-                            Text(
-                                text = if (isToday) currentDateStr else selectedDate,
-                                style = MaterialTheme.typography.titleMedium,
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val isToday = selectedDate == currentDateStr
+                            Column {
+                                MiuixText(
+                                    text = if (isToday) currentDateStr else selectedDate,
+                                    style = MiuixTheme.textStyles.title4,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MiuixTheme.colorScheme.onSurface,
+                                )
+                                MiuixText(
+                                    text = if (isToday) "截止 $currentTime" else "截止 23:59:59",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                )
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            MiuixText(
+                                text = formatWanYi(data.nationalTotal),
+                                style = MiuixTheme.textStyles.title1,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = if (isToday) "截止 $currentTime" else "截止 23:59:59",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MiuixTheme.colorScheme.primary,
+                                textAlign = TextAlign.End,
                             )
                         }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = formatWanYi(data.nationalTotal),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.End,
-                        )
-                    }
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 12.dp, top = 6.dp, end = 12.dp, bottom = 32.dp)
-            ) {
-                val d = realtimeData
-                val showLoad = isLoading && d == null
-                val showEmpty = !isLoading && (d == null || d.movies.isEmpty())
-                val showTable = d != null && d.movies.isNotEmpty()
-
-                if (showLoad) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                    }
-                } else if (showEmpty) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "暂无数据",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
 
-                if (showTable) {
-                    BoxTable(data = d)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 12.dp, top = 6.dp, end = 12.dp, bottom = 32.dp)
+                ) {
+                    val d = realtimeData
+                    val showLoad = isLoading && d == null
+                    val showEmpty = !isLoading && (d == null || d.movies.isEmpty())
+                    val showTable = d != null && d.movies.isNotEmpty()
+
+                    if (showLoad) {
+                        MiuixLoading(modifier = Modifier.fillMaxSize())
+                    } else if (showEmpty) {
+                        MiuixEmptyText(modifier = Modifier.fillMaxSize())
+                    }
+
+                    if (showTable) {
+                        BoxTable(data = d)
+                    }
                 }
             }
         }
     }
 
     if (showDatePicker) {
-        val initialMillis = remember(showDatePicker) {
-            if (!showDatePicker) null
-            else try {
-                val parsed = dateFormat.parse(selectedDate)
-                val cal = Calendar.getInstance().apply {
-                    if (parsed != null) time = parsed
-                    set(Calendar.HOUR_OF_DAY, 12)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                cal.timeInMillis
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-
-        val selectableDates = remember {
-            object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    val minDate = Calendar.getInstance().apply {
-                        set(2017, Calendar.JANUARY, 1, 0, 0, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    val maxDate = Calendar.getInstance().apply {
-                        set(Calendar.HOUR_OF_DAY, 23)
-                        set(Calendar.MINUTE, 59)
-                        set(Calendar.SECOND, 59)
-                        set(Calendar.MILLISECOND, 999)
-                    }.timeInMillis
-                    return utcTimeMillis in minDate..maxDate
-                }
-            }
-        }
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialMillis,
-            selectableDates = selectableDates,
-            yearRange = 2017..currentYear,
+        RealtimeDatePickerDialog(
+            selectedDate = selectedDate,
+            currentDateStr = currentDateStr,
+            onConfirm = { date ->
+                selectedDate = date
+                showDatePicker = false
+            },
+            onToday = {
+                selectedDate = currentDateStr
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
         )
+    }
+}
 
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        selectedDate = dateFormat.format(Date(millis))
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    selectedDate = currentDateStr
-                    showDatePicker = false
-                }) {
-                    Text("回到今日")
-                }
-            },
-        ) {
-            DatePicker(
-                state = datePickerState,
-                showModeToggle = false,
-            )
+@Composable
+private fun RealtimeDatePickerDialog(
+    selectedDate: String,
+    currentDateStr: String,
+    onConfirm: (String) -> Unit,
+    onToday: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val todayParts = remember(currentDateStr) {
+        val p = currentDateStr.split("-").mapNotNull { it.toIntOrNull() }
+        Triple(p.getOrNull(0) ?: MIN_DATE_YEAR, p.getOrNull(1) ?: 1, p.getOrNull(2) ?: 1)
+    }
+    val initParts = remember(selectedDate) {
+        val p = selectedDate.split("-").mapNotNull { it.toIntOrNull() }
+        Triple(p.getOrNull(0) ?: todayParts.first, p.getOrNull(1) ?: 1, p.getOrNull(2) ?: 1)
+    }
+    var pickYear by remember { mutableIntStateOf(initParts.first.coerceIn(MIN_DATE_YEAR, todayParts.first)) }
+    var pickMonth by remember { mutableIntStateOf(initParts.second.coerceIn(1, 12)) }
+    var pickDay by remember {
+        mutableIntStateOf(initParts.third.coerceIn(1, daysInMonth(pickYear, pickMonth)))
+    }
+
+    val maxDay = daysInMonth(pickYear, pickMonth)
+    if (pickDay > maxDay) pickDay = maxDay
+
+    OverlayDialog(
+        show = true,
+        title = "选择日期",
+        onDismissRequest = onDismiss,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiuixNumberPicker(
+                    value = pickYear,
+                    onValueChange = {
+                        pickYear = it
+                        val m = daysInMonth(pickYear, pickMonth)
+                        if (pickDay > m) pickDay = m
+                    },
+                    range = MIN_DATE_YEAR..todayParts.first,
+                    label = { "${it}年" },
+                    modifier = Modifier.weight(1.2f),
+                )
+                MiuixNumberPicker(
+                    value = pickMonth,
+                    onValueChange = {
+                        pickMonth = it
+                        val m = daysInMonth(pickYear, pickMonth)
+                        if (pickDay > m) pickDay = m
+                    },
+                    range = 1..12,
+                    label = { "%02d月".format(it) },
+                    wrapAround = true,
+                    modifier = Modifier.weight(1f),
+                )
+                MiuixNumberPicker(
+                    value = pickDay,
+                    onValueChange = { pickDay = it },
+                    range = 1..maxDay,
+                    label = { "%02d日".format(it) },
+                    wrapAround = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiuixTextButton(
+                    text = "回到今日",
+                    onClick = onToday,
+                )
+                MiuixTextButton(
+                    text = "确定",
+                    onClick = {
+                        var picked = String.format("%04d-%02d-%02d", pickYear, pickMonth, pickDay)
+                        if (currentDateStr.isNotEmpty() && picked > currentDateStr) {
+                            picked = currentDateStr
+                        }
+                        if (picked < "$MIN_DATE_YEAR-01-01") {
+                            picked = "$MIN_DATE_YEAR-01-01"
+                        }
+                        onConfirm(picked)
+                    },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun BoxTable(data: RealtimeData) {
+private fun BoxTable(data: RealtimeData?) {
     val scrollState = rememberScrollState()
 
-    Card(
+    MiuixCard(
         modifier = Modifier.fillMaxSize(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+        colors = MiuixCardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surface,
         ),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -421,7 +435,7 @@ private fun BoxTable(data: RealtimeData) {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                itemsIndexed(data.movies) { index, item ->
+                itemsIndexed(data?.movies ?: emptyList()) { index, item ->
                     TableRow(
                         rank = index + 1,
                         item = item,
@@ -440,7 +454,7 @@ private fun TableHeader(scrollState: androidx.compose.foundation.ScrollState) {
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         fixedColumns.forEach { col ->
@@ -453,11 +467,11 @@ private fun TableHeader(scrollState: androidx.compose.foundation.ScrollState) {
                     else -> Alignment.CenterStart
                 },
             ) {
-                Text(
+                MiuixText(
                     text = col.label,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.body2,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     textAlign = col.align,
                 )
             }
@@ -496,11 +510,11 @@ private fun TableHeader(scrollState: androidx.compose.foundation.ScrollState) {
                             else -> Alignment.CenterStart
                         },
                     ) {
-                        Text(
+                        MiuixText(
                             text = col.label,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                             textAlign = col.align,
                         )
                     }
@@ -519,7 +533,7 @@ private fun TableRow(
     isEven: Boolean,
 ) {
     val bg =
-        if (isEven) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainerHigh
+        if (isEven) MiuixTheme.colorScheme.surfaceContainer else MiuixTheme.colorScheme.surfaceContainerHigh
 
     Row(
         modifier = Modifier
@@ -563,15 +577,15 @@ private fun RankCell(rank: Int) {
             .padding(top = 10.dp, bottom = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
+        MiuixText(
             text = "$rank",
-            style = MaterialTheme.typography.titleMedium,
+            style = MiuixTheme.textStyles.title4,
             fontWeight = FontWeight.Bold,
             color = when (rank - 1) {
                 0 -> Color(0xFFFF3B30)
                 1 -> Color(0xFFFF8A00)
                 2 -> Color(0xFFFFB224)
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MiuixTheme.colorScheme.onSurfaceSecondary
             },
         )
     }
@@ -585,19 +599,19 @@ private fun MovieCell(item: RealtimeMovieItem) {
             .padding(top = 10.dp, bottom = 10.dp, end = 4.dp),
     ) {
         Column {
-            Text(
+            MiuixText(
                 text = item.name,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MiuixTheme.textStyles.body2,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.size(2.dp))
-            Text(
+            MiuixText(
                 text = releaseLabel(item),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -624,14 +638,14 @@ private fun ScrollableCells(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         values.forEachIndexed { ci, text ->
-            Text(
+            MiuixText(
                 text = text,
                 modifier = Modifier
                     .width(scrollableColumns[ci].width)
                     .padding(top = 10.dp, bottom = 10.dp, end = 12.dp),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MiuixTheme.textStyles.body2,
                 textAlign = TextAlign.End,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
             )
         }

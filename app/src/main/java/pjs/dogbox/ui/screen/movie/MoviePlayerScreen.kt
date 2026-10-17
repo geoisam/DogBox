@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalLayoutApi::class)
 
 package pjs.dogbox.ui.screen.movie
 
@@ -20,30 +20,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -79,11 +62,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
-import pjs.dogbox.ui.components.SimpleDragHandle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -453,16 +440,16 @@ fun MoviePlayerScreen(
                                     .padding(horizontal = if (isLandscape) 12.dp else 32.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
+                                MiuixText(
                                     text = "时间 $currentTimeText",
                                     color = Color.White,
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MiuixTheme.textStyles.footnote2,
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                Text(
+                                MiuixText(
                                     text = "$batteryPercentText 电量",
                                     color = Color.White,
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MiuixTheme.textStyles.footnote2,
                                 )
                             }
                             Row(
@@ -470,10 +457,10 @@ fun MoviePlayerScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                IconButton(onClick = {
+                                MiuixIconButton(onClick = {
                                     onFullscreenChange(false)
                                 }) {
-                                    Icon(
+                                    MiuixIcon(
                                         painter = painterResource(R.drawable.arrow_back_outlined),
                                         contentDescription = "退出全屏",
                                         tint = Color.White,
@@ -482,47 +469,47 @@ fun MoviePlayerScreen(
                                 }
 
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
+                                    MiuixText(
                                         text = title ?: "未知影片",
                                         color = Color.White,
-                                        style = MaterialTheme.typography.titleSmall,
+                                        style = MiuixTheme.textStyles.subtitle,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     if (episodeName != null) {
-                                        Text(
+                                        MiuixText(
                                             text = "正在播放：$episodeName",
                                             color = Color.White.copy(alpha = 0.7f),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = MiuixTheme.textStyles.footnote2,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                     }
                                 }
 
-                                IconButton(onClick = {
+                                MiuixIconButton(onClick = {
                                     bgColorIndex = (bgColorIndex + 1) % bgColors.size
                                 }) {
-                                    Icon(
+                                    MiuixIcon(
                                         painter = painterResource(R.drawable.sync_alt_outlined),
                                         contentDescription = "切换背景色",
                                         tint = Color.White,
                                         modifier = Modifier.size(24.dp),
                                     )
                                 }
-                                IconButton(onClick = { }) {
-                                    Icon(
+                                MiuixIconButton(onClick = { }) {
+                                    MiuixIcon(
                                         painter = painterResource(R.drawable.cast_outlined),
                                         contentDescription = "投屏",
                                         tint = Color.White,
                                         modifier = Modifier.size(24.dp),
                                     )
                                 }
-                                IconButton(onClick = {
+                                MiuixIconButton(onClick = {
                                     hideControls()
                                     showMoreSheet = true
                                 }) {
-                                    Icon(
+                                    MiuixIcon(
                                         painter = painterResource(R.drawable.more_horiz_filled),
                                         contentDescription = "更多",
                                         tint = Color.White,
@@ -733,15 +720,12 @@ fun MoviePlayerScreen(
                                 .padding(horizontal = if (isLandscape) 24.dp else 4.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            FilledTonalIconButton(
+                            MiuixIconButton(
                                 onClick = {
                                     locked = !locked
                                 },
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.Black.copy(0.3f),
-                                ),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(
                                         if (locked) R.drawable.lock_outlined
                                         else R.drawable.lock_open_outlined
@@ -751,7 +735,7 @@ fun MoviePlayerScreen(
                                     modifier = Modifier.size(24.dp),
                                 )
                             }
-                            FilledTonalIconButton(
+                            MiuixIconButton(
                                 onClick = {
                                     val activity = context as? android.app.Activity
                                     if (activity != null) {
@@ -761,11 +745,8 @@ fun MoviePlayerScreen(
                                             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                                     }
                                 },
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.Black.copy(0.3f),
-                                ),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.mobile_rotate_outlined),
                                     contentDescription = "旋转屏幕",
                                     tint = Color.White,
@@ -780,15 +761,12 @@ fun MoviePlayerScreen(
                                 .padding(horizontal = if (isLandscape) 24.dp else 4.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            FilledTonalIconButton(
+                            MiuixIconButton(
                                 onClick = {
                                     playerViewRef?.let { saveScreenshot(it, context) }
                                 },
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = Color.Black.copy(0.3f),
-                                ),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.screenshot_keyboard_outlined),
                                     contentDescription = "截屏",
                                     tint = Color.White,
@@ -816,14 +794,14 @@ fun MoviePlayerScreen(
                                     .padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
+                                MiuixText(
                                     text = "${formatTime(playerCurrentPosition)} / ${
                                         formatTime(
                                             playerDuration
                                         )
                                     }",
                                     color = Color.White,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MiuixTheme.textStyles.body2,
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
                                 PlayerSeekButton(
@@ -878,7 +856,7 @@ fun MoviePlayerScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    IconButton(
+                                    MiuixIconButton(
                                         onClick = {
                                             if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
                                                 exoPlayer.seekTo(0)
@@ -887,7 +865,7 @@ fun MoviePlayerScreen(
 
                                         },
                                     ) {
-                                        Icon(
+                                        MiuixIcon(
                                             painter = painterResource(
                                                 if (playerIsPlaying) R.drawable.pause_filled
                                                 else R.drawable.play_filled
@@ -898,13 +876,13 @@ fun MoviePlayerScreen(
                                         )
                                     }
                                     if (onPreviousEpisode != null) {
-                                        IconButton(
+                                        MiuixIconButton(
                                             onClick = {
                                                 onPreviousEpisode()
                                                 hideControls()
                                             },
                                         ) {
-                                            Icon(
+                                            MiuixIcon(
                                                 painter = painterResource(R.drawable.skip_previous_filled),
                                                 contentDescription = "上一集",
                                                 tint = Color.White,
@@ -913,13 +891,13 @@ fun MoviePlayerScreen(
                                         }
                                     }
                                     if (onNextEpisode != null) {
-                                        IconButton(
+                                        MiuixIconButton(
                                             onClick = {
                                                 onNextEpisode()
                                                 hideControls()
                                             },
                                         ) {
-                                            Icon(
+                                            MiuixIcon(
                                                 painter = painterResource(R.drawable.skip_next_filled),
                                                 contentDescription = "下一集",
                                                 tint = Color.White,
@@ -927,12 +905,12 @@ fun MoviePlayerScreen(
                                             )
                                         }
                                     }
-                                    IconButton(
+                                    MiuixIconButton(
                                         onClick = {
                                             toggleMute()
                                         },
                                     ) {
-                                        Icon(
+                                        MiuixIcon(
                                             painter = painterResource(
                                                 if (isMuted) R.drawable.volume_off_outlined
                                                 else R.drawable.volume_up_outlined
@@ -945,36 +923,36 @@ fun MoviePlayerScreen(
 
                                     Spacer(modifier = Modifier.weight(1f))
 
-                                    Text(
+                                    MiuixText(
                                         text = getQualityLabel(playerVideoWidth, playerVideoHeight),
                                         color = Color.White.copy(alpha = 0.5f),
-                                        style = MaterialTheme.typography.titleSmall,
+                                        style = MiuixTheme.textStyles.subtitle,
                                     )
                                     Spacer(modifier = Modifier.width(24.dp))
-                                    Text(
+                                    MiuixText(
                                         text = "${currentSpeed}x",
                                         color = Color.White,
-                                        style = MaterialTheme.typography.titleSmall,
+                                        style = MiuixTheme.textStyles.subtitle,
                                         modifier = Modifier.clickable {
                                             hideControls()
                                             showSpeedSheet = true
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(24.dp))
-                                    Text(
+                                    MiuixText(
                                         text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
                                         color = Color.White,
-                                        style = MaterialTheme.typography.titleSmall,
+                                        style = MiuixTheme.textStyles.subtitle,
                                         modifier = Modifier.clickable {
                                             hideControls()
                                             showScaleSheet = true
                                         },
                                     )
                                     Spacer(modifier = Modifier.width(24.dp))
-                                    Text(
+                                    MiuixText(
                                         text = "选集",
                                         color = Color.White,
-                                        style = MaterialTheme.typography.titleSmall,
+                                        style = MiuixTheme.textStyles.subtitle,
                                         modifier = Modifier.clickable {
                                             hideControls()
                                             showEpisodeSheet = true
@@ -982,12 +960,12 @@ fun MoviePlayerScreen(
                                     )
 
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    IconButton(
+                                    MiuixIconButton(
                                         onClick = {
                                             onFullscreenChange(false)
                                         },
                                     ) {
-                                        Icon(
+                                        MiuixIcon(
                                             painter = painterResource(R.drawable.fullscreen_exit_filled),
                                             contentDescription = "关闭全屏",
                                             tint = Color.White,
@@ -1005,39 +983,39 @@ fun MoviePlayerScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.Center,
                                     ) {
-                                        Text(
+                                        MiuixText(
                                             text = getQualityLabel(
                                                 playerVideoWidth,
                                                 playerVideoHeight
                                             ),
                                             color = Color.White.copy(alpha = 0.5f),
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = MiuixTheme.textStyles.subtitle,
                                         )
                                         Spacer(modifier = Modifier.width(24.dp))
-                                        Text(
+                                        MiuixText(
                                             text = "${currentSpeed}X",
                                             color = Color.White,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = MiuixTheme.textStyles.subtitle,
                                             modifier = Modifier.clickable {
                                                 hideControls()
                                                 showSpeedSheet = true
                                             },
                                         )
                                         Spacer(modifier = Modifier.width(24.dp))
-                                        Text(
+                                        MiuixText(
                                             text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
                                             color = Color.White,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = MiuixTheme.textStyles.subtitle,
                                             modifier = Modifier.clickable {
                                                 hideControls()
                                                 showScaleSheet = true
                                             },
                                         )
                                         Spacer(modifier = Modifier.width(24.dp))
-                                        Text(
+                                        MiuixText(
                                             text = "选集",
                                             color = Color.White,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = MiuixTheme.textStyles.subtitle,
                                             modifier = Modifier.clickable {
                                                 hideControls()
                                                 showEpisodeSheet = true
@@ -1049,7 +1027,7 @@ fun MoviePlayerScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        IconButton(
+                                        MiuixIconButton(
                                             onClick = {
                                                 if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
                                                     exoPlayer.seekTo(0)
@@ -1058,7 +1036,7 @@ fun MoviePlayerScreen(
 
                                             },
                                         ) {
-                                            Icon(
+                                            MiuixIcon(
                                                 painter = painterResource(
                                                     if (playerIsPlaying) R.drawable.pause_filled
                                                     else R.drawable.play_filled
@@ -1069,13 +1047,13 @@ fun MoviePlayerScreen(
                                             )
                                         }
                                         if (onPreviousEpisode != null) {
-                                            IconButton(
+                                            MiuixIconButton(
                                                 onClick = {
                                                     onPreviousEpisode()
                                                     hideControls()
                                                 },
                                             ) {
-                                                Icon(
+                                                MiuixIcon(
                                                     painter = painterResource(R.drawable.skip_previous_filled),
                                                     contentDescription = "上一集",
                                                     tint = Color.White,
@@ -1084,13 +1062,13 @@ fun MoviePlayerScreen(
                                             }
                                         }
                                         if (onNextEpisode != null) {
-                                            IconButton(
+                                            MiuixIconButton(
                                                 onClick = {
                                                     onNextEpisode()
                                                     hideControls()
                                                 },
                                             ) {
-                                                Icon(
+                                                MiuixIcon(
                                                     painter = painterResource(R.drawable.skip_next_filled),
                                                     contentDescription = "下一集",
                                                     tint = Color.White,
@@ -1098,12 +1076,12 @@ fun MoviePlayerScreen(
                                                 )
                                             }
                                         }
-                                        IconButton(
+                                        MiuixIconButton(
                                             onClick = {
                                                 toggleMute()
                                             },
                                         ) {
-                                            Icon(
+                                            MiuixIcon(
                                                 painter = painterResource(
                                                     if (isMuted) R.drawable.volume_off_outlined
                                                     else R.drawable.volume_up_outlined
@@ -1114,12 +1092,12 @@ fun MoviePlayerScreen(
                                             )
                                         }
                                         Spacer(modifier = Modifier.weight(1f))
-                                        IconButton(
+                                        MiuixIconButton(
                                             onClick = {
                                                 onFullscreenChange(false)
                                             },
                                         ) {
-                                            Icon(
+                                            MiuixIcon(
                                                 painter = painterResource(R.drawable.fullscreen_exit_filled),
                                                 contentDescription = "关闭全屏",
                                                 tint = Color.White,
@@ -1139,7 +1117,7 @@ fun MoviePlayerScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    FilledTonalIconButton(
+                    MiuixIconButton(
                         onClick = {
                             if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
                                 exoPlayer.seekTo(0)
@@ -1147,12 +1125,9 @@ fun MoviePlayerScreen(
                             if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                             hideControls()
                         },
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = Color.Black.copy(0.3f),
-                        ),
                         modifier = Modifier.size(64.dp),
                     ) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.play_filled),
                             contentDescription = "播放",
                             tint = Color.White,
@@ -1162,127 +1137,83 @@ fun MoviePlayerScreen(
                 }
             }
 
-            if (showSpeedSheet) {
-                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showSpeedSheet = false }) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "播放倍速",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
-                            IconButton(onClick = { showSpeedSheet = false }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.close_outlined),
-                                    contentDescription = "关闭",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
-                        }
-                        SpeedPanelContent(
-                            currentSpeed = currentSpeed,
-                            onSpeedSelect = { speed ->
-                                currentSpeed = speed
-                                exoPlayer.playbackParameters = PlaybackParameters(speed)
-                            },
-                            useFixedDarkColors = true,
-                        )
-                    }
-                }
+            PlayerOverlayPanel(
+                show = showSpeedSheet,
+                title = "播放倍速",
+                isLandscape = isLandscape,
+                onDismiss = { showSpeedSheet = false },
+            ) {
+                SpeedPanelContent(
+                    currentSpeed = currentSpeed,
+                    onSpeedSelect = { speed ->
+                        currentSpeed = speed
+                        exoPlayer.playbackParameters = PlaybackParameters(speed)
+                    },
+                    useFixedDarkColors = true,
+                )
             }
 
-            if (showScaleSheet) {
-                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showScaleSheet = false }) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "视频画幅",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
-                            IconButton(onClick = { showScaleSheet = false }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.close_outlined),
-                                    contentDescription = "关闭",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        ScalePanelContent(
-                            selectedIndex = mapPlayerToAllScale(currentScaleModeIndex, isLandscape),
-                            onSelect = { index ->
-                                val playerIndex = mapAllToPlayerScale(index, isLandscape)
-                                currentScaleModeIndex = playerIndex
-                                onScaleModeIndexChange?.invoke(index)
-                                playerViewRef?.resizeMode =
-                                    getScaleModes(isLandscape)[playerIndex].resizeMode
-                            },
-                            useFixedDarkColors = true,
-                        )
-                    }
-                }
+            PlayerOverlayPanel(
+                show = showScaleSheet,
+                title = "视频画幅",
+                isLandscape = isLandscape,
+                onDismiss = { showScaleSheet = false },
+            ) {
+                ScalePanelContent(
+                    selectedIndex = mapPlayerToAllScale(currentScaleModeIndex, isLandscape),
+                    onSelect = { index ->
+                        val playerIndex = mapAllToPlayerScale(index, isLandscape)
+                        currentScaleModeIndex = playerIndex
+                        onScaleModeIndexChange?.invoke(index)
+                        playerViewRef?.resizeMode =
+                            getScaleModes(isLandscape)[playerIndex].resizeMode
+                    },
+                    useFixedDarkColors = true,
+                )
             }
 
-            if (showEpisodeSheet) {
-                PlayerOverlay(isLandscape = isLandscape, onDismiss = { showEpisodeSheet = false }) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 32.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "选集",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White,
-                            )
-                            IconButton(onClick = { showEpisodeSheet = false }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.close_outlined),
-                                    contentDescription = "关闭",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
-                        }
-                        EpisodePanelContent(
-                            episodes = episodes,
-                            selectedIndex = selectedEpisodeIndex,
-                            onSelect = { idx ->
-                                onEpisodeSelect(idx)
-                                showEpisodeSheet = false
-                            },
-                            useFixedDarkColors = true,
-                        )
-                    }
-                }
+            PlayerOverlayPanel(
+                show = showMoreSheet,
+                title = "更多设置",
+                isLandscape = isLandscape,
+                onDismiss = { showMoreSheet = false },
+            ) {
+                MoreSettingsContent(
+                    flipHorizontal = flipHorizontal,
+                    flipVertical = flipVertical,
+                    backgroundPlayback = backgroundPlayback,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
+                    playbackOrder = playbackOrder,
+                    longPressSpeed = longPressSpeed,
+                    onFlipHorizontalChange = { flipHorizontal = it },
+                    onFlipVerticalChange = { flipVertical = it },
+                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
+                    onDismiss = { showMoreSheet = false },
+                    useFixedDarkColors = true,
+                    showTitle = false,
+                    scrollable = false,
+                )
+            }
+
+            PlayerOverlayPanel(
+                show = showEpisodeSheet,
+                title = "选集",
+                isLandscape = isLandscape,
+                onDismiss = { showEpisodeSheet = false },
+                contentScrollable = false,
+            ) {
+                EpisodePanelContent(
+                    episodes = episodes,
+                    selectedIndex = selectedEpisodeIndex,
+                    onSelect = { idx ->
+                        onEpisodeSelect(idx)
+                        showEpisodeSheet = false
+                    },
+                    useFixedDarkColors = true,
+                )
             }
         }
     } else {
@@ -1329,9 +1260,12 @@ fun MoviePlayerScreen(
         )
     }
 
-    if (showMoreSheet) {
-        if (isFullscreen) {
-            PlayerOverlay(isLandscape = isLandscape, onDismiss = { showMoreSheet = false }) {
+    if (showMoreSheet && !isFullscreen) {
+        AppBottomSheet(
+            show = showMoreSheet,
+            onDismissRequest = { showMoreSheet = false },
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 MoreSettingsContent(
                     flipHorizontal = flipHorizontal,
                     flipVertical = flipVertical,
@@ -1346,39 +1280,8 @@ fun MoviePlayerScreen(
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
                     onDismiss = { showMoreSheet = false },
+                    useFixedDarkColors = false,
                 )
-            }
-        } else {
-            val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-            val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = { showMoreSheet = false },
-                sheetState = sheetState,
-                dragHandle = { SimpleDragHandle() },
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(sheetMaxHeight),
-                ) {
-                    MoreSettingsContent(
-                        flipHorizontal = flipHorizontal,
-                        flipVertical = flipVertical,
-                        backgroundPlayback = backgroundPlayback,
-                        adsFilter = GlobalPlayerConfig.adsFilter,
-                        playbackOrder = playbackOrder,
-                        longPressSpeed = longPressSpeed,
-                        onFlipHorizontalChange = { flipHorizontal = it },
-                        onFlipVerticalChange = { flipVertical = it },
-                        onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
-                        onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
-                        onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
-                        onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
-                        onDismiss = { showMoreSheet = false },
-                        useFixedDarkColors = false,
-                    )
-                }
             }
         }
     }

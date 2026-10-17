@@ -31,18 +31,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
@@ -87,7 +76,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.navigation.DisposableState
 import pjs.dogbox.data.ApiSites
@@ -95,10 +83,16 @@ import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.AdsFilter
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.data.SharedData
-import pjs.dogbox.ui.components.SimpleDragHandle
 import pjs.dogbox.data.WatchHistoryItem
-import pjs.dogbox.ui.components.SheetSectionTitle
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 data class EpisodeInfo(
     val name: String,
@@ -122,13 +116,11 @@ internal data class PageData(
 )
 
 internal class MovieDetailScreenState(
-    private val appContext: android.content.Context,
+    private val appContext: Context,
     videoUrl: String,
-    initialPosition: Long,
-    initialEpisodeUrl: String?,
+    val initialPosition: Long,
+    val initialEpisodeUrl: String?,
 ) : DisposableState {
-    val initialPosition: Long = initialPosition
-    val initialEpisodeUrl: String? = initialEpisodeUrl
 
     val isLoading = mutableStateOf(true)
     val pageData = mutableStateOf<PageData?>(null)
@@ -229,14 +221,14 @@ internal fun extractPathWithQuery(url: String): String {
         val path = uri.encodedPath ?: ""
         val query = uri.encodedQuery?.let { "?$it" } ?: ""
         val result = path + query
-        if (result.isNotEmpty()) result else url
+        result.ifEmpty { url }
     } catch (_: Exception) {
         url
     }
 }
 
 private fun saveWatchHistory(
-    context: android.content.Context,
+    context: Context,
     detailUrl: String,
     episodeUrl: String,
     title: String,
@@ -760,7 +752,7 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
 
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 internal fun MovieDetailScreen(
     state: MovieDetailScreenState,
@@ -799,6 +791,9 @@ internal fun MovieDetailScreen(
     var currentScaleModeIndex by state.currentScaleModeIndex
     var showSpeedSheet by state.showSpeedSheet
     var showScaleSheet by state.showScaleSheet
+
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 72.dp
 
     val activity = context as? android.app.Activity
 
@@ -1245,9 +1240,8 @@ internal fun MovieDetailScreen(
             modifier = modifier,
         )
     } else {
-        Scaffold(
+        MiuixScaffold(
             modifier = modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surface,
         ) { paddingValues ->
             if (pageData == null) {
                 Column(
@@ -1267,17 +1261,17 @@ internal fun MovieDetailScreen(
                                 .padding(top = 16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
+                            MiuixText(
                                 text = errorMsg ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Red,
+                                style = MiuixTheme.textStyles.body2,
                             )
                         }
                     }
                 }
             } else {
                 val data = pageData!!
-                val currentRoute = data.routes.getOrNull(selectedRouteIndex) ?: return@Scaffold
+                val currentRoute = data.routes.getOrNull(selectedRouteIndex) ?: return@MiuixScaffold
                 val totalRoutes = data.routes.size
                 val totalEpisodes = currentRoute.episodes.size
 
@@ -1299,6 +1293,7 @@ internal fun MovieDetailScreen(
                             onBack = wrappedOnBack,
                             scaleModeIndex = currentScaleModeIndex,
                             onScaleModeIndexChange = { currentScaleModeIndex = it },
+                            sheetHeight = sheetMaxHeight,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -1343,23 +1338,23 @@ internal fun MovieDetailScreen(
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(width = 100.dp, height = 140.dp)
-                                        .clip(MaterialTheme.shapes.medium),
+                                        .clip(RoundedCornerShape(12.dp)),
                                 )
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(4.dp)
                                         .background(
-                                            color = MaterialTheme.colorScheme.primaryContainer
+                                            color = MiuixTheme.colorScheme.primaryContainer
                                                 .copy(alpha = 0.9f),
-                                            shape = MaterialTheme.shapes.medium,
+                                            shape = RoundedCornerShape(12.dp),
                                         )
                                         .padding(horizontal = 6.dp, vertical = 3.dp),
                                 ) {
-                                    Text(
+                                    MiuixText(
                                         text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                        style = MiuixTheme.textStyles.footnote2,
                                         fontWeight = FontWeight.Bold,
                                     )
                                 }
@@ -1370,42 +1365,42 @@ internal fun MovieDetailScreen(
                                     .height(140.dp)
                                     .weight(1f),
                             ) {
-                                Text(
+                                MiuixText(
                                     text = data.title,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MiuixTheme.textStyles.title4,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(
+                                MiuixText(
                                     text = "类型：${data.type}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
+                                MiuixText(
                                     text = "导演：${data.director}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
+                                MiuixText(
                                     text = "主演：${data.actor}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
+                                MiuixText(
                                     text = "简介：${data.description}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -1455,16 +1450,16 @@ internal fun MovieDetailScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
+                            MiuixText(
                                 "线路",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MiuixTheme.textStyles.subtitle,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
+                            MiuixText(
                                 "正在使用：${currentRoute.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
@@ -1476,15 +1471,15 @@ internal fun MovieDetailScreen(
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
+                                MiuixText(
                                     "${totalRoutes}个线路",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.primary,
                                 )
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = MiuixTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -1500,9 +1495,6 @@ internal fun MovieDetailScreen(
                                     selectEpisode(index, 0)
                                 }
                             },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -1512,16 +1504,16 @@ internal fun MovieDetailScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
+                            MiuixText(
                                 "选集",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MiuixTheme.textStyles.subtitle,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
+                            MiuixText(
                                 "正在播放：${currentEpisode?.name ?: ""}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
@@ -1533,15 +1525,15 @@ internal fun MovieDetailScreen(
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
+                                MiuixText(
                                     "${totalEpisodes}个视频",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.primary,
                                 )
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = MiuixTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -1558,9 +1550,6 @@ internal fun MovieDetailScreen(
                                     selectEpisode(selectedRouteIndex, index)
                                 }
                             },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
                         )
 
                         Spacer(modifier = Modifier.height(32.dp))
@@ -1570,45 +1559,44 @@ internal fun MovieDetailScreen(
         }
     }
 
-    if (showCopySheet) {
-        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val sheetMaxHeight =
-            (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-        val copySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { showCopySheet = false },
-            sheetState = copySheetState,
-            dragHandle = { SimpleDragHandle() },
+    AppBottomSheet(
+        show = showCopySheet,
+        onDismissRequest = { showCopySheet = false },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sheetMaxHeight)
+                .padding(bottom = 24.dp),
         ) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sheetMaxHeight)
-                    .padding(bottom = 24.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = pageData?.title ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                HorizontalDivider()
+                MiuixText(
+                    text = pageData?.title ?: "",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                MiuixText(
+                    text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(MiuixTheme.colorScheme.dividerLine),
+            )
                 SheetActionItem(
                     icon = R.drawable.link_outlined,
                     label = "复制播放链接",
@@ -1657,13 +1645,14 @@ internal fun MovieDetailScreen(
                         openInBrowser(currentEpisodeUrl)
                     },
                 )
-            }
+                Spacer(modifier = Modifier.height(20.dp))
         }
     }
 
     if (showIntroSheet && pageData != null) {
         IntroBottomSheet(
             data = pageData!!,
+            height = sheetMaxHeight,
             onDismiss = { showIntroSheet = false },
         )
     }
@@ -1671,6 +1660,7 @@ internal fun MovieDetailScreen(
     if (showRouteSheet && pageData != null) {
         RouteBottomSheet(
             routes = pageData!!.routes,
+            height = sheetMaxHeight,
             selectedIndex = selectedRouteIndex,
             onSelect = { idx ->
                 if (idx != selectedRouteIndex) {
@@ -1685,6 +1675,7 @@ internal fun MovieDetailScreen(
     if (showEpisodeSheet && pageData != null) {
         EpisodeBottomSheet(
             episodes = pageData!!.routes.getOrNull(selectedRouteIndex)?.episodes ?: emptyList(),
+            height = sheetMaxHeight,
             selectedIndex = selectedEpisodeIndex,
             onSelect = { idx ->
                 if (idx != selectedEpisodeIndex) {
@@ -1704,6 +1695,7 @@ internal fun MovieDetailScreen(
                 exoPlayer.playbackParameters = PlaybackParameters(speed)
             },
             onDismiss = { showSpeedSheet = false },
+            height = sheetMaxHeight,
         )
     }
 
@@ -1714,6 +1706,7 @@ internal fun MovieDetailScreen(
                 currentScaleModeIndex = index
             },
             onDismiss = { showScaleSheet = false },
+            height = sheetMaxHeight,
         )
     }
 }
@@ -1731,13 +1724,13 @@ private fun PlayerPlaceholder(
             .height(240.dp)
             .background(Color.Black),
     ) {
-        IconButton(
+        MiuixIconButton(
             onClick = onBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 4.dp, top = 2.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(R.drawable.arrow_back_outlined),
                 contentDescription = "返回",
                 tint = Color.White,
@@ -1749,16 +1742,16 @@ private fun PlayerPlaceholder(
             contentAlignment = Alignment.Center,
         ) {
             when {
-                isLoading -> CircularProgressIndicator(modifier = Modifier.size(56.dp))
+                isLoading -> CircularProgressIndicator(size = 56.dp)
                 onRetry != null -> Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (!errorText.isNullOrBlank()) {
-                        Text(
+                        MiuixText(
                             text = errorText,
                             color = Color.White.copy(alpha = 0.9f),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 24.dp),
@@ -1766,20 +1759,20 @@ private fun PlayerPlaceholder(
                     }
                     Box(
                         modifier = Modifier
-                            .clip(MaterialTheme.shapes.large)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MiuixTheme.colorScheme.primaryContainer)
                             .clickable { onRetry() }
                             .padding(horizontal = 24.dp, vertical = 10.dp),
                     ) {
-                        Text(
+                        MiuixText(
                             text = "点击重试",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelLarge,
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            style = MiuixTheme.textStyles.footnote1,
                             fontWeight = FontWeight.Bold,
                         )
                     }
                 }
-                else -> Icon(
+                else -> MiuixIcon(
                     painter = painterResource(R.drawable.autoplay_outlined),
                     contentDescription = null,
                     tint = Color.White,
@@ -1795,7 +1788,6 @@ private fun ChipScrollRow(
     labels: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
-    colors: SelectableChipColors? = null,
     labelKey: Any? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -1833,15 +1825,14 @@ private fun ChipScrollRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         labels.forEachIndexed { index, label ->
-            FilterChip(
+            PlayerFilterChip(
                 selected = index == selectedIndex,
                 onClick = { onSelect(index) },
-                label = { Text(label) },
+                label = label,
                 modifier = Modifier.onGloballyPositioned { coords ->
                     itemXs[index] = coords.positionInParent().x.roundToInt()
                     itemWidths[index] = coords.size.width
                 },
-                colors = colors ?: FilterChipDefaults.filterChipColors(),
             )
         }
     }
@@ -1859,19 +1850,19 @@ private fun ActionIconItem(
         modifier = modifier
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(MaterialTheme.shapes.medium),
+            .clip(RoundedCornerShape(12.dp)),
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
+        MiuixText(
             label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
         )
     }
 }
@@ -1889,126 +1880,116 @@ private fun SheetActionItem(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
             modifier = Modifier.size(22.dp),
         )
         Spacer(modifier = Modifier.width(16.dp))
-        Text(
+        MiuixText(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MiuixTheme.colorScheme.onSurface,
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 private fun IntroBottomSheet(
     data: PageData,
+    height: Dp,
     onDismiss: () -> Unit,
 ) {
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetMaxHeight),
+                .height(height)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                SheetSectionTitle("影片详情")
                 Column(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 32.dp),
                 ) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
+                    MiuixText(
                         text = data.title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MiuixTheme.textStyles.title2,
                         fontWeight = FontWeight.Bold,
                     )
                     if (data.type.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
+                        MiuixText(
                             text = data.type,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    Text(
+                    MiuixText(
                         text = "简介",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MiuixTheme.textStyles.title4,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
+                    MiuixText(
                         text = data.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
 
                     if (data.director.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text(
+                        MiuixText(
                             text = "导演",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MiuixTheme.textStyles.title4,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
+                        MiuixText(
                             text = data.director,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
                     }
 
                     if (data.actor.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text(
+                        MiuixText(
                             text = "主演",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MiuixTheme.textStyles.title4,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
+                        MiuixText(
                             text = data.actor,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
                     }
                     Spacer(modifier = Modifier.height(32.dp))
                 }
-            }
+                Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RouteBottomSheet(
     routes: List<RouteInfo>,
+    height: Dp,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(selectedIndex) {
         withFrameNanos { }
@@ -2017,73 +1998,62 @@ private fun RouteBottomSheet(
             withFrameNanos { }
         }
     }
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetMaxHeight),
+                .height(height)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SheetSectionTitle("线路")
-                Spacer(modifier = Modifier.height(4.dp))
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    routes.forEachIndexed { index, route ->
-                        PlayerFilterChip(
-                            selected = index == selectedIndex,
-                            onClick = { onSelect(index) },
-                            label = route.name,
-                            useFixedDarkColors = false,
-                            modifier = if (index == selectedIndex) {
-                                Modifier.bringIntoViewRequester(bringIntoViewRequester)
-                            } else {
-                                Modifier
-                            },
-                        )
-                    }
+                routes.forEachIndexed { index, route ->
+                    PlayerFilterChip(
+                        selected = index == selectedIndex,
+                        onClick = { onSelect(index) },
+                        label = route.name,
+                        useFixedDarkColors = false,
+                        modifier = if (index == selectedIndex) {
+                            Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                        } else {
+                            Modifier
+                        },
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EpisodeBottomSheet(
     episodes: List<EpisodeInfo>,
+    height: Dp,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetMaxHeight),
+                .height(height),
         ) {
-            SheetSectionTitle("选集")
             EpisodePanelContent(
                 episodes = episodes,
                 selectedIndex = selectedIndex,

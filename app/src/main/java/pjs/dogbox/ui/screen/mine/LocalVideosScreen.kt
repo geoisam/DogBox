@@ -17,12 +17,9 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,24 +41,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -94,9 +73,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.MiuixLoading
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocalVideosScreen(
     onBack: () -> Unit = {},
@@ -113,6 +105,7 @@ fun LocalVideosScreen(
     var isSelectMode by remember { mutableStateOf(false) }
     val selectedUris = remember { mutableStateListOf<String>() }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
 
     fun refreshVideos(showSpinner: Boolean) {
         scope.launch {
@@ -175,19 +168,13 @@ fun LocalVideosScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("本地视频", fontWeight = FontWeight.Bold) },
+            SmallTopAppBar(
+                title = "本地视频",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
@@ -196,7 +183,7 @@ fun LocalVideosScreen(
                 },
                 actions = {
                     if (videos.isNotEmpty()) {
-                        FilledTonalIconButton(
+                        MiuixIconButton(
                             onClick = {
                                 if (isSelectMode) {
                                     isSelectMode = false
@@ -205,24 +192,18 @@ fun LocalVideosScreen(
                                     isSelectMode = true
                                 }
                             },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 painter = painterResource(
                                     if (isSelectMode) R.drawable.close_outlined
                                     else R.drawable.delete_outlined
                                 ),
                                 contentDescription = if (isSelectMode) "取消" else "删除",
-                                modifier = Modifier.size(24.dp),
-                            )
+                            modifier = Modifier.size(24.dp),
+                        )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
         bottomBar = {
@@ -230,21 +211,21 @@ fun LocalVideosScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .background(MiuixTheme.colorScheme.surfaceContainer)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 selectedUris.clear()
                                 selectedUris.addAll(videos.map { it.uri.toString() })
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("全选")
+                            MiuixText("全选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 val current = selectedUris.toSet()
                                 selectedUris.clear()
@@ -254,30 +235,32 @@ fun LocalVideosScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("反选")
+                            MiuixText("反选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 isSelectMode = false
                                 selectedUris.clear()
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("取消")
+                            MiuixText("取消")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = { showDeleteDialog = true },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
+                            color = MiuixTheme.colorScheme.error,
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = selectedUris.isNotEmpty(),
                     ) {
-                        Text("删除（${selectedUris.size}）")
+                        MiuixText(
+                            text = "删除（${selectedUris.size}）",
+                            color = MiuixTheme.colorScheme.onError,
+                        )
                     }
                 }
             }
@@ -299,16 +282,13 @@ fun LocalVideosScreen(
                 else -> {
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (videos.isEmpty() && isRescanning) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                            }
+                            MiuixLoading(modifier = Modifier.fillMaxSize())
                         } else {
-                            PullToRefreshBox(
+                            PullToRefresh(
                                 isRefreshing = isRefreshing,
                                 onRefresh = { refreshVideos(showSpinner = true) },
+                                pullToRefreshState = pullToRefreshState,
+                                refreshTexts = listOf("下拉刷新", "释放刷新", "正在刷新...", "刷新成功"),
                                 modifier = Modifier.fillMaxSize(),
                             ) {
                                 if (videos.isEmpty()) {
@@ -318,9 +298,9 @@ fun LocalVideosScreen(
                                             .verticalScroll(rememberScrollState()),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        Text(
+                                        MiuixText(
                                             text = "未扫描到视频",
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                         )
                                     }
                                 } else {
@@ -403,9 +383,10 @@ fun LocalVideosScreen(
                                     .align(Alignment.BottomEnd)
                                     .padding(24.dp),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.arrow_upward_outlined),
                                     contentDescription = "回到顶部",
+                                    tint = MiuixTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(28.dp),
                                 )
                             }
@@ -416,25 +397,36 @@ fun LocalVideosScreen(
         }
     }
 
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除", fontWeight = FontWeight.Bold) },
-            text = { Text("确认删除这${selectedUris.size}项内容？删除后将无法查看。") },
-            confirmButton = {
-                Button(onClick = {
+    OverlayDialog(
+        show = showDeleteDialog,
+        title = "删除",
+        summary = "确认删除这${selectedUris.size}项内容？删除后将无法查看。",
+        onDismissRequest = { showDeleteDialog = false },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(
+                text = "取消",
+                onClick = { showDeleteDialog = false },
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
                     showDeleteDialog = false
                     confirmDelete()
-                }) {
-                    Text("确认删除")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            },
-        )
+                },
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                ),
+            ) {
+                MiuixText(
+                    text = "确认删除",
+                    color = MiuixTheme.colorScheme.onError,
+                )
+            }
+        }
     }
 }
 
@@ -452,23 +444,18 @@ private fun CenterPillButton(
     ) {
         Button(
             onClick = onClick,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ),
-            shape = RoundedCornerShape(percent = 50),
+            cornerRadius = 24.dp,
             modifier = Modifier.height(48.dp),
         ) {
-            Text(
-                text,
-                style = MaterialTheme.typography.titleMedium,
+            MiuixText(
+                text = text,
+                style = MiuixTheme.textStyles.title4,
                 fontWeight = FontWeight.Bold,
             )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LocalVideoGridItem(
     item: LocalVideoItem,
@@ -481,30 +468,20 @@ private fun LocalVideoGridItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .then(
-                if (isSelectMode) {
-                    Modifier.clickable { onSelect() }
-                } else {
-                    Modifier.combinedClickable(
-                        onClick = onClick,
-                        onLongClick = onLongClick,
-                    )
-                }
-            )
             .then(
                 if (isSelected) {
                     Modifier.border(
                         2.dp,
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.shapes.medium
+                        MiuixTheme.colorScheme.primary,
+                        RoundedCornerShape(16.dp)
                     )
                 } else Modifier
             ),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        cornerRadius = 16.dp,
+        onClick = {
+            if (isSelectMode) onSelect() else onClick()
+        },
+        onLongPress = { onLongClick() },
     ) {
         Box {
             Column {
@@ -528,14 +505,14 @@ private fun LocalVideoGridItem(
                                 .padding(4.dp)
                                 .background(
                                     color = Color.Black.copy(alpha = 0.6f),
-                                    shape = MaterialTheme.shapes.small,
+                                    shape = RoundedCornerShape(6.dp),
                                 )
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
                         ) {
-                            Text(
+                            MiuixText(
                                 text = formatDuration(item.duration),
                                 color = Color.White,
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MiuixTheme.textStyles.footnote2,
                             )
                         }
                     }
@@ -545,12 +522,12 @@ private fun LocalVideoGridItem(
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp, vertical = 4.dp),
                 ) {
-                    Text(
+                    MiuixText(
                         text = item.displayName.substringBeforeLast('.'),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MiuixTheme.textStyles.body2,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MiuixTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -558,19 +535,19 @@ private fun LocalVideoGridItem(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
+                        MiuixText(
                             text = if (item.width > 0 && item.height > 0) "${item.width}x${item.height}" else "",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
-                        Text(
+                        MiuixText(
                             text = formatSize(item.size).takeIf { it.isNotEmpty() } ?: "",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
                     }
                 }
@@ -584,16 +561,16 @@ private fun LocalVideoGridItem(
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
+                            if (isSelected) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isSelected) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.check_outlined),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                            tint = MiuixTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(14.dp),
                         )
                     }
@@ -665,14 +642,14 @@ private fun VideoThumbnail(
     } else {
         Box(
             modifier = modifier
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                .background(MiuixTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(R.drawable.error_med_outline),
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.5f),
             )
         }
     }

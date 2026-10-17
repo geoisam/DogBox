@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalLayoutApi::class)
 
 package pjs.dogbox.ui.screen.movie
 
@@ -17,11 +17,14 @@ import android.view.SurfaceView
 import android.view.TextureView
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,29 +51,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,7 +79,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
@@ -108,9 +95,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
-import pjs.dogbox.ui.components.SimpleDragHandle
-import pjs.dogbox.ui.components.SheetSectionTitle
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
+import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import pjs.dogbox.ui.components.AppBottomSheet
 
 @Composable
 fun getStatusBarHeight(): Dp {
@@ -304,7 +301,7 @@ internal fun SeekBar(
             },
         contentAlignment = Alignment.Center,
     ) {
-        val primaryColor = MaterialTheme.colorScheme.primary
+        val primaryColor = MiuixTheme.colorScheme.primary
 
         Canvas(
             modifier = Modifier
@@ -342,9 +339,9 @@ internal fun SpeedResetButton(
     useFixedDarkColors: Boolean = false,
 ) {
     val containerColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHighest
+    else MiuixTheme.colorScheme.surfaceContainerHighest
     val textColor = if (useFixedDarkColors) Color.White
-    else MaterialTheme.colorScheme.onSurface
+    else MiuixTheme.colorScheme.onSurface
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -352,15 +349,15 @@ internal fun SpeedResetButton(
     ) {
         Row(
             modifier = Modifier
-                .clip(MaterialTheme.shapes.medium)
+                .clip(RoundedCornerShape(12.dp))
                 .background(containerColor)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            MiuixText(
                 text = "恢复默认",
-                style = MaterialTheme.typography.titleSmall,
+                style = MiuixTheme.textStyles.subtitle,
                 color = textColor,
             )
         }
@@ -368,6 +365,8 @@ internal fun SpeedResetButton(
 }
 
 internal val SPEED_PRESETS = listOf(0.50f, 0.75f, 1.25f, 1.50f, 2.00f, 3.00f)
+
+internal val SPEED_KEY_POINTS = List(20) { (it + 1) * 0.25f }
 
 @Composable
 internal fun PlayerFilterChip(
@@ -377,26 +376,34 @@ internal fun PlayerFilterChip(
     modifier: Modifier = Modifier,
     useFixedDarkColors: Boolean = false,
 ) {
-    FilterChip(
-        selected = selected,
+    val containerColor = when {
+        selected -> MiuixTheme.colorScheme.primaryContainer
+        useFixedDarkColors -> Color.Transparent
+        else -> MiuixTheme.colorScheme.surfaceContainer
+    }
+    val contentColor = when {
+        selected -> MiuixTheme.colorScheme.onPrimaryContainer
+        useFixedDarkColors -> Color.White
+        else -> MiuixTheme.colorScheme.onSurfaceSecondary
+    }
+    val borderColor = when {
+        selected -> MiuixTheme.colorScheme.primary
+        useFixedDarkColors -> Color.White.copy(alpha = 0.6f)
+        else -> MiuixTheme.colorScheme.dividerLine
+    }
+    Card(
+        modifier = modifier.border(1.dp, borderColor, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.defaultColors(color = containerColor),
         onClick = onClick,
-        label = { Text(label) },
-        modifier = modifier,
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-            containerColor = if (useFixedDarkColors) Color.Transparent
-            else MaterialTheme.colorScheme.surfaceContainerLow,
-            labelColor = if (useFixedDarkColors) Color.White
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (selected) Color.Transparent
-            else if (useFixedDarkColors) Color.White
-            else MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-    )
+    ) {
+        MiuixText(
+            text = label,
+            style = MiuixTheme.textStyles.footnote1,
+            color = contentColor,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
 }
 
 @Composable
@@ -408,42 +415,39 @@ internal fun SpeedPanelContent(
 ) {
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
     val cardContainer = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHigh
+    else MiuixTheme.colorScheme.surfaceContainerHigh
     val titleColor = if (useFixedDarkColors) Color.White
-    else MaterialTheme.colorScheme.onSurface
+    else MiuixTheme.colorScheme.onSurface
     val valueColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.6f)
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    else MiuixTheme.colorScheme.onSurfaceSecondary
 
     Column(modifier = modifier.fillMaxWidth()) {
         Spacer(Modifier.height(16.dp))
-        SPEED_PRESETS.chunked(3).forEach { rowPresets ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                rowPresets.forEach { preset ->
-                    SpeedPresetCard(
-                        modifier = Modifier.weight(1f),
-                        speed = preset,
-                        selected = abs(currentSpeed - preset) < 0.001f,
-                        useFixedDarkColors = useFixedDarkColors,
-                        onClick = {
-                            sliderSpeed = preset
-                            onSpeedSelect(preset)
-                        },
-                    )
-                }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SPEED_PRESETS.forEach { preset ->
+                PlayerFilterChip(
+                    selected = abs(currentSpeed - preset) < 0.001f,
+                    onClick = {
+                        sliderSpeed = preset
+                        onSpeedSelect(preset)
+                    },
+                    label = "${"%.2f".format(preset)}x",
+                    useFixedDarkColors = useFixedDarkColors,
+                )
             }
-            Spacer(Modifier.height(12.dp))
         }
+        Spacer(Modifier.height(12.dp))
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = cardContainer),
+            colors = CardDefaults.defaultColors(color = cardContainer),
         ) {
             Column(
                 modifier = Modifier
@@ -454,15 +458,15 @@ internal fun SpeedPanelContent(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
+                    MiuixText(
                         text = "固定倍速",
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MiuixTheme.textStyles.body1,
                         color = titleColor,
                     )
-                    Text(
+                    MiuixText(
                         text = "${"%.2f".format(sliderSpeed)}X",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = valueColor,
                     )
                 }
@@ -473,6 +477,10 @@ internal fun SpeedPanelContent(
                     onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
                     valueRange = 0.25f..5.0f,
                     steps = 18,
+                    showKeyPoints = true,
+                    keyPoints = SPEED_KEY_POINTS,
+                    magnetThreshold = 0.03f,
+                    hapticEffect = SliderDefaults.SliderHapticEffect.Step,
                 )
             }
         }
@@ -494,79 +502,24 @@ internal fun SpeedBottomSheet(
     currentSpeed: Float,
     onSpeedSelect: (Float) -> Unit,
     onDismiss: () -> Unit,
+    height: Dp? = null,
 ) {
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetMaxHeight),
+                .then(if (height != null) Modifier.height(height) else Modifier)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                SheetSectionTitle("播放倍速")
-                SpeedPanelContent(
-                    currentSpeed = currentSpeed,
-                    onSpeedSelect = onSpeedSelect,
-                    useFixedDarkColors = false,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SpeedPresetCard(
-    modifier: Modifier = Modifier,
-    speed: Float,
-    selected: Boolean,
-    onClick: () -> Unit,
-    useFixedDarkColors: Boolean = false,
-) {
-    val borderColor = when {
-        selected -> MaterialTheme.colorScheme.primary
-        useFixedDarkColors -> Color.White
-        else -> MaterialTheme.colorScheme.outlineVariant
-    }
-    val textColor = when {
-        selected -> MaterialTheme.colorScheme.primary
-        useFixedDarkColors -> Color.White
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Card(
-        modifier = modifier
-            .border(2.dp, borderColor, MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-            else MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = "${"%.2f".format(speed)}x",
-                style = MaterialTheme.typography.titleMedium,
-                color = textColor,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            SpeedPanelContent(
+                currentSpeed = currentSpeed,
+                onSpeedSelect = onSpeedSelect,
+                useFixedDarkColors = false,
             )
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
@@ -604,92 +557,148 @@ internal fun ScaleBottomSheet(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
+    height: Dp? = null,
 ) {
-    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = (LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 20.dp)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetMaxHeight),
+                .then(if (height != null) Modifier.height(height) else Modifier)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                SheetSectionTitle("视频画幅")
-                Spacer(Modifier.height(8.dp))
-                ScalePanelContent(
-                    selectedIndex = selectedIndex,
-                    onSelect = onSelect,
-                    useFixedDarkColors = false,
-                )
-            }
+            Spacer(Modifier.height(8.dp))
+            ScalePanelContent(
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
+                useFixedDarkColors = false,
+            )
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
 
+/**
+ * 全屏播放时使用的固定深色 overlay 面板，代替底部弹层。
+ *
+ * - 横屏：从右侧滑入，占屏宽 50%，背景沿“右→左”由黑渐透明。
+ * - 竖屏：从底部滑入，占屏高 50%，背景沿“下→上”由黑渐透明。
+ * - 顶部最左为标题，最右为关闭按钮，下方内容与原来弹层一致。
+ */
 @Composable
-internal fun PlayerOverlay(
+internal fun PlayerOverlayPanel(
+    show: Boolean,
+    title: String,
     isLandscape: Boolean,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentScrollable: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    var visible by remember { mutableStateOf(true) }
-
-    fun dismiss() {
-        visible = false
+    val scrimBrush = if (isLandscape) {
+        Brush.horizontalGradient(
+            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
+        )
+    }
+    val panelBrush = if (isLandscape) {
+        Brush.horizontalGradient(
+            colors = listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.9f)),
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.9f)),
+        )
+    }
+    val panelShape = if (isLandscape) {
+        RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+    } else {
+        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     }
 
-    LaunchedEffect(visible) {
-        if (!visible) {
-            delay(200)
-            onDismiss()
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { dismiss() },
-            ),
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
-            visible = visible,
-            enter = if (isLandscape) slideInHorizontally { it } else slideInVertically { it },
-            exit = if (isLandscape) slideOutHorizontally { it } else slideOutVertically { it },
-            modifier = Modifier
-                .align(if (isLandscape) Alignment.CenterEnd else Alignment.BottomCenter),
+            visible = show,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(200)),
         ) {
             Box(
                 modifier = Modifier
+                    .fillMaxSize()
+                    .background(scrimBrush)
+                    .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = show,
+            enter = if (isLandscape) {
+                slideInHorizontally(animationSpec = tween(250)) { it }
+            } else {
+                slideInVertically(animationSpec = tween(250)) { it }
+            },
+            exit = if (isLandscape) {
+                slideOutHorizontally(animationSpec = tween(250)) { it }
+            } else {
+                slideOutVertically(animationSpec = tween(250)) { it }
+            },
+            modifier = if (isLandscape) {
+                Modifier.align(Alignment.CenterEnd)
+            } else {
+                Modifier.align(Alignment.BottomCenter)
+            },
+        ) {
+            Column(
+                modifier = Modifier
                     .then(
-                        if (isLandscape) Modifier
-                            .fillMaxHeight()
-                            .width(LocalConfiguration.current.screenWidthDp.dp * 0.5f)
-                        else Modifier
-                            .fillMaxWidth()
-                            .height(LocalConfiguration.current.screenHeightDp.dp * 0.5f)
+                        if (isLandscape) {
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.5f)
+                        } else {
+                            Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(0.5f)
+                        }
                     )
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    ),
+                    .clip(panelShape)
+                    .background(panelBrush)
+                    .pointerInput(Unit) { detectTapGestures { } },
             ) {
-                content()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MiuixText(
+                        text = title,
+                        modifier = Modifier.weight(1f),
+                        style = MiuixTheme.textStyles.title4,
+                        color = Color.White,
+                    )
+                    MiuixIconButton(onClick = onDismiss) {
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.close_outlined),
+                            contentDescription = "关闭",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .then(if (contentScrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                ) {
+                    content()
+                }
             }
         }
     }
@@ -750,6 +759,37 @@ internal object GlobalPlayerConfig {
 }
 
 @Composable
+private fun PlaybackOrderDropdown(
+    playbackOrder: PlaybackOrder,
+    onPlaybackOrderChange: (PlaybackOrder) -> Unit,
+    useFixedDarkColors: Boolean,
+) {
+    val dropdown: @Composable () -> Unit = {
+        OverlayDropdownPreference(
+            title = "播放顺序",
+            items = PlaybackOrder.entries.map { it.label },
+            selectedIndex = PlaybackOrder.entries
+                .indexOf(playbackOrder)
+                .coerceAtLeast(0),
+            onSelectedIndexChange = { index ->
+                onPlaybackOrderChange(PlaybackOrder.entries[index])
+            },
+        )
+    }
+    if (useFixedDarkColors) {
+        val fixedDarkColors = remember {
+            darkColorScheme(
+                onSurface = Color.White,
+                onSurfaceVariantActions = Color.White.copy(alpha = 0.6f),
+            )
+        }
+        MiuixTheme(colors = fixedDarkColors, content = dropdown)
+    } else {
+        dropdown()
+    }
+}
+
+@Composable
 internal fun MoreSettingsContent(
     flipHorizontal: Boolean,
     flipVertical: Boolean,
@@ -765,19 +805,19 @@ internal fun MoreSettingsContent(
     onLongPressSpeedChange: (Float) -> Unit = {},
     onDismiss: () -> Unit,
     useFixedDarkColors: Boolean = true,
+    showTitle: Boolean = true,
+    scrollable: Boolean = true,
 ) {
     val titleColor = if (useFixedDarkColors) Color.White
-    else MaterialTheme.colorScheme.onSurface
+    else MiuixTheme.colorScheme.onSurface
 
     val cardContainer = if (useFixedDarkColors) Color.White.copy(alpha = 0.08f)
-    else MaterialTheme.colorScheme.surfaceContainerHigh
+    else MiuixTheme.colorScheme.surfaceContainerHigh
     val rowValueColor = if (useFixedDarkColors) Color.White.copy(alpha = 0.6f)
-    else MaterialTheme.colorScheme.onSurfaceVariant
-
-    var orderMenuExpanded by remember { mutableStateOf(false) }
+    else MiuixTheme.colorScheme.onSurfaceSecondary
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (useFixedDarkColors) {
+        if (useFixedDarkColors && showTitle) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -785,9 +825,9 @@ internal fun MoreSettingsContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("更多设置", style = MaterialTheme.typography.titleMedium, color = titleColor)
-                IconButton(onClick = onDismiss) {
-                    Icon(
+                MiuixText("更多设置", style = MiuixTheme.textStyles.title4, color = titleColor)
+                MiuixIconButton(onClick = onDismiss) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.close_outlined),
                         contentDescription = "关闭",
                         tint = Color.White,
@@ -795,13 +835,11 @@ internal fun MoreSettingsContent(
                     )
                 }
             }
-        } else {
-            SheetSectionTitle("更多设置")
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .padding(bottom = 32.dp),
         ) {
             Spacer(Modifier.height(16.dp))
@@ -811,8 +849,7 @@ internal fun MoreSettingsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = cardContainer),
+                colors = CardDefaults.defaultColors(color = cardContainer),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     // 画面翻转
@@ -822,10 +859,10 @@ internal fun MoreSettingsContent(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MiuixText(
                             text = "画面翻转",
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MiuixTheme.textStyles.body1,
                             color = titleColor,
                         )
                         PlayerFilterChip(
@@ -843,54 +880,11 @@ internal fun MoreSettingsContent(
                         )
                     }
                     // 播放顺序
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { orderMenuExpanded = true }
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "播放顺序",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = titleColor,
-                        )
-                        Text(
-                            text = playbackOrder.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = rowValueColor,
-                        )
-                        Spacer(Modifier.size(6.dp))
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = rowValueColor,
-                            )
-                            DropdownMenu(
-                                expanded = orderMenuExpanded,
-                                onDismissRequest = { orderMenuExpanded = false },
-                            ) {
-                                PlaybackOrder.entries.forEach { order ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = order.label,
-                                                color = if (order == playbackOrder) MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        },
-                                        onClick = {
-                                            onPlaybackOrderChange(order)
-                                            orderMenuExpanded = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    PlaybackOrderDropdown(
+                        playbackOrder = playbackOrder,
+                        onPlaybackOrderChange = onPlaybackOrderChange,
+                        useFixedDarkColors = useFixedDarkColors,
+                    )
                     // 后台播放
                     Row(
                         modifier = Modifier
@@ -898,10 +892,10 @@ internal fun MoreSettingsContent(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MiuixText(
                             text = "后台播放",
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MiuixTheme.textStyles.body1,
                             color = titleColor,
                         )
                         Switch(
@@ -916,10 +910,10 @@ internal fun MoreSettingsContent(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MiuixText(
                             text = "广告过滤",
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MiuixTheme.textStyles.body1,
                             color = titleColor,
                         )
                         Switch(
@@ -934,19 +928,19 @@ internal fun MoreSettingsContent(
                             .padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MiuixText(
                             text = "定时关闭",
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MiuixTheme.textStyles.body1,
                             color = titleColor,
                         )
-                        Text(
+                        MiuixText(
                             text = "未开启",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                             color = rowValueColor,
                         )
                         Spacer(Modifier.size(6.dp))
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
@@ -963,8 +957,7 @@ internal fun MoreSettingsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = cardContainer),
+                colors = CardDefaults.defaultColors(color = cardContainer),
             ) {
                 Column(
                     modifier = Modifier
@@ -975,15 +968,15 @@ internal fun MoreSettingsContent(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
+                        MiuixText(
                             text = "长按倍速",
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MiuixTheme.textStyles.body1,
                             color = titleColor,
                         )
-                        Text(
+                        MiuixText(
                             text = "${"%.2f".format(longPressSpeed)}X",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                             color = rowValueColor,
                         )
                     }
@@ -993,6 +986,10 @@ internal fun MoreSettingsContent(
                         onValueChange = { onLongPressSpeedChange((it * 4).toInt() / 4f) },
                         valueRange = 0.25f..5.0f,
                         steps = 18,
+                        showKeyPoints = true,
+                        keyPoints = SPEED_KEY_POINTS,
+                        magnetThreshold = 0.03f,
+                        hapticEffect = SliderDefaults.SliderHapticEffect.Step,
                     )
                     Spacer(Modifier.height(4.dp))
                     SpeedResetButton(
@@ -1004,6 +1001,7 @@ internal fun MoreSettingsContent(
             }
 
             Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
         }
     }
 }
@@ -1105,7 +1103,7 @@ internal fun PlayerCore(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(56.dp))
+            CircularProgressIndicator(size = 56.dp)
         }
     }
 
@@ -1118,14 +1116,14 @@ internal fun PlayerCore(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = (screenHeightDp / 4f).dp)
-                    .clip(MaterialTheme.shapes.medium)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 32.dp, vertical = 16.dp),
             ) {
-                Text(
+                MiuixText(
                     text = if (isFastForwarding) "3.0x倍速前进" else "3.0x倍速后退",
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                 )
             }
         }
@@ -1155,24 +1153,24 @@ internal fun PlayerCore(
         ) {
             Box(
                 modifier = Modifier
-                    .clip(MaterialTheme.shapes.medium)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 48.dp, vertical = 24.dp),
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(icon),
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(48.dp),
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
+                    MiuixText(
                         text = "${percent}%",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MiuixTheme.textStyles.title4,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Box(
@@ -1202,14 +1200,14 @@ internal fun PlayerCore(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = (screenHeightDp / 4f).dp)
-                    .clip(MaterialTheme.shapes.medium)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(horizontal = 32.dp, vertical = 16.dp),
             ) {
-                Text(
+                MiuixText(
                     text = "${formatTime(seekPreviewPosition)} / ${formatTime(playerDuration)}",
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                 )
             }
         }
@@ -1530,22 +1528,22 @@ internal fun PlayerSeekButton(
 ) {
     Row(
         modifier = Modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = text,
             tint = Color.White,
             modifier = Modifier.size(18.dp),
         )
-        Text(
+        MiuixText(
             text = text,
             color = Color.White,
-            style = MaterialTheme.typography.labelMedium,
+            style = MiuixTheme.textStyles.footnote2,
         )
     }
 }
@@ -1626,7 +1624,7 @@ internal fun NonFullscreenPlayer(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(56.dp))
+                CircularProgressIndicator(size = 56.dp)
             }
         }
 
@@ -1646,7 +1644,7 @@ internal fun NonFullscreenPlayer(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                FilledTonalIconButton(
+                MiuixIconButton(
                     onClick = {
                         if (playerDuration > 0 && playerCurrentPosition >= playerDuration - 500) {
                             exoPlayer.seekTo(0)
@@ -1654,12 +1652,9 @@ internal fun NonFullscreenPlayer(
                         if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                         onInteraction()
                     },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = Color.Black.copy(0.3f),
-                    ),
                     modifier = Modifier.size(64.dp),
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.play_filled),
                         contentDescription = "播放",
                         tint = Color.White,
@@ -1685,8 +1680,8 @@ internal fun NonFullscreenPlayer(
                         .padding(horizontal = 4.dp, vertical = 2.dp),
                 ) {
                     if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(
+                        MiuixIconButton(onClick = onBack) {
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.arrow_back_outlined),
                                 contentDescription = "返回",
                                 tint = Color.White,
@@ -1696,11 +1691,11 @@ internal fun NonFullscreenPlayer(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     if (onAudioPlay != null) {
-                        IconButton(onClick = {
+                        MiuixIconButton(onClick = {
                             bgColorIndex = (bgColorIndex + 1) % bgColors.size
                             onAudioPlay()
                         }) {
-                            Icon(
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.sync_alt_outlined),
                                 contentDescription = "切换背景色",
                                 tint = Color.White,
@@ -1709,8 +1704,8 @@ internal fun NonFullscreenPlayer(
                         }
                     }
                     if (onCast != null) {
-                        IconButton(onClick = onCast) {
-                            Icon(
+                        MiuixIconButton(onClick = onCast) {
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.cast_outlined),
                                 contentDescription = "投屏",
                                 tint = Color.White,
@@ -1719,8 +1714,8 @@ internal fun NonFullscreenPlayer(
                         }
                     }
                     if (onMoreSettings != null) {
-                        IconButton(onClick = onMoreSettings) {
-                            Icon(
+                        MiuixIconButton(onClick = onMoreSettings) {
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.more_horiz_filled),
                                 contentDescription = "更多设置",
                                 tint = Color.White,
@@ -1749,14 +1744,14 @@ internal fun NonFullscreenPlayer(
                                 .padding(horizontal = 12.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
+                            MiuixText(
                                 text = "${formatTime(playerCurrentPosition)} / ${
                                     formatTime(
                                         playerDuration
                                     )
                                 }",
                                 color = Color.White,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MiuixTheme.textStyles.footnote2,
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             PlayerSeekButton(
@@ -1799,8 +1794,8 @@ internal fun NonFullscreenPlayer(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        IconButton(onClick = onPlayPause) {
-                            Icon(
+                        MiuixIconButton(onClick = onPlayPause) {
+                            MiuixIcon(
                                 painter = painterResource(
                                     if (playerIsPlaying) R.drawable.pause_filled
                                     else R.drawable.play_filled
@@ -1810,8 +1805,8 @@ internal fun NonFullscreenPlayer(
                                 modifier = Modifier.size(24.dp),
                             )
                         }
-                        IconButton(onClick = onMuteToggle) {
-                            Icon(
+                        MiuixIconButton(onClick = onMuteToggle) {
+                            MiuixIcon(
                                 painter = painterResource(
                                     if (isMuted) R.drawable.volume_off_outlined
                                     else R.drawable.volume_up_outlined
@@ -1822,13 +1817,13 @@ internal fun NonFullscreenPlayer(
                             )
                         }
                         Spacer(modifier = Modifier.weight(1f))
-                        Text(
+                        MiuixText(
                             text = getQualityLabel(playerVideoWidth, playerVideoHeight),
                             color = Color.White.copy(alpha = 0.5f),
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MiuixTheme.textStyles.subtitle,
                         )
-                        IconButton(onClick = onFullscreen) {
-                            Icon(
+                        MiuixIconButton(onClick = onFullscreen) {
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.fullscreen_filled),
                                 contentDescription = "全屏",
                                 tint = Color.White,
@@ -1857,6 +1852,15 @@ internal fun EpisodePanelContent(
     val hasCategories = categoryCount > 1
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
+    val categoryTabs = remember(categoryCount, totalEpisodes) {
+        (0 until categoryCount).map { catIdx ->
+            val start = catIdx * pageSize + 1
+            val end = minOf((catIdx + 1) * pageSize, totalEpisodes)
+            "$start-$end"
+        }
+    }
+    val categoryListState = rememberLazyListState()
+
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(
         pageCount = { categoryCount.coerceAtLeast(1) },
         initialPage = if (hasCategories) selectedIndex / pageSize else 0,
@@ -1876,27 +1880,61 @@ internal fun EpisodePanelContent(
         }
     }
 
+    LaunchedEffect(pagerState.currentPage) {
+        if (hasCategories) {
+            categoryListState.animateScrollToItem(pagerState.currentPage)
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         if (hasCategories) {
-            androidx.compose.material3.PrimaryScrollableTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = Color.Transparent,
-                divider = {},
-                edgePadding = 0.dp,
-                contentColor = if (useFixedDarkColors) Color.White else LocalContentColor.current,
+            LazyRow(
+                state = categoryListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                (0 until categoryCount).forEach { catIdx ->
-                    val start = catIdx * pageSize + 1
-                    val end = minOf((catIdx + 1) * pageSize, totalEpisodes)
-                    androidx.compose.material3.Tab(
-                        selected = catIdx == pagerState.currentPage,
-                        onClick = {
-                            scope.launch {
-                                pagerState.animateScrollToPage(catIdx)
-                            }
+                itemsIndexed(categoryTabs) { index, label ->
+                    val selected = pagerState.currentPage == index
+                    val chipColor by animateColorAsState(
+                        targetValue = if (selected) {
+                            MiuixTheme.colorScheme.primary
+                        } else if (useFixedDarkColors) {
+                            Color.White.copy(alpha = 0.08f)
+                        } else {
+                            MiuixTheme.colorScheme.surfaceContainerHigh
                         },
-                        text = { Text("$start-$end") },
+                        animationSpec = tween(200),
                     )
+                    val textColor by animateColorAsState(
+                        targetValue = if (selected) {
+                            MiuixTheme.colorScheme.onPrimary
+                        } else if (useFixedDarkColors) {
+                            Color.White.copy(alpha = 0.6f)
+                        } else {
+                            MiuixTheme.colorScheme.onSurfaceSecondary
+                        },
+                        animationSpec = tween(200),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(chipColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            )
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                    ) {
+                        MiuixText(
+                            text = label,
+                            style = MiuixTheme.textStyles.footnote1,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor,
+                        )
+                    }
                 }
             }
 
@@ -1967,5 +2005,6 @@ private fun EpisodeChipGrid(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }

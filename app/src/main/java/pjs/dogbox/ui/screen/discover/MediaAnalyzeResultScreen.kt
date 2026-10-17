@@ -32,18 +32,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -72,6 +61,14 @@ import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.data.AppData
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 按用户要求：Referer 直接使用输入框提取出来的原始分享链接，不做 CDN 适配。
@@ -85,7 +82,6 @@ private fun imageHeadersForAnalyze(url: String, shareLink: String): NetworkHeade
     return builder.build()
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaAnalyzeResultScreen(
     type: String,
@@ -151,30 +147,22 @@ fun MediaAnalyzeResultScreen(
         selected.clear()
     }
 
-    Scaffold(
+    MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text("解析结果", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            SmallTopAppBar(
+                title = "解析结果",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        )
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 },
                 actions = {
-                    FilledTonalIconButton(
+                    MiuixIconButton(
                         onClick = {
                             if (isMultiSelect) {
                                 isMultiSelect = false
@@ -183,11 +171,8 @@ fun MediaAnalyzeResultScreen(
                                 isMultiSelect = true
                             }
                         },
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
                     ) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(
                                 if (isMultiSelect) R.drawable.close_outlined
                                 else R.drawable.select_all_outlined
@@ -203,22 +188,22 @@ fun MediaAnalyzeResultScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .background(MiuixTheme.colorScheme.surfaceContainer)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 if (isMultiSelect) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 selected.clear()
                                 selected.addAll(urls.indices)
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("全选")
+                            MiuixText("全选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 val current = selected.toSet()
                                 selected.clear()
@@ -226,41 +211,35 @@ fun MediaAnalyzeResultScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("反选")
+                            MiuixText("反选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 isMultiSelect = false
                                 selected.clear()
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("取消")
+                            MiuixText("取消")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = { startDownload(selected.toList()) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = selected.isNotEmpty(),
                     ) {
-                        Text("下载（${selected.size}）")
+                        MiuixText("下载（${selected.size}）")
                     }
                 } else {
                     Button(
                         onClick = { startDownload(urls.indices.toList()) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("下载全部")
+                        MiuixText("下载全部")
                     }
                 }
             }
@@ -319,8 +298,8 @@ private fun MediaCell(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainer)
             .then(
                 if (isMultiSelect) {
                     Modifier.clickable { onToggle() }
@@ -335,8 +314,8 @@ private fun MediaCell(
                 if (isSelected) {
                     Modifier.border(
                         2.dp,
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.shapes.medium
+                        MiuixTheme.colorScheme.primary,
+                        RoundedCornerShape(12.dp)
                     )
                 } else Modifier
             ),
@@ -370,7 +349,7 @@ private fun MediaCell(
                 .background(Color.Black.copy(alpha = 0.4f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(if (isImage) R.drawable.image_outlined else R.drawable.play_filled),
                 contentDescription = null,
                 tint = Color.White,
@@ -383,13 +362,13 @@ private fun MediaCell(
                 .padding(4.dp)
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)),
+                .background(MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
+            MiuixText(
                 text = "${index + 1}",
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.labelSmall,
+                color = MiuixTheme.colorScheme.onPrimaryContainer,
+                style = MiuixTheme.textStyles.footnote2,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -401,16 +380,16 @@ private fun MediaCell(
                     .size(22.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
+                        if (isSelected) MiuixTheme.colorScheme.primary
+                        else MiuixTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isSelected) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.check_outlined),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = MiuixTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(14.dp),
                     )
                 }
@@ -467,14 +446,14 @@ private fun NetworkVideoThumbnail(
 private fun MediaCellPlaceholder(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .background(MiuixTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(R.drawable.error_med_outline),
             contentDescription = null,
             modifier = Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.5f),
         )
     }
 }

@@ -717,25 +717,5 @@
       "日韩综艺",
       "欧美综艺"
     ]
-  },
-  {
-    "key": "森林",
-    "name": "🔞森林",
-    "type": 1,
-    "api": "https://slapibf.com/api.php/provide/vod/",
-    "searchable": 1,
-    "quickSearch": 1,
-    "filterable": 0,
-    "playerType": 2
-  },
-  {
-    "key": "玉兔",
-    "name": "🔞玉兔",
-    "type": 1,
-    "api": "https://apiyutu.com/api.php/provide/vod/",
-    "searchable": 1,
-    "quickSearch": 1,
-    "filterable": 0,
-    "playerType": 2
   }
 ]

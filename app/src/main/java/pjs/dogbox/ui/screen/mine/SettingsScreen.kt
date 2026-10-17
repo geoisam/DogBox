@@ -3,13 +3,11 @@ package pjs.dogbox.ui.screen.mine
 import pjs.dogbox.utils.openPermissionManager
 
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,24 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,75 +33,137 @@ import androidx.core.net.toUri
 import pjs.dogbox.R
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
+import pjs.dogbox.ui.screen.movie.SPEED_KEY_POINTS
 import pjs.dogbox.data.SharedData
-import pjs.dogbox.ui.components.SimpleDragHandle
-import pjs.dogbox.ui.components.SheetSectionTitle
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
+
+private val DownloadModeLabels = listOf("内置下载器", "系统下载器")
+
+private val PaletteStyleOptions = listOf(
+    "TonalSpot" to "经典色调",
+    "Neutral" to "柔和中性",
+    "Vibrant" to "高饱和度",
+    "Expressive" to "撞色组合",
+    "Rainbow" to "色相遍历",
+    "FruitSalad" to "多彩高亮",
+    "Monochrome" to "极简单色",
+    "Fidelity" to "真实还原",
+    "Content" to "内容原色",
+)
+
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
-    onNavigateToTheme: () -> Unit = {},
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit = { _, _, _ -> },
     onNavigateToCacheManage: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     var downloadMode by remember { mutableIntStateOf(SharedData.getDownloadMode(context)) }
+    var themeMode by remember { mutableIntStateOf(SharedData.getThemeMode(context).takeIf { it in 0..2 } ?: 0) }
+    var monetEnable by remember { mutableStateOf(SharedData.getDynamicColor(context)) }
+    var dynamicColorStyle by remember { mutableStateOf(SharedData.getDynamicColorStyle(context)) }
     var showSpeedSheet by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+    fun applyTheme(
+        mode: Int = themeMode,
+        monet: Boolean = monetEnable,
+        dStyle: String = dynamicColorStyle,
+    ) {
+        themeMode = mode
+        monetEnable = monet
+        dynamicColorStyle = dStyle
+        onThemeChanged(mode, monet, dStyle)
+        SharedData.setThemeMode(context, mode)
+        SharedData.setDynamicColor(context, monet)
+        SharedData.setDynamicColorStyle(context, dStyle)
+    }
+
+    // 配色风格：默认经典色调（TonalSpot，与系统默认一致）
+    val paletteStyleIds = remember { PaletteStyleOptions.map { it.first } }
+    val paletteStyleLabels = remember { PaletteStyleOptions.map { it.second } }
+    val paletteStyleIndex = paletteStyleIds.indexOf(dynamicColorStyle)
+        .takeIf { it >= 0 } ?: paletteStyleIds.indexOf("TonalSpot").coerceAtLeast(0)
+
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text("设置", fontWeight = FontWeight.Bold)
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+            SmallTopAppBar(
+                title = "设置",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        )
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 },
             )
         },
-    ) { innerPadding ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(12.dp)
+                .padding(padding)
+                .padding(horizontal = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            SettingsSectionHeader("外观")
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                OverlayDropdownPreference(
+                    title = "主题模式",
+                    items = ThemeModeLabels,
+                    selectedIndex = themeMode,
+                    onSelectedIndexChange = { applyTheme(mode = it) },
+                )
+                SwitchPreference(
+                    title = "莫奈取色",
+                    summary = if (supportsDynamicColor) "跟随桌面壁纸动态取色" else "当前系统不支持动态取色",
+                    checked = monetEnable && supportsDynamicColor,
+                    enabled = supportsDynamicColor,
+                    onCheckedChange = { applyTheme(monet = it) },
+                )
+                OverlayDropdownPreference(
+                    title = "配色风格",
+                    items = paletteStyleLabels,
+                    selectedIndex = paletteStyleIndex,
+                    enabled = monetEnable && supportsDynamicColor,
+                    onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
+                )
+            }
+
             SettingsSectionHeader("通用")
 
-            SettingsSectionCard {
-                SettingsRowItem(
-                    title = "主题模式",
-                    onClick = onNavigateToTheme,
-                )
-                SettingsMenuRow(
+            Card(modifier = Modifier.fillMaxWidth()) {
+                OverlayDropdownPreference(
                     title = "下载方式",
-                    valueText = if (downloadMode == 0) "内置下载器" else "系统下载器",
-                    options = listOf("内置下载器", "系统下载器"),
-                    selectedIndex = downloadMode,
-                    onSelect = { mode ->
+                    items = DownloadModeLabels,
+                    selectedIndex = downloadMode.coerceIn(0, DownloadModeLabels.lastIndex),
+                    onSelectedIndexChange = { mode ->
                         downloadMode = mode
                         SharedData.setDownloadMode(context, mode)
                     },
                 )
-                SettingsRowItem(
+                ArrowPreference(
                     title = "缓存管理",
                     onClick = onNavigateToCacheManage,
                 )
@@ -130,29 +171,31 @@ fun SettingsScreen(
 
             SettingsSectionHeader("播放")
 
-            SettingsSectionCard {
-                SettingsRowItem(
+            Card(modifier = Modifier.fillMaxWidth()) {
+                ArrowPreference(
                     title = "长按倍速",
-                    valueText = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
+                    summary = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
                     onClick = { showSpeedSheet = true },
+                    holdDownState = showSpeedSheet,
                 )
-                SettingsMenuRow(
+                OverlayDropdownPreference(
                     title = "播放顺序",
-                    valueText = GlobalPlayerConfig.playbackOrder.label,
-                    options = PlaybackOrder.entries.map { it.label },
-                    selectedIndex = PlaybackOrder.entries.indexOf(GlobalPlayerConfig.playbackOrder),
-                    onSelect = { index ->
+                    items = PlaybackOrder.entries.map { it.label },
+                    selectedIndex = PlaybackOrder.entries
+                        .indexOf(GlobalPlayerConfig.playbackOrder)
+                        .coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
                         GlobalPlayerConfig.setPlaybackOrder(context, PlaybackOrder.entries[index])
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = "后台播放",
                     checked = GlobalPlayerConfig.backgroundPlayback,
                     onCheckedChange = {
                         GlobalPlayerConfig.setBackgroundPlayback(context, it)
                     },
                 )
-                SettingsSwitchRow(
+                SwitchPreference(
                     title = "过滤广告",
                     checked = GlobalPlayerConfig.adsFilter,
                     onCheckedChange = {
@@ -163,16 +206,17 @@ fun SettingsScreen(
 
             SettingsSectionHeader("其他")
 
-            SettingsSectionCard {
-                SettingsRowItem(
+            Card(modifier = Modifier.fillMaxWidth()) {
+                ArrowPreference(
                     title = "通知管理",
                     onClick = { openNotificationSettings(context) },
                 )
-                SettingsRowItem(
+                ArrowPreference(
                     title = "权限管理",
                     onClick = { openPermissionManager(context) },
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 
@@ -212,193 +256,42 @@ internal fun openNotificationSettings(context: android.content.Context) {
 
 @Composable
 private fun SettingsSectionHeader(title: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
-
-@Composable
-private fun SettingsSectionCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-    ) {
-        Column(content = content)
-    }
-}
-
-@Composable
-private fun SettingsRowValue(valueText: String?) {
-    if (valueText == null) return
-    Text(
-        text = valueText,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.size(6.dp))
-}
-
-@Composable
-private fun SettingsChevronIcon() {
-    Icon(
-        painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
-        contentDescription = null,
-        modifier = Modifier.size(20.dp),
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    // SmallTitle 默认 insideMargin 为 28.dp，而外层 Column 已加 12.dp；
+    // 卡片内文字位于 12 + 16(BasicComponentDefaults) = 28.dp，
+    // 故这里把标题水平内边距改为 16.dp，令标题与卡片文字左对齐。
+    SmallTitle(
+        text = title,
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     )
 }
 
-@Composable
-private fun SettingsRowItem(
-    title: String,
-    valueText: String? = null,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        SettingsRowValue(valueText)
-        SettingsChevronIcon()
-    }
-}
-
-@Composable
-private fun SettingsMenuRow(
-    title: String,
-    valueText: String,
-    options: List<String>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        SettingsRowValue(valueText)
-        Box(contentAlignment = Alignment.Center) {
-            SettingsChevronIcon()
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                options.forEachIndexed { index, option ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = option,
-                                color = if (index == selectedIndex) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                        onClick = {
-                            onSelect(index)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LongPressSpeedBottomSheet(
     currentSpeed: Float,
     onSpeedConfirm: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sliderSpeed by remember(currentSpeed) { mutableStateOf(currentSpeed) }
 
-    ModalBottomSheet(
+    AppBottomSheet(
+        show = true,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { SimpleDragHandle() },
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp),
-        ) {
-            SheetSectionTitle("长按倍速")
-            Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "自定义倍速",
-                    style = MaterialTheme.typography.titleSmall,
+                MiuixText(
+                    text = "长按倍速",
+                    style = MiuixTheme.textStyles.title4,
                 )
-                Text(
+                MiuixText(
                     text = "${"%.2f".format(sliderSpeed)}x",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MiuixTheme.textStyles.title4,
+                    color = MiuixTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -408,36 +301,26 @@ private fun LongPressSpeedBottomSheet(
                 onValueChangeFinished = { onSpeedConfirm(sliderSpeed) },
                 valueRange = 0.25f..5.0f,
                 steps = 18,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                showKeyPoints = true,
+                keyPoints = SPEED_KEY_POINTS,
+                magnetThreshold = 0.03f,
+                hapticEffect = SliderDefaults.SliderHapticEffect.Step,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                Row(
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable {
-                            sliderSpeed = 3.0f
-                            onSpeedConfirm(3.0f)
-                        }
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "恢复默认",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                TextButton(
+                    text = "恢复默认",
+                    onClick = {
+                        sliderSpeed = 3.0f
+                        onSpeedConfirm(3.0f)
+                    },
+                )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
         }
     }
 }

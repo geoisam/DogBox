@@ -8,7 +8,6 @@ import android.os.StatFs
 import android.os.storage.StorageManager
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,17 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,13 +32,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import pjs.dogbox.R
+import pjs.dogbox.ui.components.MiuixSubScreen
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
 
 private data class DeviceStorageInfo(
@@ -60,7 +51,6 @@ private data class DeviceStorageInfo(
     val cacheBytes: Long,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CacheManageScreen(
     onBack: () -> Unit = {},
@@ -79,32 +69,9 @@ fun CacheManageScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("缓存管理", fontWeight = FontWeight.Bold)
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                },
-            )
-        },
+    MiuixSubScreen(
+        title = "缓存管理",
+        onBack = onBack,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -197,10 +164,6 @@ private fun formatFileSize(bytes: Long): String {
 private fun StorageOverviewCard(info: DeviceStorageInfo?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
     ) {
         Column(
             modifier = Modifier
@@ -226,19 +189,19 @@ private fun StorageOverviewCard(info: DeviceStorageInfo?) {
                     modifier = Modifier
                         .weight(appFraction.coerceIn(0.01f, 1f))
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(MiuixTheme.colorScheme.primary),
                 )
                 Box(
                     modifier = Modifier
                         .weight(otherFraction.coerceIn(0.01f, 1f))
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.tertiary),
+                        .background(MiuixTheme.colorScheme.primaryContainer),
                 )
                 Box(
                     modifier = Modifier
                         .weight(availableFraction.coerceIn(0.01f, 1f))
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.secondary),
+                        .background(MiuixTheme.colorScheme.dividerLine),
                 )
             }
 
@@ -246,17 +209,17 @@ private fun StorageOverviewCard(info: DeviceStorageInfo?) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 LegendItem(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MiuixTheme.colorScheme.primary,
                     label = "应用已用空间",
                     modifier = Modifier.weight(1f),
                 )
                 LegendItem(
-                    color = MaterialTheme.colorScheme.tertiary,
+                    color = MiuixTheme.colorScheme.primaryContainer,
                     label = "其他已用空间",
                     modifier = Modifier.weight(1f),
                 )
                 LegendItem(
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = MiuixTheme.colorScheme.dividerLine,
                     label = "设备可用空间",
                     modifier = Modifier.weight(1f),
                 )
@@ -264,25 +227,25 @@ private fun StorageOverviewCard(info: DeviceStorageInfo?) {
 
             Spacer(Modifier.height(20.dp))
 
-            Text(
+            MiuixText(
                 text = "应用已用空间",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
+            MiuixText(
                 text = formatFileSize(appUsed),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MiuixTheme.textStyles.title2,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
+            MiuixText(
                 text = "占用设备约${
                     if (total > 0) "%.2f".format(appUsed * 100.0 / total) else "0.00"
                 }%存储空间",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
             )
         }
     }
@@ -305,10 +268,10 @@ private fun LegendItem(
                 .background(color),
         )
         Spacer(Modifier.size(6.dp))
-        Text(
+        MiuixText(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
         )
     }
 }
@@ -321,10 +284,6 @@ private fun CacheFileCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
     ) {
         Column(
             modifier = Modifier
@@ -332,42 +291,33 @@ private fun CacheFileCard(
                 .padding(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
+                MiuixText(
                     text = "缓存文件",
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onSurface,
                 )
-                Row(
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .clickable(enabled = !clearing, onClick = onClear)
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (clearing) "清理中…" else "清理",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
+                TextButton(
+                    text = if (clearing) "清理中…" else "清理",
+                    onClick = onClear,
+                    enabled = !clearing,
+                )
             }
             Spacer(Modifier.height(6.dp))
-            Text(
+            MiuixText(
                 text = when {
                     cacheBytes == null -> "计算中…"
                     else -> formatFileSize(cacheBytes)
                 },
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title4,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MiuixTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
+            MiuixText(
                 text = "使用应用过程中产生的临时数据，清理后不影响正常使用",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
             )
         }
     }

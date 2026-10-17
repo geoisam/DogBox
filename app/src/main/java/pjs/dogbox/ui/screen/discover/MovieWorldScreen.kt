@@ -1,7 +1,6 @@
 package pjs.dogbox.ui.screen.discover
 
 import android.annotation.SuppressLint
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,18 +18,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,8 +40,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.MiuixEmptyText
+import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
+import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
+import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import java.nio.charset.Charset
 
 internal data class GlobalBoxOfficeItem(
@@ -102,7 +99,6 @@ private fun parsePiaofangHtml(html: String): List<GlobalBoxOfficeItem> {
     return items
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MovieWorldScreen(
     onBack: () -> Unit,
@@ -147,82 +143,55 @@ internal fun MovieWorldScreen(
         }
     }
 
-    Box(modifier = modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            TopAppBar(
-                title = { Text("全球票房", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                },
-            )
-
-            PullToRefreshBox(
+    MiuixSubScreen(
+        title = "全球票房",
+        onBack = onBack,
+    ) { padding ->
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            MiuixPullToRefresh(
                 isRefreshing = isRefreshing,
                 onRefresh = { refreshKey++ },
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
                     isLoading && items.isEmpty() -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(56.dp))
-                        }
+                        MiuixLoading(modifier = Modifier.fillMaxSize())
                     }
 
                     items.isEmpty() -> {
-                        Box(
+                        MiuixEmptyText(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                                .verticalScroll(rememberScrollState())
+                        )
                     }
 
                     else -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            Card(
+                            MiuixCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                colors = MiuixCardDefaults.defaultColors(
+                                    color = MiuixTheme.colorScheme.primaryContainer,
                                 ),
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                ) {
-                                    Text(
-                                        text = "全球票房影史榜",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = $$"汇率采用固定汇率，$1 USD≈￥7 CNY (仅供参考)",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                                MiuixText(
+                                    text = "全球票房影史榜",
+                                    style = MiuixTheme.textStyles.title4,
+                                    color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                MiuixText(
+                                    text = $$"汇率采用固定汇率，$1 USD≈￥7 CNY (仅供参考)",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                )
                             }
 
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -249,20 +218,20 @@ internal fun MovieWorldScreen(
                     }
                 }
             }
-        }
 
-        if (showFab) {
-            FloatingActionButton(
-                onClick = { fabScope.launch { scrollState.animateScrollToItem(0) } },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                    contentDescription = "回到顶部",
-                    modifier = Modifier.size(28.dp)
-                )
+            if (showFab) {
+                MiuixFab(
+                    onClick = { fabScope.launch { scrollState.animateScrollToItem(0) } },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(24.dp),
+                ) {
+                    MiuixIcon(
+                        painter = painterResource(R.drawable.arrow_upward_outlined),
+                        contentDescription = "回到顶部",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
@@ -270,12 +239,13 @@ internal fun MovieWorldScreen(
 
 @Composable
 private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Unit) {
-    Card(
+    MiuixCard(
         onClick = onClick,
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        colors = MiuixCardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surfaceContainer,
         ),
     ) {
         Row(
@@ -284,15 +254,15 @@ private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Un
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            MiuixText(
                 text = "${item.rank}",
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title4,
                 fontWeight = FontWeight.Bold,
                 color = when (item.rank - 1) {
                     0 -> Color(0xFFFF3B30)
                     1 -> Color(0xFFFF8A00)
                     2 -> Color(0xFFFFB224)
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MiuixTheme.colorScheme.onSurfaceSecondary
                 },
                 modifier = Modifier.width(36.dp),
                 textAlign = TextAlign.Center,
@@ -301,13 +271,13 @@ private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Un
             Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                MiuixText(
                     text = item.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MiuixTheme.textStyles.body1,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MiuixTheme.colorScheme.onSurface,
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -319,10 +289,10 @@ private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Un
                         append(item.director)
                     }
                 }
-                Text(
+                MiuixText(
                     text = yearDirector,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -330,10 +300,10 @@ private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Un
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
+            MiuixText(
                 text = formatBoxOffice(item.boxOfficeRaw),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                style = MiuixTheme.textStyles.title4,
+                color = MiuixTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.End,
             )

@@ -1,16 +1,14 @@
 package pjs.dogbox.ui.screen
 
-import pjs.dogbox.ui.components.SimpleDragHandle
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,15 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +31,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -52,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -61,10 +50,15 @@ import pjs.dogbox.R
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.LunarSnapshot
 import pjs.dogbox.utils.LunarUtil
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import pjs.dogbox.ui.components.AppBottomSheet
 import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MineScreen(
     modifier: Modifier = Modifier,
@@ -153,24 +147,19 @@ fun MineScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(12.dp),
+            .padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { showSheet = true },
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                )
+                modifier = Modifier.fillMaxWidth(),
+                pressFeedbackType = PressFeedbackType.Sink,
+                showIndication = true,
+                onClick = { showSheet = true },
+                insideMargin = PaddingValues(16.dp),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -183,70 +172,67 @@ fun MineScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
+                            MiuixText(
                                 text = dateState["YearMonth"] ?: "2002 年 1 月",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MiuixTheme.textStyles.body1,
                                 fontWeight = FontWeight.Bold,
                             )
                             Box(
                                 modifier = Modifier
                                     .background(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
-                                        MaterialTheme.shapes.medium
+                                        MiuixTheme.colorScheme.primary.copy(alpha = 0.75f),
+                                        CircleShape
                                     )
                                     .padding(horizontal = 8.dp, vertical = 4.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
+                                MiuixText(
                                     text = dateState["ShiChen"] ?: "未时",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onPrimary,
                                 )
                             }
                             if (dateState["JieQi"]?.isNotBlank() == true) {
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.75f),
-                                            MaterialTheme.shapes.medium
+                                            MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f),
+                                            CircleShape
                                         )
                                         .padding(horizontal = 8.dp, vertical = 4.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
+                                    MiuixText(
                                         text = dateState["JieQi"] ?: "大寒",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onTertiary,
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSecondaryContainer,
                                     )
                                 }
                             }
                         }
-                        Text(
+                        MiuixText(
                             text = dateState["Week"] ?: "星期二",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MiuixTheme.textStyles.body1,
                             fontWeight = FontWeight.Bold,
                         )
                     }
                     Spacer(modifier = Modifier.height(18.dp))
-                    Text(
+                    MiuixText(
                         text = dateState["Day"] ?: "29",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 59.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
+                    MiuixText(
                         text = dateState["MonthDay"] ?: "腊月十七",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MiuixTheme.textStyles.title2,
                         fontWeight = FontWeight.Bold,
                     )
-                    Text(
+                    MiuixText(
                         text = dateState["GanZhi"] ?: "辛巳蛇年 辛丑牛月 丁酉鸡日",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
                 }
             }
@@ -289,15 +275,7 @@ fun MineScreen(
             }
         }
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     MineItem(
                         iconRes = R.drawable.database_outlined,
@@ -345,15 +323,7 @@ fun MineScreen(
             }
         }
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     MineListItem(
                         iconRes = R.drawable.favorite_outlined,
@@ -372,27 +342,19 @@ fun MineScreen(
     }
 
     if (showSheet) {
-        ModalBottomSheet(
+        AppBottomSheet(
+            show = true,
             onDismissRequest = { showSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            dragHandle = { SimpleDragHandle() },
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp)
-                    .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    insideMargin = PaddingValues(0.dp),
                 ) {
                     Column {
                         nextFestival.value.forEach { jieri ->
@@ -403,24 +365,23 @@ fun MineScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
+                                    MiuixText(
                                         text = jieri.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MiuixTheme.textStyles.title4,
                                         fontWeight = FontWeight.Bold,
                                     )
-                                    Text(
+                                    MiuixText(
                                         text = "${jieri.date.monthValue}月${jieri.date.dayOfMonth}日 (周${jieri.weekday})",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                     )
                                 }
-                                Text(
+                                MiuixText(
                                     text = buildAnnotatedString {
                                         withStyle(
                                             SpanStyle(
-                                                fontSize = MaterialTheme.typography.headlineMedium.fontSize,
-                                                color = MaterialTheme.colorScheme.primary,
+                                                fontSize = MiuixTheme.textStyles.title2.fontSize,
+                                                color = MiuixTheme.colorScheme.primary,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         ) {
@@ -431,8 +392,8 @@ fun MineScreen(
                                         append(" ")
                                         withStyle(
                                             SpanStyle(
-                                                fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                             )
                                         ) {
                                             append("天")
@@ -443,149 +404,52 @@ fun MineScreen(
                         }
                     }
                 }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "宜",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = dateState["DayYi"] ?: "无",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "忌",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = dateState["DayJi"] ?: "无",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "冲煞",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = dateState["DayChong"] ?: "无",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "彭祖",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = dateState["PengZu"] ?: "无",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
+                LunarInfoCard(
+                    label = "宜",
+                    value = dateState["DayYi"] ?: "无",
+                )
+                LunarInfoCard(
+                    label = "忌",
+                    value = dateState["DayJi"] ?: "无",
+                )
+                LunarInfoCard(
+                    label = "冲煞",
+                    value = dateState["DayChong"] ?: "无",
+                )
+                LunarInfoCard(
+                    label = "彭祖",
+                    value = dateState["PengZu"] ?: "无",
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     DirectionCard(
                         label = "喜",
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        containerColor = MiuixTheme.colorScheme.errorContainer,
+                        contentColor = MiuixTheme.colorScheme.onErrorContainer,
                         value = dateState["DayXi"] ?: "喜神方位",
                         modifier = Modifier.weight(1f)
                     )
                     DirectionCard(
                         label = "财",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        containerColor = MiuixTheme.colorScheme.tertiaryContainer,
+                        contentColor = MiuixTheme.colorScheme.onTertiaryContainer,
                         value = dateState["DayCai"] ?: "财神方位",
                         modifier = Modifier.weight(1f)
                     )
                     DirectionCard(
                         label = "福",
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        containerColor = MiuixTheme.colorScheme.primaryContainer,
+                        contentColor = MiuixTheme.colorScheme.onPrimaryContainer,
                         value = dateState["DayFu"] ?: "福神方位",
                         modifier = Modifier.weight(1f)
                     )
                 }
-
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
-
 }
 
 fun calculateTimeToNextHour(): Long {
@@ -605,32 +469,25 @@ fun MineCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() },
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
+        modifier = modifier.fillMaxWidth(),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+        insideMargin = PaddingValues(12.dp),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
+            MiuixText(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MiuixTheme.textStyles.body2,
                 textAlign = TextAlign.Center,
             )
         }
@@ -644,26 +501,27 @@ fun MineItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .clickable { onClick() }
-            .padding(vertical = 16.dp),
-        contentAlignment = Alignment.Center
+    Card(
+        modifier = modifier,
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+        colors = CardDefaults.defaultColors(color = Color.Transparent),
+        insideMargin = PaddingValues(vertical = 16.dp),
     ) {
         Column(
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
+            MiuixIcon(
                 painter = painterResource(iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
+            MiuixText(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MiuixTheme.textStyles.body2,
                 textAlign = TextAlign.Center,
             )
         }
@@ -676,32 +534,63 @@ fun MineListItem(
     text: String,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+        colors = CardDefaults.defaultColors(color = Color.Transparent),
     ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.size(16.dp))
-        Text(
-            text = text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Icon(
-            painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MiuixIcon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.size(16.dp))
+            MiuixText(
+                text = text,
+                modifier = Modifier.weight(1f),
+                style = MiuixTheme.textStyles.body2,
+            )
+            MiuixIcon(
+                painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LunarInfoCard(
+    label: String,
+    value: String,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MiuixText(
+                text = label,
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            MiuixText(
+                text = value,
+                style = MiuixTheme.textStyles.body2,
+            )
+        }
     }
 }
 
@@ -713,14 +602,7 @@ fun DirectionCard(
     value: String,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.medium),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
+    Card(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -728,22 +610,21 @@ fun DirectionCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                shape = CircleShape,
-                color = containerColor,
+            Box(
+                modifier = Modifier.background(containerColor, CircleShape),
             ) {
-                Text(
+                MiuixText(
                     text = label,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MiuixTheme.textStyles.title2,
                     color = contentColor,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
-            Text(
+            MiuixText(
                 text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
                 textAlign = TextAlign.Center,
             )
         }

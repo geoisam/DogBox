@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,17 +23,10 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -63,11 +56,19 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import androidx.compose.material3.CircularProgressIndicator
+import pjs.dogbox.ui.components.grayTextFieldColors
 import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -235,7 +236,7 @@ fun MediaLinkTestScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MiuixTheme.colorScheme.surface)
                     .windowInsetsPadding(WindowInsets.statusBars)
             ) {
                 if (isPlaying) {
@@ -260,13 +261,13 @@ fun MediaLinkTestScreen(
                             .height(240.dp)
                             .background(Color.Black),
                     ) {
-                        IconButton(
+                        MiuixIconButton(
                             onClick = onBack,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(start = 4.dp, top = 2.dp),
                         ) {
-                            Icon(
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.arrow_back_outlined),
                                 contentDescription = "返回",
                                 tint = Color.White,
@@ -278,7 +279,7 @@ fun MediaLinkTestScreen(
                                 modifier = Modifier.align(Alignment.Center),
                             )
                         } else {
-                            Icon(
+                            MiuixIcon(
                                 painter = painterResource(R.drawable.autoplay_outlined),
                                 contentDescription = null,
                                 tint = Color.White,
@@ -303,25 +304,25 @@ fun MediaLinkTestScreen(
                     ) {
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.fillMaxWidth()
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primaryContainer),
+                            insideMargin = PaddingValues(16.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Icon(
+                                MiuixIcon(
                                     painter = painterResource(R.drawable.app_badging_outlined),
                                     contentDescription = "通知",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    tint = MiuixTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
+                                MiuixText(
                                     text = notice,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    color = MiuixTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -331,17 +332,14 @@ fun MediaLinkTestScreen(
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
+                            insideMargin = PaddingValues(16.dp),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                OutlinedTextField(
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                TextField(
                                     value = url,
                                     onValueChange = { url = it },
-                                    label = { Text("播放链接") },
-                                    placeholder = { Text("请输入播放链接") },
+                                    label = "播放链接",
+                                    colors = grayTextFieldColors(),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(min = 120.dp),
@@ -416,19 +414,6 @@ fun MediaLinkTestScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 ClipboardActionRow(
-                                    onClear = {
-                                        focusManager.clearFocus()
-                                        url = ""
-                                    },
-                                    onPaste = {
-                                        focusManager.clearFocus()
-                                        val pasted = pasteFromClipboard(context)
-                                        if (pasted != null) {
-                                            url = pasted
-                                        } else {
-                                            Toast.makeText(context, "剪贴板为空", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
                                     actionText = "开始播放",
                                     onAction = {
                                         focusManager.clearFocus()
@@ -478,19 +463,19 @@ private fun ActionIconItem(
         modifier = modifier
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(MaterialTheme.shapes.medium),
+            .clip(RoundedCornerShape(12.dp)),
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
+        MiuixText(
             label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
         )
     }
 }

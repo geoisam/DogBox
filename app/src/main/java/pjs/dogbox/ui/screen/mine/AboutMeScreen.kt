@@ -15,10 +15,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,20 +27,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,12 +57,22 @@ import pjs.dogbox.data.SharedData
 import pjs.dogbox.ui.components.UpdateBottomSheet
 import pjs.dogbox.data.fetchRemoteConfig
 import pjs.dogbox.data.parseUpdateInfo
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 private enum class UpdateCheckState {
     NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE, CHECK_FAILED
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutMeScreen(
     onBack: () -> Unit = {},
@@ -106,19 +104,13 @@ fun AboutMeScreen(
     var showUpdateDialog by remember { mutableStateOf(false) }
     var showDisclaimerDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("关于应用", fontWeight = FontWeight.Bold) },
+            SmallTopAppBar(
+                title = "关于应用",
                 navigationIcon = {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Icon(
+                    MiuixIconButton(onClick = onBack) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.arrow_back_outlined),
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
@@ -126,299 +118,242 @@ fun AboutMeScreen(
                     }
                 },
                 actions = {
-                    FilledTonalIconButton(
+                    MiuixIconButton(
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
                                 AppData.GITHUB_PAGE.toUri()
                             )
                             context.startActivity(intent)
-                        },
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
+                        }
                     ) {
-                        Icon(
+                        MiuixIcon(
                             painter = painterResource(R.drawable.github_logo),
                             contentDescription = "GitHub",
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
-    ) { paddingValues ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(padding)
                 .padding(horizontal = 12.dp)
-                .padding(paddingValues)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
 
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                        .padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Card(
+                    modifier = Modifier.size(100.dp),
+                    cornerRadius = 28.dp,
+                    colors = CardDefaults.defaultColors(color = bgColor),
+                    pressFeedbackType = PressFeedbackType.Sink,
+                    showIndication = true,
+                    onClick = {
+                        try {
+                            val intent = Intent().apply {
+                                component = ComponentName(
+                                    "com.android.settings",
+                                    $$"com.android.settings.Settings$AppDashboardActivity"
+                                )
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                        }
+                    },
+                    onLongPress = {
+                        try {
+                            val intent = Intent().apply {
+                                component = ComponentName(
+                                    "com.android.settings.intelligence",
+                                    $$"com.android.settings.intelligence.search.SearchActivity"
+                                )
+                            }
+                            context.startActivity(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            context.startActivity(Intent(Settings.ACTION_SEARCH_SETTINGS))
+                        }
+                    },
                 ) {
-                    Card(
-                        modifier = Modifier.size(100.dp)
-                            .combinedClickable(
-                                onClick = {
-                                    try {
-                                        val intent = Intent().apply {
-                                            component = ComponentName(
-                                                "com.android.settings",
-                                                $$"com.android.settings.Settings$AppDashboardActivity"
-                                            )
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
-                                    }
-                                },
-                                onLongClick = {
-                                    try {
-                                        val intent = Intent().apply {
-                                            component = ComponentName(
-                                                "com.android.settings.intelligence",
-                                                $$"com.android.settings.intelligence.search.SearchActivity"
-                                            )
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: ActivityNotFoundException) {
-                                        context.startActivity(Intent(Settings.ACTION_SEARCH_SETTINGS))
-                                    }
-                                },
-                            ),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(
-                            containerColor = bgColor,
-                        ),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.dogbox_logo_fill),
-                            tint = fgColor,
-                            contentDescription = "LOGO",
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontFamily = scienceGothic,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "version ${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    MiuixIcon(
+                        painter = painterResource(R.drawable.dogbox_logo_fill),
+                        tint = fgColor,
+                        contentDescription = "LOGO",
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                MiuixText(
+                    text = stringResource(R.string.app_name),
+                    fontFamily = scienceGothic,
+                    style = MiuixTheme.textStyles.title3,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                MiuixText(
+                    text = "version ${BuildConfig.VERSION_NAME}",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+            }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !checking) {
-                            val cached = SharedData.getCachedUpdateInfo()
-                            if (cached != null) {
-                                latestVersion = cached.versionName
-                                updateNote = cached.note
-                                updateDown = cached.downloadUrl
-                                showUpdateDialog = true
-                            } else {
-                                scope.launch {
-                                    manualOverride = UpdateCheckState.CHECKING
-                                    val configJson = fetchRemoteConfig()
-                                    val updateInfo = parseUpdateInfo(configJson)
-                                    if (updateInfo != null && updateInfo.code > BuildConfig.VERSION_CODE) {
-                                        latestVersion = updateInfo.ver
-                                        updateNote = updateInfo.note
-                                        updateDown = updateInfo.down
-                                        SharedData.setCachedUpdateInfo(
-                                            SharedData.CachedUpdateInfo(
-                                                versionCode = updateInfo.code,
-                                                versionName = updateInfo.ver,
-                                                note = updateInfo.note,
-                                                downloadUrl = updateInfo.down,
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !checking) {
+                                val cached = SharedData.getCachedUpdateInfo()
+                                if (cached != null) {
+                                    latestVersion = cached.versionName
+                                    updateNote = cached.note
+                                    updateDown = cached.downloadUrl
+                                    showUpdateDialog = true
+                                } else {
+                                    scope.launch {
+                                        manualOverride = UpdateCheckState.CHECKING
+                                        val configJson = fetchRemoteConfig()
+                                        val updateInfo = parseUpdateInfo(configJson)
+                                        if (updateInfo != null && updateInfo.code > BuildConfig.VERSION_CODE) {
+                                            latestVersion = updateInfo.ver
+                                            updateNote = updateInfo.note
+                                            updateDown = updateInfo.down
+                                            SharedData.setCachedUpdateInfo(
+                                                SharedData.CachedUpdateInfo(
+                                                    versionCode = updateInfo.code,
+                                                    versionName = updateInfo.ver,
+                                                    note = updateInfo.note,
+                                                    downloadUrl = updateInfo.down,
+                                                )
                                             )
-                                        )
-                                        SharedData.setCachedUpToDate(false)
-                                        SharedData.setCachedCheckFailed(false)
-                                        manualOverride = null
-                                        showUpdateDialog = true
-                                    } else if (updateInfo != null && updateInfo.code <= BuildConfig.VERSION_CODE) {
-                                        SharedData.setCachedUpdateInfo(null)
-                                        SharedData.setCachedUpToDate(true)
-                                        SharedData.setCachedCheckFailed(false)
-                                        manualOverride = null
-                                        Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT)
-                                            .show()
-                                    } else {
-                                        SharedData.setCachedUpdateInfo(null)
-                                        SharedData.setCachedUpToDate(false)
-                                        SharedData.setCachedCheckFailed(true)
-                                        manualOverride = null
-                                        Toast.makeText(context, "更新检测失败", Toast.LENGTH_SHORT)
-                                            .show()
+                                            SharedData.setCachedUpToDate(false)
+                                            SharedData.setCachedCheckFailed(false)
+                                            manualOverride = null
+                                            showUpdateDialog = true
+                                        } else if (updateInfo != null && updateInfo.code <= BuildConfig.VERSION_CODE) {
+                                            SharedData.setCachedUpdateInfo(null)
+                                            SharedData.setCachedUpToDate(true)
+                                            SharedData.setCachedCheckFailed(false)
+                                            manualOverride = null
+                                            Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT)
+                                                .show()
+                                        } else {
+                                            SharedData.setCachedUpdateInfo(null)
+                                            SharedData.setCachedUpToDate(false)
+                                            SharedData.setCachedCheckFailed(true)
+                                            manualOverride = null
+                                            Toast.makeText(context, "更新检测失败", Toast.LENGTH_SHORT)
+                                                .show()
+                                        }
                                     }
                                 }
                             }
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "版本更新",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    when (checkState) {
-                        UpdateCheckState.HAS_UPDATE -> {
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 4.dp)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                            ) {
-                                Text(
-                                    text = "有新版本",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                )
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MiuixText(
+                            text = "版本更新",
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        when (checkState) {
+                            UpdateCheckState.HAS_UPDATE -> {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(end = 4.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MiuixTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                                ) {
+                                    MiuixText(
+                                        text = "有新版本",
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onErrorContainer,
+                                    )
+                                }
                             }
+
+                            UpdateCheckState.UP_TO_DATE -> MiuixText(
+                                text = "已是最新版本",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+
+                            UpdateCheckState.CHECK_FAILED -> MiuixText(
+                                text = "检测失败",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+
+                            UpdateCheckState.CHECKING -> MiuixText(
+                                text = "检测中...",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+
+                            UpdateCheckState.NOT_CHECKED -> MiuixText(
+                                text = "尚未检测",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
                         }
-
-                        UpdateCheckState.UP_TO_DATE -> Text(
-                            text = "已是最新版本",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-
-                        UpdateCheckState.CHECK_FAILED -> Text(
-                            text = "检测失败",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-
-                        UpdateCheckState.CHECKING -> Text(
-                            text = "检测中...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-
-                        UpdateCheckState.NOT_CHECKED -> Text(
-                            text = "尚未检测",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-                    }
-                    val infiniteTransition = rememberInfiniteTransition(label = "rotate")
-                    val rotateAngle by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 1000, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart,
-                        ),
-                        label = "rotateAngle",
-                    )
-                    Icon(
-                        painter = painterResource(R.drawable.autorenew_outlined),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .then(
-                                if (checking) Modifier.graphicsLayer { rotationZ = rotateAngle }
-                                else Modifier
+                        val infiniteTransition = rememberInfiniteTransition(label = "rotate")
+                        val rotateAngle by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 1000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart,
                             ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "自动检测更新",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            label = "rotateAngle",
                         )
-                        Text(
-                            text = "每次启动时检测是否有更新",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        MiuixIcon(
+                            painter = painterResource(R.drawable.autorenew_outlined),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .then(
+                                    if (checking) Modifier.graphicsLayer { rotationZ = rotateAngle }
+                                    else Modifier
+                                ),
+                            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
                     }
-                    Switch(
+                    SwitchPreference(
+                        title = "自动检测更新",
+                        summary = "每次启动时检测是否有更新",
                         checked = autoCheckUpdate,
                         onCheckedChange = {
                             autoCheckUpdate = it
                             SharedData.setAutoCheckUpdate(context, it)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 }
-
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    AboutListItem(
-                        text = "更新日志",
-                        onClick = onNavigateToChangeLog
-                    )
-                    AboutListItem(
-                        text = "特别鸣谢",
-                        onClick = onNavigateToContributor
-                    )
-                    AboutListItem(
-                        text = "免责声明",
-                        onClick = { showDisclaimerDialog = true }
-                    )
-                    AboutListItem(
-                        text = "权限清单",
-                        onClick = { openPermissionManager(context) }
-                    )
-                    AboutListItem(
-                        text = "开源许可",
-                        onClick = onNavigateToLicense
-                    )
+                    ArrowPreference(title = "更新日志", onClick = onNavigateToChangeLog)
+                    ArrowPreference(title = "特别鸣谢", onClick = onNavigateToContributor)
+                    ArrowPreference(title = "免责声明", onClick = { showDisclaimerDialog = true })
+                    ArrowPreference(title = "权限清单", onClick = { openPermissionManager(context) })
+                    ArrowPreference(title = "开源许可", onClick = onNavigateToLicense)
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -438,32 +373,3 @@ fun AboutMeScreen(
         downloadUrl = updateDown,
     )
 }
-
-
-@Composable
-fun AboutListItem(
-    text: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Icon(
-            painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-

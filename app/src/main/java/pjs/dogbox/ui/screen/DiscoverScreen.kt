@@ -1,10 +1,10 @@
 package pjs.dogbox.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,23 +12,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pjs.dogbox.R
+import pjs.dogbox.ui.components.SheetSectionTitle
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 enum class DiscoverPage {
     ANIME_RANK,
@@ -153,29 +152,11 @@ fun DiscoverScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         groups.forEach { group ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(18.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = group.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            SheetSectionTitle(group.name)
             group.items.chunked(2).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -183,53 +164,50 @@ fun DiscoverScreen(
                 ) {
                     rowItems.forEach { it ->
                         Card(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(MaterialTheme.shapes.medium)
-                                .clickable { onNavigateToDetail(it.page) },
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            )
+                            modifier = Modifier.weight(1f),
+                            pressFeedbackType = PressFeedbackType.Sink,
+                            showIndication = true,
+                            onClick = { onNavigateToDetail(it.page) },
+                            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(56.dp),
-                                    shape = MaterialTheme.shapes.large,
-                                    color = MaterialTheme.colorScheme.primaryContainer,
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(
+                                            MiuixTheme.colorScheme.primaryContainer,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(it.icon),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(32.dp),
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        )
-                                    }
+                                    MiuixIcon(
+                                        painter = painterResource(it.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MiuixTheme.colorScheme.onPrimaryContainer,
+                                    )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(
+                                MiuixText(
                                     text = it.title,
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MiuixTheme.textStyles.title4,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(
+                                MiuixText(
                                     text = it.subtitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
                                 )
                             }
                         }
                     }
+                    // 补齐双列对齐
+                    if (rowItems.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
         Spacer(Modifier.height(12.dp))

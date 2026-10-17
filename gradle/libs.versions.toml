@@ -9,6 +9,7 @@ navigationCompose = "2.9.8"
 splashscreen = "1.2.0"
 coreKtx = "1.19.0"
 documentfile = "1.1.0"
+miuix = "0.9.4"
 
 kotlinx-coroutines = "1.11.0"
 kotlinx-json = "1.11.0"
@@ -17,7 +18,6 @@ ktor = "3.5.2"
 coil3 = "3.6.3"
 media3 = "1.10.1"
 
-materialKolor = "5.0.1"
 fleeksoft-ksoup = "0.2.6"
 com-tyme = "1.5.1"
 
@@ -25,18 +25,18 @@ com-tyme = "1.5.1"
 [libraries]
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
-androidx-compose-ui-text = { module = "androidx.compose.ui:ui-text" }
-androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
-androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-material3-navigation = { module = "androidx.compose.material3:material3-adaptive-navigation-suite" }
-androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-androidx-compose-foundation-layout = { module = "androidx.compose.foundation:foundation-layout" }
-androidx-compose-animation = { module = "androidx.compose.animation:animation" }
+androidx-compose-activity = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+
+miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
+miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
+miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
+miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
+miuix-squircle = { module = "top.yukonga.miuix.kmp:miuix-squircle-android", version.ref = "miuix" }
+miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
 
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx"  }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
-androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 
@@ -63,7 +63,6 @@ androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "medi
 androidx-media3-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
 
-materialKolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 fleeksoft-ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "fleeksoft-ksoup" }
 com-tyme = { module = "cn.6tail:tyme4j", version.ref = "com-tyme" }
 

@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -38,24 +37,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -87,7 +71,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -117,8 +100,18 @@ import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
 import pjs.dogbox.ui.screen.movie.formatTime
 import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
-import pjs.dogbox.ui.components.SheetSectionTitle
-import pjs.dogbox.ui.components.SimpleDragHandle
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.grayTextFieldColors
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import androidx.core.content.FileProvider
 import java.io.File
 
 private fun setSystemBarsVisible(
@@ -195,7 +188,6 @@ private fun deleteVideoFile(context: android.content.Context, uriString: String)
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocalVideoPreview(
     videoUri: String,
@@ -577,14 +569,15 @@ fun LocalVideoPreview(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                FilledTonalIconButton(
-                    onClick = { togglePlayPause() },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = Color.Black.copy(0.3f),
-                    ),
-                    modifier = Modifier.size(64.dp),
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(0.3f))
+                        .clickable { togglePlayPause() },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
+                    MiuixIcon(
                         painter = painterResource(R.drawable.play_filled),
                         contentDescription = "播放",
                         tint = Color.White,
@@ -618,40 +611,40 @@ fun LocalVideoPreview(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(
+                MiuixIconButton(onClick = onBack) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.arrow_back_outlined),
                         contentDescription = "返回",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                Text(
+                MiuixText(
                     text = displayTitle,
                     modifier = Modifier.weight(1f),
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.title4,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                IconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
-                    Icon(
+                MiuixIconButton(onClick = { bgColorIndex = (bgColorIndex + 1) % bgColors.size }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.sync_alt_outlined),
                         contentDescription = "切换背景色",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                IconButton(onClick = {}) {
-                    Icon(
+                MiuixIconButton(onClick = {}) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.cast_outlined),
                         contentDescription = "投屏",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                IconButton(onClick = { showMoreSheet = true }) {
-                    Icon(
+                MiuixIconButton(onClick = { showMoreSheet = true }) {
+                    MiuixIcon(
                         painter = painterResource(R.drawable.more_horiz_filled),
                         contentDescription = "更多",
                         tint = Color.White,
@@ -690,10 +683,10 @@ fun LocalVideoPreview(
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
+                    MiuixText(
                         text = "${formatTime(playerCurrentPosition)} / ${formatTime(playerDuration)}",
                         color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MiuixTheme.textStyles.body2,
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     PlayerSeekButton(
@@ -731,8 +724,8 @@ fun LocalVideoPreview(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    IconButton(onClick = { togglePlayPause() }) {
-                        Icon(
+                    MiuixIconButton(onClick = { togglePlayPause() }) {
+                        MiuixIcon(
                             painter = painterResource(
                                 if (isPlaying) R.drawable.pause_filled else R.drawable.play_filled
                             ),
@@ -741,8 +734,8 @@ fun LocalVideoPreview(
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    IconButton(onClick = { toggleMute() }) {
-                        Icon(
+                    MiuixIconButton(onClick = { toggleMute() }) {
+                        MiuixIcon(
                             painter = painterResource(
                                 if (isMuted) R.drawable.volume_off_outlined
                                 else R.drawable.volume_up_outlined
@@ -753,13 +746,13 @@ fun LocalVideoPreview(
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(
+                    MiuixText(
                         text = getQualityLabel(videoWidth, videoHeight),
                         color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MiuixTheme.textStyles.footnote1,
                     )
-                    IconButton(onClick = { setFullscreen(true) }) {
-                        Icon(
+                    MiuixIconButton(onClick = { setFullscreen(true) }) {
+                        MiuixIcon(
                             painter = painterResource(R.drawable.fullscreen_filled),
                             contentDescription = "全屏播放",
                             tint = Color.White,
@@ -806,7 +799,6 @@ fun LocalVideoPreview(
     }
 
     if (showRenameSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var renameValue by remember {
             mutableStateOf(TextFieldValue(displayTitle, TextRange(0, displayTitle.length)))
         }
@@ -822,71 +814,73 @@ fun LocalVideoPreview(
             delay(200)
             focusRequester.requestFocus()
         }
-        ModalBottomSheet(
+        AppBottomSheet(
+            show = true,
+            title = "重命名",
             onDismissRequest = { showRenameSheet = false },
-            sheetState = sheetState,
-            dragHandle = { SimpleDragHandle() },
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = "重命名",
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                OutlinedTextField(
+                MiuixTextField(
                     value = renameValue,
                     onValueChange = { renameValue = it },
                     singleLine = true,
+                    colors = grayTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
                         .focusRequester(focusRequester),
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .padding(top = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    OutlinedButton(
+                    TextButton(
+                        text = "取消",
                         onClick = { showRenameSheet = false },
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Text("取消")
-                    }
+                    )
                     Button(
                         onClick = { confirmRename(renameValue.text) },
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("确认")
+                        MiuixText("确认")
                     }
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除", fontWeight = FontWeight.Bold) },
-            text = { Text("确认删除这1项内容？删除后将无法查看。") },
-            confirmButton = {
-                Button(onClick = { showDeleteDialog = false; confirmDelete() }) {
-                    Text("确认删除")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            },
-        )
+    OverlayDialog(
+        show = showDeleteDialog,
+        title = "删除",
+        summary = "确认删除这1项内容？删除后将无法查看。",
+        onDismissRequest = { showDeleteDialog = false },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(
+                text = "取消",
+                onClick = { showDeleteDialog = false },
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = { showDeleteDialog = false; confirmDelete() },
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                ),
+            ) {
+                MiuixText(
+                    text = "确认删除",
+                    color = MiuixTheme.colorScheme.onError,
+                )
+            }
+        }
     }
 
     if (showSpeedSheet) {
@@ -912,11 +906,9 @@ fun LocalVideoPreview(
     }
 
     if (showMoreSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        AppBottomSheet(
+            show = true,
             onDismissRequest = { showMoreSheet = false },
-            sheetState = sheetState,
-            dragHandle = { SimpleDragHandle() },
         ) {
             Column(
                 modifier = Modifier
@@ -951,21 +943,21 @@ private fun PlayerActionItem(
 ) {
     Column(
         modifier = Modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
+        MiuixIcon(
             painter = painterResource(icon),
             contentDescription = label,
             tint = Color.White,
             modifier = Modifier.size(22.dp),
         )
-        Text(
+        MiuixText(
             text = label,
             color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
+            style = MiuixTheme.textStyles.footnote2,
         )
     }
 }
