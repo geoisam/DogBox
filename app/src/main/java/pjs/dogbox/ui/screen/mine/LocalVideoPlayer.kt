@@ -545,6 +545,7 @@ fun LocalVideoPreview(
                     pv.scaleX = if (flipHorizontal) -1f else 1f
                     pv.scaleY = if (flipVertical) -1f else 1f
                 },
+                onRelease = { runCatching { it.player = null } },
                 modifier = currentScaleMode.aspectRatio?.let { ratio ->
                     val hByHeight = screenHeightDp.toFloat()
                     val wByHeight = hByHeight * ratio

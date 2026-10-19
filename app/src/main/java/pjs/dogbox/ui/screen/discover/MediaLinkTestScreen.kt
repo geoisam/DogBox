@@ -61,6 +61,8 @@ import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
 import pjs.dogbox.ui.screen.movie.VideoPlayerScreen
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -330,97 +332,124 @@ fun MediaLinkTestScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            insideMargin = PaddingValues(16.dp),
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                TextField(
-                                    value = url,
-                                    onValueChange = { url = it },
-                                    label = "播放链接",
-                                    colors = grayTextFieldColors(),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 120.dp),
-                                    maxLines = 100,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Uri,
-                                        imeAction = ImeAction.Go,
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onGo = {
-                                            focusManager.clearFocus()
-                                            detectAndPlay(url.trim())
-                                        }
-                                    ),
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    ActionIconItem(
-                                        icon = R.drawable.link_outlined,
-                                        label = "过滤链接",
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                            val link = extractShareUrl(url)
-                                            if (link != null) {
-                                                url = link
-                                            } else {
-                                                Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    ActionIconItem(
-                                        icon = R.drawable.kid_star_outlined,
-                                        label = "收藏视频",
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    ActionIconItem(
-                                        icon = R.drawable.cloud_download_outlined,
-                                        label = "缓存视频",
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    ActionIconItem(
-                                        icon = R.drawable.speed_outlined,
-                                        label = "播放倍速",
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                            showSpeedSheet = true
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    ActionIconItem(
-                                        icon = R.drawable.aspect_ratio_outlined,
-                                        label = "视频画幅",
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                            showScaleSheet = true
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
+                        TextField(
+                            value = url,
+                            onValueChange = { url = it },
+                            label = "播放链接",
+                            colors = grayTextFieldColors(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 120.dp),
+                            maxLines = 100,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Go,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onGo = {
+                                    focusManager.clearFocus()
+                                    detectAndPlay(url.trim())
                                 }
+                            ),
+                        )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                                ClipboardActionRow(
-                                    actionText = "开始播放",
-                                    onAction = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.link_outlined,
+                                    label = "过滤链接",
+                                    onClick = {
                                         focusManager.clearFocus()
-                                        detectAndPlay(url.trim())
+                                        val link = extractShareUrl(url)
+                                        if (link != null) {
+                                            url = link
+                                        } else {
+                                            Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.kid_star_outlined,
+                                    label = "收藏视频",
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.cloud_download_outlined,
+                                    label = "缓存视频",
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.speed_outlined,
+                                    label = "播放倍速",
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        showSpeedSheet = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.aspect_ratio_outlined,
+                                    label = "视频画幅",
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        showScaleSheet = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                focusManager.clearFocus()
+                                detectAndPlay(url.trim())
+                            },
+                            colors = ButtonDefaults.buttonColorsPrimary(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                        ) {
+                            MiuixText(
+                                "开始播放",
+                                style = MiuixTheme.textStyles.title4,
+                            )
                         }
 
                     }

@@ -190,136 +190,137 @@ fun InviteMasterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 insideMargin = PaddingValues(0.dp),
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    OverlaySpinnerPreference(
-                        title = "邀请模式",
-                        dialogButtonString = "取消",
-                        items = typeItems,
-                        selectedIndex = configItems
-                            .indexOfFirst { it["name"]?.jsonPrimitive?.contentOrNull == selectedType }
-                            .coerceAtLeast(0),
-                        enabled = configItems.isNotEmpty(),
-                        onSelectedIndexChange = { index ->
-                            configItems.getOrNull(index)?.let { item ->
-                                selectedType = item["name"]?.jsonPrimitive?.contentOrNull
-                                    ?: selectedType
+                OverlaySpinnerPreference(
+                    title = "邀请应用",
+                    dialogButtonString = "取消",
+                    items = typeItems,
+                    selectedIndex = configItems
+                        .indexOfFirst { it["name"]?.jsonPrimitive?.contentOrNull == selectedType }
+                        .coerceAtLeast(0),
+                    enabled = configItems.isNotEmpty(),
+                    onExpandedChange = { expanded -> if (expanded) focusManager.clearFocus() },
+                    onSelectedIndexChange = { index ->
+                        configItems.getOrNull(index)?.let { item ->
+                            selectedType = item["name"]?.jsonPrimitive?.contentOrNull
+                                ?: selectedType
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        value = minIntervalTime,
+                        onValueChange = {
+                            minIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                s.toIntOrNull()?.let { v ->
+                                    if (v > 999) s.take(3) else s
+                                } ?: s
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        label = "最小间隔(秒)",
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = grayTextFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextField(
+                        value = maxIntervalTime,
+                        onValueChange = {
+                            maxIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                s.toIntOrNull()?.let { v ->
+                                    if (v > 999) s.take(3) else s
+                                } ?: s
+                            }
+                        },
+                        label = "最大间隔(秒)",
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = grayTextFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                    ) {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            TextField(
-                                value = minIntervalTime,
-                                onValueChange = {
-                                    minIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                                        s.toIntOrNull()?.let { v ->
-                                            if (v > 999) s.take(3) else s
-                                        } ?: s
-                                    }
-                                },
-                                label = "最小间隔(秒)",
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = grayTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextField(
-                                value = maxIntervalTime,
-                                onValueChange = {
-                                    maxIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                                        s.toIntOrNull()?.let { v ->
-                                            if (v > 999) s.take(3) else s
-                                        } ?: s
-                                    }
-                                },
-                                label = "最大间隔(秒)",
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = grayTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                        }
+                Spacer(modifier = Modifier.height(12.dp))
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        value = inviteCount,
+                        onValueChange = {
+                            inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
+                                s.toIntOrNull()?.let { v ->
+                                    if (v > 99) s.take(2) else s
+                                } ?: s
+                            }
+                        },
+                        label = "邀请数量(次)",
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = grayTextFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        label = "邀请码",
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = grayTextFieldColors(),
+                    )
+                }
 
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            TextField(
-                                value = inviteCount,
-                                onValueChange = {
-                                    inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
-                                        s.toIntOrNull()?.let { v ->
-                                            if (v > 99) s.take(2) else s
-                                        } ?: s
-                                    }
-                                },
-                                label = "邀请数量(次)",
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = grayTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextField(
-                                value = inputText,
-                                onValueChange = { inputText = it },
-                                label = "邀请码",
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = grayTextFieldColors(),
-                            )
-                        }
+                Spacer(modifier = Modifier.height(12.dp))
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Button(
-                            onClick = {
-                                if (isRunning) {
-                                    runningJob?.cancel()
-                                    logs.add("${ts()} 邀请任务已停止")
-                                    Toast.makeText(context, "邀请任务已停止", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    focusManager.clearFocus()
-                                    showLogSheet = true
-                                    runningJob = scope.launch {
-                                        isRunning = true
-                                        try {
-                                            logs.clear()
-                                            InviteExecutor.execute(
-                                                configArray = configArray ?: JsonArray(emptyList()),
-                                                params = InviteExecutor.Params(
-                                                    inviteCode = inputText.trim(),
-                                                    minInterval = minIntervalTime.toIntOrNull() ?: 0,
-                                                    maxInterval = maxIntervalTime.toIntOrNull() ?: 0,
-                                                    count = inviteCount.toIntOrNull() ?: 0,
-                                                    selectedType = selectedType,
-                                                ),
-                                                onLog = { logs.add("${ts()} $it") },
-                                            )
-                                        } finally {
-                                            isRunning = false
-                                            runningJob = null
-                                        }
-                                    }
+                Button(
+                    onClick = {
+                        if (isRunning) {
+                            runningJob?.cancel()
+                            logs.add("${ts()} 邀请任务已停止")
+                            Toast.makeText(context, "邀请任务已停止", Toast.LENGTH_SHORT).show()
+                        } else {
+                            focusManager.clearFocus()
+                            showLogSheet = true
+                            runningJob = scope.launch {
+                                isRunning = true
+                                try {
+                                    logs.clear()
+                                    InviteExecutor.execute(
+                                        configArray = configArray ?: JsonArray(emptyList()),
+                                        params = InviteExecutor.Params(
+                                            inviteCode = inputText.trim(),
+                                            minInterval = minIntervalTime.toIntOrNull() ?: 0,
+                                            maxInterval = maxIntervalTime.toIntOrNull() ?: 0,
+                                            count = inviteCount.toIntOrNull() ?: 0,
+                                            selectedType = selectedType,
+                                        ),
+                                        onLog = { logs.add("${ts()} $it") },
+                                    )
+                                } finally {
+                                    isRunning = false
+                                    runningJob = null
                                 }
-                            },
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                        ) {
-                            MiuixText(
-                                if (isRunning) "停止运行" else "开始运行",
-                                style = MiuixTheme.textStyles.title4,
-                            )
+                            }
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    MiuixText(
+                        if (isRunning) "停止运行" else "开始运行",
+                        style = MiuixTheme.textStyles.title4,
+                    )
                 }
             }
 

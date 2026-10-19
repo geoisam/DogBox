@@ -60,6 +60,8 @@ import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.grayTextFieldColors
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -597,50 +599,59 @@ fun MediaAnalyzeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 insideMargin = PaddingValues(0.dp),
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    OverlaySpinnerPreference(
-                        title = "解析线路",
-                        dialogButtonString = "取消",
-                        items = sourceItems,
-                        selectedIndex = analyzeSources
-                            .indexOfFirst { it.key == selectedSource }
-                            .coerceAtLeast(0),
-                        onSelectedIndexChange = { index ->
-                            analyzeSources.getOrNull(index)?.let { selectedSource = it.key }
-                        },
+                OverlaySpinnerPreference(
+                    title = "解析线路",
+                    dialogButtonString = "取消",
+                    items = sourceItems,
+                    selectedIndex = analyzeSources
+                        .indexOfFirst { it.key == selectedSource }
+                        .coerceAtLeast(0),
+                    onExpandedChange = { expanded -> if (expanded) focusManager.clearFocus() },
+                    onSelectedIndexChange = { index ->
+                        analyzeSources.getOrNull(index)?.let { selectedSource = it.key }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+            ) {
+                TextField(
+                    value = linkInput,
+                    onValueChange = { linkInput = it },
+                    label = "分享链接",
+                    colors = grayTextFieldColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    maxLines = 100,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (isAnalyzing) {
+                    LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                    ) {
-                        TextField(
-                            value = linkInput,
-                            onValueChange = { linkInput = it },
-                            label = "分享链接",
-                            colors = grayTextFieldColors(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp),
-                            maxLines = 100,
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        if (isAnalyzing) {
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        ClipboardActionRow(
-                            actionText = if (isAnalyzing) "停止解析" else "开始解析",
-                            onAction = { if (isAnalyzing) stopAnalyze() else startAnalyze() },
-                        )
-                    }
+                Button(
+                    onClick = { if (isAnalyzing) stopAnalyze() else startAnalyze() },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    MiuixText(
+                        if (isAnalyzing) "停止解析" else "开始解析",
+                        style = MiuixTheme.textStyles.title4,
+                    )
                 }
             }
 

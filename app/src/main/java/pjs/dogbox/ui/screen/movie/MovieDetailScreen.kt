@@ -793,7 +793,7 @@ internal fun MovieDetailScreen(
     var showScaleSheet by state.showScaleSheet
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 72.dp
+    val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 64.dp
 
     val activity = context as? android.app.Activity
 
@@ -836,8 +836,8 @@ internal fun MovieDetailScreen(
     }
 
     fun setFullscreen(fullscreen: Boolean) {
-        val act = activity ?: return
         isFullscreen = fullscreen
+        val act = activity ?: return
         val controller = WindowInsetsControllerCompat(act.window, act.window.decorView)
 
         if (fullscreen) {
@@ -999,11 +999,16 @@ internal fun MovieDetailScreen(
             isSwitchingEpisode = false
             isPlayLoading = false
             if (prevM3u8Url.isNotEmpty()) {
-                exoPlayer.apply {
-                    stop()
-                    setMediaItem(MediaItem.fromUri(prevM3u8Url))
-                    prepare()
-                    playWhenReady = true
+                try {
+                    exoPlayer.apply {
+                        stop()
+                        setMediaItem(MediaItem.fromUri(prevM3u8Url))
+                        prepare()
+                        playWhenReady = true
+                    }
+                } catch (e: Exception) {
+                    playErrorMsg = "播放器准备失败：${e.message ?: e.toString()}"
+                    Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -1145,10 +1150,15 @@ internal fun MovieDetailScreen(
                     if (m3u8.isNotEmpty()) {
                         playErrorMsg = null
                         currentM3u8Url = m3u8
-                        exoPlayer.apply {
-                            setMediaItem(MediaItem.fromUri(m3u8))
-                            prepare()
-                            playWhenReady = true
+                        try {
+                            exoPlayer.apply {
+                                setMediaItem(MediaItem.fromUri(m3u8))
+                                prepare()
+                                playWhenReady = true
+                            }
+                        } catch (e: Exception) {
+                            playErrorMsg = "播放器准备失败：${e.message ?: e.toString()}"
+                            Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
                         }
                         if (state.initialPosition > 0L) {
                             targetPosition = state.initialPosition
@@ -1158,6 +1168,10 @@ internal fun MovieDetailScreen(
                         currentM3u8Url = ""
                         Toast.makeText(context, "无法加载播放地址", Toast.LENGTH_SHORT).show()
                     }
+                } catch (e: Exception) {
+                    playErrorMsg = e.message ?: "无法加载播放地址"
+                    currentM3u8Url = ""
+                    Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
                 } finally {
                     isPlayLoading = false
                 }
@@ -1185,15 +1199,23 @@ internal fun MovieDetailScreen(
             if (m3u8.isNotEmpty()) {
                 playErrorMsg = null
                 currentM3u8Url = m3u8
-                exoPlayer.apply {
-                    setMediaItem(MediaItem.fromUri(m3u8))
-                    prepare()
-                    playWhenReady = true
+                try {
+                    exoPlayer.apply {
+                        setMediaItem(MediaItem.fromUri(m3u8))
+                        prepare()
+                        playWhenReady = true
+                    }
+                } catch (e: Exception) {
+                    playErrorMsg = "播放器准备失败：${e.message ?: e.toString()}"
+                    Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
                 }
             } else {
                 playErrorMsg = "无法加载播放地址"
                 Toast.makeText(context, "无法加载播放地址", Toast.LENGTH_SHORT).show()
             }
+        } catch (e: Exception) {
+            playErrorMsg = e.message ?: "无法加载播放地址"
+            Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
         } finally {
             isPlayLoading = false
         }

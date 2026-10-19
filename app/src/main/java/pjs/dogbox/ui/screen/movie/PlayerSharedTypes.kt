@@ -184,10 +184,12 @@ internal fun getQualityLabel(width: Int, height: Int): String {
 }
 
 internal fun refreshEndedFrame(exoPlayer: ExoPlayer) {
-    if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED) {
-        val pos = exoPlayer.duration
-        if (pos > 0) {
-            exoPlayer.seekTo((pos - 1).coerceAtLeast(0L))
+    runCatching {
+        if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED) {
+            val pos = exoPlayer.duration
+            if (pos > 0) {
+                exoPlayer.seekTo((pos - 1).coerceAtLeast(0L))
+            }
         }
     }
 }
@@ -1067,18 +1069,21 @@ internal fun PlayerCore(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    player = exoPlayer
-                    resizeMode = currentScaleMode.resizeMode
-                    refreshEndedFrame(exoPlayer)
-                }.also {
-                    onPlayerViewRef(it)
-                }
+                        runCatching {
+                            player = exoPlayer
+                            resizeMode = currentScaleMode.resizeMode
+                            refreshEndedFrame(exoPlayer)
+                        }
+                    }.also {
+                        onPlayerViewRef(it)
+                    }
             },
             update = { playerView ->
                 playerView.resizeMode = currentScaleMode.resizeMode
                 playerView.scaleX = if (flipHorizontal) -1f else 1f
                 playerView.scaleY = if (flipVertical) -1f else 1f
             },
+            onRelease = { runCatching { it.player = null } },
             modifier = currentScaleMode.aspectRatio?.let { ratio ->
                 val hByHeight = screenHeightDp.toFloat()
                 val wByHeight = hByHeight * ratio
@@ -1599,9 +1604,11 @@ internal fun NonFullscreenPlayer(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         )
-                        player = exoPlayer
-                        resizeMode = currentScaleMode.resizeMode
-                        refreshEndedFrame(exoPlayer)
+                        runCatching {
+                            player = exoPlayer
+                            resizeMode = currentScaleMode.resizeMode
+                            refreshEndedFrame(exoPlayer)
+                        }
                     }.also { onPlayerViewRef(it) }
                 },
                 update = { playerView ->
@@ -1609,6 +1616,7 @@ internal fun NonFullscreenPlayer(
                     playerView.scaleX = if (flipHorizontal) -1f else 1f
                     playerView.scaleY = if (flipVertical) -1f else 1f
                 },
+                onRelease = { runCatching { it.player = null } },
                 modifier = (currentScaleMode.aspectRatio?.let { ratio ->
                     val h = 240.dp
                     val w = (240f * ratio).dp

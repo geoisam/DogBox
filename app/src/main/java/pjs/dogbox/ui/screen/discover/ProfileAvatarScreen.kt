@@ -2,9 +2,11 @@ package pjs.dogbox.ui.screen.discover
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,9 +23,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +45,9 @@ import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.grayTextFieldColors
 import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -68,12 +75,24 @@ internal fun ProfileAvatarScreen(
     var fetchingDouyin by state.fetchingDouyin
     var currentTab by state.currentTab
     val tabs = listOf("QQ头像", "抖音头像")
+    val qqFocusRequester = remember { FocusRequester() }
+    val douyinFocusRequester = remember { FocusRequester() }
     val pagerState = rememberPagerState(
         initialPage = currentTab,
         pageCount = { tabs.size },
     )
     LaunchedEffect(pagerState.currentPage) {
         currentTab = pagerState.currentPage
+    }
+    var tabInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState.settledPage) {
+        if (!tabInitialized) {
+            tabInitialized = true
+            return@LaunchedEffect
+        }
+        val requester =
+            if (pagerState.settledPage == 0) qqFocusRequester else douyinFocusRequester
+        runCatching { requester.requestFocus() }
     }
 
     fun fetchQQ() {
@@ -120,16 +139,47 @@ internal fun ProfileAvatarScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
-            TabRowWithContour(
-                tabs = tabs,
-                selectedTabIndex = pagerState.currentPage,
-                onTabSelected = { index ->
-                    scope.launch { pagerState.animateScrollToPage(index) }
-                },
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
-            )
+                insideMargin = PaddingValues(4.dp),
+                colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        val selected = pagerState.currentPage == index
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.defaultColors(
+                                color = if (selected) MiuixTheme.colorScheme.primary
+                                else MiuixTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = if (selected) MiuixTheme.colorScheme.onPrimary
+                                else MiuixTheme.colorScheme.onSurfaceSecondary,
+                            ),
+                            onClick = {
+                                scope.launch { pagerState.animateScrollToPage(index) }
+                            },
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                MiuixText(
+                                    text = title,
+                                    style = MiuixTheme.textStyles.body1,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             HorizontalPager(
                 state = pagerState,
@@ -151,6 +201,7 @@ internal fun ProfileAvatarScreen(
                             keyboardType = KeyboardType.Number,
                             isFetching = false,
                             onFetch = ::fetchQQ,
+                            focusRequester = qqFocusRequester,
                         )
                     } else {
                         AvatarFetchCard(
@@ -161,6 +212,7 @@ internal fun ProfileAvatarScreen(
                             isFetching = fetchingDouyin,
                             onFetch = ::fetchDouyin,
                             multiline = true,
+                            focusRequester = douyinFocusRequester,
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -180,39 +232,40 @@ private fun AvatarFetchCard(
     onFetch: () -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
     multiline: Boolean = false,
+    focusRequester: FocusRequester? = null,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        insideMargin = PaddingValues(16.dp),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            TextField(
-                value = value,
-                onValueChange = onValueChange,
-                label = if (value.isBlank()) placeholder else label,
-                singleLine = !multiline,
-                maxLines = if (multiline) 100 else 1,
-                colors = grayTextFieldColors(),
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                modifier = if (multiline) {
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp)
-                } else {
-                    Modifier.fillMaxWidth()
-                },
+    Column(modifier = Modifier.fillMaxWidth()) {
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = if (value.isBlank()) placeholder else label,
+            singleLine = !multiline,
+            maxLines = if (multiline) 100 else 1,
+            colors = grayTextFieldColors(),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = if (multiline) {
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 120.dp)
+            } else {
+                Modifier.fillMaxWidth()
+            }.then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+            ),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onFetch,
+            enabled = !isFetching,
+            colors = ButtonDefaults.buttonColorsPrimary(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) {
+            MiuixText(
+                text = if (isFetching) "获取中..." else "开始获取",
+                style = MiuixTheme.textStyles.title4,
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onFetch,
-                enabled = !isFetching,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                MiuixText(
-                    text = if (isFetching) "获取中..." else "开始获取",
-                    style = MiuixTheme.textStyles.body1,
-                )
-            }
         }
     }
 }

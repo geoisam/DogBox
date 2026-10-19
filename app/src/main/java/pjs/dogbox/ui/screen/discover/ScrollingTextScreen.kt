@@ -380,12 +380,13 @@ private fun SliderSetting(
     range: IntRange,
     increment: Int,
     zeroLabel: String? = null,
+    plain: Boolean = false,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val safeIncrement = increment.coerceAtLeast(1)
     // steps = 区间数 - 1（Miuix/Compose Slider 语义），不足一档时为 0（连续滑动）
-    val steps = ((range.last - range.first) / safeIncrement - 1).coerceAtLeast(0)
+    val steps = if (plain) 0 else ((range.last - range.first) / safeIncrement - 1).coerceAtLeast(0)
     val keyPointCount = (range.last - range.first) / safeIncrement + 1
     val keyPoints = remember(range.first, range.last, safeIncrement) {
         List(keyPointCount) { (range.first + it * safeIncrement).toFloat() }
@@ -418,10 +419,11 @@ private fun SliderSetting(
             },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = steps,
-            showKeyPoints = true,
-            keyPoints = keyPoints,
-            magnetThreshold = 0.03f,
-            hapticEffect = SliderDefaults.SliderHapticEffect.Step,
+            showKeyPoints = !plain,
+            keyPoints = if (plain) emptyList() else keyPoints,
+            magnetThreshold = if (plain) 0f else 0.03f,
+            hapticEffect = if (plain) SliderDefaults.SliderHapticEffect.None
+            else SliderDefaults.SliderHapticEffect.Step,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -807,13 +809,15 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         range = 0..30,
                         increment = 1,
                         zeroLabel = "0（静态）",
+                        plain = true,
                         onValueChange = { speedSeconds = it }
                     )
                     SliderSetting(
                         label = "文字大小（sp）",
                         value = fontSizeSp,
-                        range = 10..500,
+                        range = 10..1000,
                         increment = 10,
+                        plain = true,
                         onValueChange = { fontSizeSp = it }
                     )
                     SliderSetting(

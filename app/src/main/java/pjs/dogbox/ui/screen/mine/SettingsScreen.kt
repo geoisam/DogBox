@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import pjs.dogbox.R
@@ -49,7 +50,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
 
@@ -174,9 +175,17 @@ fun SettingsScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 ArrowPreference(
                     title = "长按倍速",
-                    summary = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
+                    endActions = {
+                        MiuixText(
+                            text = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .padding(end = 8.dp),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        )
+                    },
                     onClick = { showSpeedSheet = true },
-                    holdDownState = showSpeedSheet,
                 )
                 OverlayDropdownPreference(
                     title = "播放顺序",
@@ -221,7 +230,7 @@ fun SettingsScreen(
     }
 
     if (showSpeedSheet) {
-        LongPressSpeedBottomSheet(
+        LongPressSpeedDialog(
             currentSpeed = GlobalPlayerConfig.longPressSpeed,
             onSpeedConfirm = { speed ->
                 GlobalPlayerConfig.setLongPressSpeed(context, speed)
@@ -256,9 +265,6 @@ internal fun openNotificationSettings(context: android.content.Context) {
 
 @Composable
 private fun SettingsSectionHeader(title: String) {
-    // SmallTitle 默认 insideMargin 为 28.dp，而外层 Column 已加 12.dp；
-    // 卡片内文字位于 12 + 16(BasicComponentDefaults) = 28.dp，
-    // 故这里把标题水平内边距改为 16.dp，令标题与卡片文字左对齐。
     SmallTitle(
         text = title,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -266,18 +272,24 @@ private fun SettingsSectionHeader(title: String) {
 }
 
 @Composable
-private fun LongPressSpeedBottomSheet(
+private fun LongPressSpeedDialog(
     currentSpeed: Float,
     onSpeedConfirm: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var sliderSpeed by remember(currentSpeed) { mutableStateOf(currentSpeed) }
 
-    AppBottomSheet(
+    OverlayDialog(
         show = true,
+        title = "自定义倍速",
+        insideMargin = DpSize(0.dp, 24.dp),
         onDismissRequest = onDismiss,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -285,16 +297,16 @@ private fun LongPressSpeedBottomSheet(
             ) {
                 MiuixText(
                     text = "长按倍速",
-                    style = MiuixTheme.textStyles.title4,
+                    style = MiuixTheme.textStyles.body1,
                 )
                 MiuixText(
                     text = "${"%.2f".format(sliderSpeed)}x",
-                    style = MiuixTheme.textStyles.title4,
+                    style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Slider(
                 value = sliderSpeed,
                 onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
@@ -307,20 +319,25 @@ private fun LongPressSpeedBottomSheet(
                 hapticEffect = SliderDefaults.SliderHapticEffect.Step,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                TextButton(
+                    text = "取消",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                )
                 TextButton(
                     text = "恢复默认",
                     onClick = {
                         sliderSpeed = 3.0f
                         onSpeedConfirm(3.0f)
                     },
+                    modifier = Modifier.weight(1f),
                 )
             }
-            Spacer(Modifier.height(20.dp))
         }
     }
 }

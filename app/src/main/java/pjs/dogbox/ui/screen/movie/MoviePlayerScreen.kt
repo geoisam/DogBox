@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -118,7 +119,7 @@ fun MoviePlayerScreen(
             )
         )
     }
-    val currentScaleMode = getScaleModes(isLandscape)[currentScaleModeIndex]
+    val currentScaleMode = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var locked by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
@@ -137,7 +138,14 @@ fun MoviePlayerScreen(
     }
 
     LaunchedEffect(Unit) {
-        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val intent = runCatching {
+            ContextCompat.registerReceiver(
+                context,
+                null,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }.getOrNull()
         val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         batteryPercentText = if (level >= 0 && scale > 0) "${level * 100 / scale}%" else ""
@@ -289,8 +297,10 @@ fun MoviePlayerScreen(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT)
-                    .show()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT)
+                        .show()
+                }
                 if (isFullscreen) {
                     onFullscreenChange(false)
                 }
@@ -317,9 +327,13 @@ fun MoviePlayerScreen(
 
     LaunchedEffect(Unit) {
         while (true) {
-            playerCurrentPosition = exoPlayer.currentPosition
-            playerDuration = exoPlayer.duration
-            playerBufferedPercentage = exoPlayer.bufferedPercentage
+            try {
+                playerCurrentPosition = exoPlayer.currentPosition
+                playerDuration = exoPlayer.duration
+                playerBufferedPercentage = exoPlayer.bufferedPercentage
+            } catch (_: Exception) {
+                // exoPlayer may have been released
+            }
             delay(200)
         }
     }
@@ -940,7 +954,7 @@ fun MoviePlayerScreen(
                                     )
                                     Spacer(modifier = Modifier.width(24.dp))
                                     MiuixText(
-                                        text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
+                                        text = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }.label,
                                         color = Color.White,
                                         style = MiuixTheme.textStyles.subtitle,
                                         modifier = Modifier.clickable {
@@ -1003,7 +1017,7 @@ fun MoviePlayerScreen(
                                         )
                                         Spacer(modifier = Modifier.width(24.dp))
                                         MiuixText(
-                                            text = getScaleModes(isLandscape)[currentScaleModeIndex].label,
+                                            text = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }.label,
                                             color = Color.White,
                                             style = MiuixTheme.textStyles.subtitle,
                                             modifier = Modifier.clickable {
@@ -1166,7 +1180,7 @@ fun MoviePlayerScreen(
                         currentScaleModeIndex = playerIndex
                         onScaleModeIndexChange?.invoke(index)
                         playerViewRef?.resizeMode =
-                            getScaleModes(isLandscape)[playerIndex].resizeMode
+                            getScaleModes(isLandscape).getOrElse(playerIndex) { ALL_SCALE_MODES.first() }.resizeMode
                     },
                     useFixedDarkColors = true,
                 )
