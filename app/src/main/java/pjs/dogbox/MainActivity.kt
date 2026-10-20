@@ -13,15 +13,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsControllerCompat
+import pjs.dogbox.data.SharedData
 import pjs.dogbox.ui.navigation.BaseScreen
 import pjs.dogbox.ui.screen.SplashScreen
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.theme.DogBoxTheme
 import pjs.dogbox.ui.theme.resolveDarkTheme
-import pjs.dogbox.data.SharedData
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 class MainActivity : ComponentActivity() {
@@ -35,7 +35,13 @@ class MainActivity : ComponentActivity() {
             val context = this@MainActivity
             var themeMode by remember { mutableIntStateOf(SharedData.getThemeMode(context)) }
             var dynamicColor by remember { mutableStateOf(SharedData.getDynamicColor(context)) }
-            var dynamicColorStyle by remember { mutableStateOf(SharedData.getDynamicColorStyle(context)) }
+            var dynamicColorStyle by remember {
+                mutableStateOf(
+                    SharedData.getDynamicColorStyle(
+                        context
+                    )
+                )
+            }
             val isSystemDark = isSystemInDarkTheme()
             var showSplash by remember { mutableStateOf(true) }
 

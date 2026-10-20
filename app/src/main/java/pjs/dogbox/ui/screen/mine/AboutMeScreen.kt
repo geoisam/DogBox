@@ -1,7 +1,5 @@
 package pjs.dogbox.ui.screen.mine
 
-import pjs.dogbox.utils.openPermissionManager
-
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
@@ -18,7 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,22 +49,22 @@ import kotlinx.coroutines.launch
 import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
-import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.data.SharedData
-import pjs.dogbox.ui.components.UpdateBottomSheet
 import pjs.dogbox.data.fetchRemoteConfig
 import pjs.dogbox.data.parseUpdateInfo
+import pjs.dogbox.ui.components.DisclaimerDialog
+import pjs.dogbox.ui.components.UpdateBottomSheet
+import pjs.dogbox.utils.openPermissionManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private enum class UpdateCheckState {
     NOT_CHECKED, CHECKING, HAS_UPDATE, UP_TO_DATE, CHECK_FAILED
@@ -157,8 +154,6 @@ fun AboutMeScreen(
                     modifier = Modifier.size(100.dp),
                     cornerRadius = 28.dp,
                     colors = CardDefaults.defaultColors(color = bgColor),
-                    pressFeedbackType = PressFeedbackType.Sink,
-                    showIndication = true,
                     onClick = {
                         try {
                             val intent = Intent().apply {
@@ -246,14 +241,22 @@ fun AboutMeScreen(
                                             SharedData.setCachedUpToDate(true)
                                             SharedData.setCachedCheckFailed(false)
                                             manualOverride = null
-                                            Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT)
+                                            Toast.makeText(
+                                                context,
+                                                "已是最新版本",
+                                                Toast.LENGTH_SHORT
+                                            )
                                                 .show()
                                         } else {
                                             SharedData.setCachedUpdateInfo(null)
                                             SharedData.setCachedUpToDate(false)
                                             SharedData.setCachedCheckFailed(true)
                                             manualOverride = null
-                                            Toast.makeText(context, "更新检测失败", Toast.LENGTH_SHORT)
+                                            Toast.makeText(
+                                                context,
+                                                "更新检测失败",
+                                                Toast.LENGTH_SHORT
+                                            )
                                                 .show()
                                         }
                                     }
@@ -352,7 +355,9 @@ fun AboutMeScreen(
                     ArrowPreference(title = "更新日志", onClick = onNavigateToChangeLog)
                     ArrowPreference(title = "特别鸣谢", onClick = onNavigateToContributor)
                     ArrowPreference(title = "免责声明", onClick = { showDisclaimerDialog = true })
-                    ArrowPreference(title = "权限清单", onClick = { openPermissionManager(context) })
+                    ArrowPreference(
+                        title = "权限清单",
+                        onClick = { openPermissionManager(context) })
                     ArrowPreference(title = "开源许可", onClick = onNavigateToLicense)
                 }
             }

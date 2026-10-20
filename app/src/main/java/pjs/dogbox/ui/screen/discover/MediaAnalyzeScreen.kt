@@ -51,15 +51,23 @@ import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
 import pjs.dogbox.service.MediaDownloadService
-import pjs.dogbox.utils.openPermissionManager
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.ui.components.MiuixSubScreen
-import pjs.dogbox.ui.components.grayTextFieldColors
+import pjs.dogbox.utils.openPermissionManager
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -67,12 +75,11 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import java.net.URLEncoder
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private data class AnalyzeSource(val key: String, val name: String, val desc: String)
 
@@ -150,13 +157,23 @@ private fun aHuaUrl(link: String): String =
     "https://api.bugpk.com/api/short_videos?url=${URLEncoder.encode(link, "UTF-8")}"
 
 private fun erLvUrl(link: String): String =
-    "https://proxy.layzz.cn/lyz/getAnalyse?token=rzwewdzrckc-auther-523dddWEed&link=${URLEncoder.encode(link, "UTF-8")}"
+    "https://proxy.layzz.cn/lyz/getAnalyse?token=rzwewdzrckc-auther-523dddWEed&link=${
+        URLEncoder.encode(
+            link,
+            "UTF-8"
+        )
+    }"
 
 private fun lingXingUrl(link: String): String =
     "https://api.mcasx.com/api/spjx/?url=${URLEncoder.encode(link, "UTF-8")}"
 
 private fun hongShuUrl(link: String): String =
-    "https://async-dev.fun/api/xhs/post?user_id=ohyol7X24fMXmQgRx-Ky4Ixfb918&url=${URLEncoder.encode(link, "UTF-8")}"
+    "https://async-dev.fun/api/xhs/post?user_id=ohyol7X24fMXmQgRx-Ky4Ixfb918&url=${
+        URLEncoder.encode(
+            link,
+            "UTF-8"
+        )
+    }"
 
 private suspend fun qingTingUrl(link: String): AnalyzeResult? {
     val appKey = "Nk7Qp4Lm2Vz8Hs1C"
@@ -181,7 +198,8 @@ private suspend fun qingTingUrl(link: String): AnalyzeResult? {
     // QT 接口为 POST，偶发网络抖动/超时，重试一次
     repeat(2) { attempt ->
         val body = buildJsonObject { put("url", link) }.toString()
-        val result = HttpUtil.post("https://api.33tool.com/api/client/parse/all", body, headers = headers)
+        val result =
+            HttpUtil.post("https://api.33tool.com/api/client/parse/all", body, headers = headers)
         val response = result.getOrNull()
         if (response != null) {
             val json = runCatching { Json.parseToJsonElement(response) }.getOrNull()
@@ -234,8 +252,8 @@ private fun distinct(urls: List<String>): List<String> {
 private fun isImageUrl(url: String): Boolean {
     val lower = url.lowercase()
     return lower.contains("aweme-images") ||
-        lower.contains("pcweb_cover") ||
-        Regex("""\.(webp|jpe?g|png|gif|bmp)(\?|$)""").containsMatchIn(lower)
+            lower.contains("pcweb_cover") ||
+            Regex("""\.(webp|jpe?g|png|gif|bmp)(\?|$)""").containsMatchIn(lower)
 }
 
 private fun parseJingYin(json: JsonElement): AnalyzeResult {
@@ -324,46 +342,48 @@ private fun parseQingTing(json: JsonElement): AnalyzeResult {
     return AnalyzeResult(title, distinct(videos), distinct(images), music)
 }
 
-private suspend fun analyzeWith(source: String, link: String): AnalyzeResult? = withContext(Dispatchers.IO) {
-    if (source == "QT") {
-        return@withContext qingTingUrl(link)
-    }
-    val baseApiUrl = when (source) {
-        "JY" -> jingYinUrl(link, link.contains("douyin", ignoreCase = true))
-        "AH" -> aHuaUrl(link)
-        "EL" -> erLvUrl(link)
-        "LX" -> lingXingUrl(link)
-        "HS" -> hongShuUrl(link)
-        else -> return@withContext null
-    }
-    // 破缓存：每次追加时间戳，避免 OkHttp/Ktor 复用旧连接返回的缓存/304，以及服务端对同一 URL 的短时间去重限流
-    val apiUrl = baseApiUrl + (if (baseApiUrl.contains("?")) "&" else "?") + "_t=${System.currentTimeMillis()}"
-    val noCacheHeaders = mapOf(
-        "Cache-Control" to "no-cache",
-        "Pragma" to "no-cache",
-    )
-    var lastResult: AnalyzeResult? = null
-    repeat(2) { attempt ->
-        val body = HttpUtil.get(apiUrl, headers = noCacheHeaders).getOrNull()
-        if (body != null) {
-            val json = runCatching { Json.parseToJsonElement(body) }.getOrNull()
-            if (json != null) {
-                val parsed = when (source) {
-                    "JY" -> parseJingYin(json)
-                    "AH" -> parseAHua(json)
-                    "EL" -> parseErLv(json)
-                    "LX" -> parseLingXing(json)
-                    "HS" -> parseHongShu(json)
-                    else -> null
-                }
-                if (parsed != null && !parsed.isEmpty) return@withContext parsed
-                lastResult = parsed
-            }
+private suspend fun analyzeWith(source: String, link: String): AnalyzeResult? =
+    withContext(Dispatchers.IO) {
+        if (source == "QT") {
+            return@withContext qingTingUrl(link)
         }
-        if (attempt == 0) kotlinx.coroutines.delay(600)
+        val baseApiUrl = when (source) {
+            "JY" -> jingYinUrl(link, link.contains("douyin", ignoreCase = true))
+            "AH" -> aHuaUrl(link)
+            "EL" -> erLvUrl(link)
+            "LX" -> lingXingUrl(link)
+            "HS" -> hongShuUrl(link)
+            else -> return@withContext null
+        }
+        // 破缓存：每次追加时间戳，避免 OkHttp/Ktor 复用旧连接返回的缓存/304，以及服务端对同一 URL 的短时间去重限流
+        val apiUrl =
+            baseApiUrl + (if (baseApiUrl.contains("?")) "&" else "?") + "_t=${System.currentTimeMillis()}"
+        val noCacheHeaders = mapOf(
+            "Cache-Control" to "no-cache",
+            "Pragma" to "no-cache",
+        )
+        var lastResult: AnalyzeResult? = null
+        repeat(2) { attempt ->
+            val body = HttpUtil.get(apiUrl, headers = noCacheHeaders).getOrNull()
+            if (body != null) {
+                val json = runCatching { Json.parseToJsonElement(body) }.getOrNull()
+                if (json != null) {
+                    val parsed = when (source) {
+                        "JY" -> parseJingYin(json)
+                        "AH" -> parseAHua(json)
+                        "EL" -> parseErLv(json)
+                        "LX" -> parseLingXing(json)
+                        "HS" -> parseHongShu(json)
+                        else -> null
+                    }
+                    if (parsed != null && !parsed.isEmpty) return@withContext parsed
+                    lastResult = parsed
+                }
+            }
+            if (attempt == 0) kotlinx.coroutines.delay(600)
+        }
+        return@withContext lastResult
     }
-    return@withContext lastResult
-}
 
 internal fun copyText(context: Context, text: String) {
     val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -524,11 +544,13 @@ fun MediaAnalyzeScreen(
                 if (res != null && !res.isEmpty) {
                     result = res
                 } else {
-                    Toast.makeText(context, "解析失败，请检查链接或稍后重试", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "解析失败，请检查链接或稍后重试", Toast.LENGTH_SHORT)
+                        .show()
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                Toast.makeText(context, "解析异常: ${e.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "解析异常: ${e.message ?: "未知错误"}", Toast.LENGTH_SHORT)
+                    .show()
             } finally {
                 isAnalyzing = false
             }
@@ -617,20 +639,24 @@ fun MediaAnalyzeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                TextField(
-                    value = linkInput,
-                    onValueChange = { linkInput = it },
-                    label = "分享链接",
-                    colors = grayTextFieldColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    maxLines = 100,
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    insideMargin = PaddingValues(12.dp),
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        TextField(
+                            value = linkInput,
+                            onValueChange = { linkInput = it },
+                            label = "分享链接",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp),
+                            maxLines = 6,
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -678,7 +704,14 @@ fun MediaAnalyzeScreen(
                             icon = R.drawable.photo_library_outlined,
                             label = "图片",
                             count = res.imageUrls.size,
-                            onClick = { onOpenResult("image", res.imageUrls, shareLink, res.title) },
+                            onClick = {
+                                onOpenResult(
+                                    "image",
+                                    res.imageUrls,
+                                    shareLink,
+                                    res.title
+                                )
+                            },
                             trailing = {
                                 MiuixIcon(
                                     painter = painterResource(R.drawable.pending_outlined),
@@ -694,7 +727,14 @@ fun MediaAnalyzeScreen(
                             icon = R.drawable.video_library_outlined,
                             label = "视频",
                             count = res.videoUrls.size,
-                            onClick = { onOpenResult("video", res.videoUrls, shareLink, res.title) },
+                            onClick = {
+                                onOpenResult(
+                                    "video",
+                                    res.videoUrls,
+                                    shareLink,
+                                    res.title
+                                )
+                            },
                             trailing = {
                                 MiuixIcon(
                                     painter = painterResource(R.drawable.pending_outlined),
@@ -771,8 +811,6 @@ private fun MediaTypeCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(

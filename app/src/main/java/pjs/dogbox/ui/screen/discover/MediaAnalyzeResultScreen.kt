@@ -59,16 +59,16 @@ import coil3.request.crossfade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.service.MediaDownloadService
 import pjs.dogbox.data.AppData
+import pjs.dogbox.service.MediaDownloadService
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 按用户要求：Referer 直接使用输入框提取出来的原始分享链接，不做 CDN 适配。

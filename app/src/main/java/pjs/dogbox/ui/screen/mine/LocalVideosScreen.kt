@@ -1,14 +1,5 @@
 package pjs.dogbox.ui.screen.mine
 
-import pjs.dogbox.data.localvideo.formatDuration
-import pjs.dogbox.data.localvideo.formatSize
-import pjs.dogbox.data.localvideo.hasFileAccessPermission
-import pjs.dogbox.data.localvideo.openFileAccessPermissionPage
-
-import pjs.dogbox.data.localvideo.LocalVideoItem
-import pjs.dogbox.data.localvideo.LocalVideoStore
-import pjs.dogbox.data.localvideo.queryMediaStoreVideos
-
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -68,26 +59,33 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
+import pjs.dogbox.data.localvideo.LocalVideoItem
+import pjs.dogbox.data.localvideo.LocalVideoStore
+import pjs.dogbox.data.localvideo.formatDuration
+import pjs.dogbox.data.localvideo.formatSize
+import pjs.dogbox.data.localvideo.hasFileAccessPermission
+import pjs.dogbox.data.localvideo.openFileAccessPermissionPage
+import pjs.dogbox.data.localvideo.queryMediaStoreVideos
 import pjs.dogbox.ui.components.MiuixLoading
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.File
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @Composable
 fun LocalVideosScreen(
@@ -199,8 +197,8 @@ fun LocalVideosScreen(
                                     else R.drawable.delete_outlined
                                 ),
                                 contentDescription = if (isSelectMode) "取消" else "删除",
-                            modifier = Modifier.size(24.dp),
-                        )
+                                modifier = Modifier.size(24.dp),
+                            )
                         }
                     }
                 },
@@ -288,7 +286,12 @@ fun LocalVideosScreen(
                                 isRefreshing = isRefreshing,
                                 onRefresh = { refreshVideos(showSpinner = true) },
                                 pullToRefreshState = pullToRefreshState,
-                                refreshTexts = listOf("下拉刷新", "释放刷新", "正在刷新...", "刷新成功"),
+                                refreshTexts = listOf(
+                                    "下拉刷新",
+                                    "释放刷新",
+                                    "正在刷新...",
+                                    "刷新成功"
+                                ),
                                 modifier = Modifier.fillMaxSize(),
                             ) {
                                 if (videos.isEmpty()) {
@@ -324,7 +327,9 @@ fun LocalVideosScreen(
                                                 isSelected = item.uri.toString() in selectedUris,
                                                 onSelect = {
                                                     val key = item.uri.toString()
-                                                    if (selectedUris.contains(key)) selectedUris.remove(key)
+                                                    if (selectedUris.contains(key)) selectedUris.remove(
+                                                        key
+                                                    )
                                                     else selectedUris.add(key)
                                                 },
                                                 onLongClick = {

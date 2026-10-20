@@ -22,10 +22,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,9 +38,8 @@ import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1
@@ -120,8 +117,6 @@ private fun LicenseCard(item: LicenseItem) {
     val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = {
             if (item.homepage.isNotEmpty()) {
                 context.startActivity(

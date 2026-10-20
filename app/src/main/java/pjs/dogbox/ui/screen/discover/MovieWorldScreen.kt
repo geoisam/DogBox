@@ -44,15 +44,14 @@ import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.nio.charset.Charset
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import java.nio.charset.Charset
 
 internal data class GlobalBoxOfficeItem(
     val rank: Int,
@@ -241,8 +240,6 @@ internal fun MovieWorldScreen(
 private fun GlobalBoxOfficeItemCard(item: GlobalBoxOfficeItem, onClick: () -> Unit) {
     MiuixCard(
         onClick = onClick,
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         modifier = Modifier.fillMaxWidth(),
         colors = MiuixCardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer,

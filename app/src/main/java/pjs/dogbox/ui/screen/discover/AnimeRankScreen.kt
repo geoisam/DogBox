@@ -79,14 +79,16 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
+import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
 import pjs.dogbox.ui.navigation.TabStateCache
-import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator as MiuixCircularProgressIndicator
@@ -95,9 +97,6 @@ import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
 
 internal data class AnimeItem(
     val cover: String,
@@ -319,7 +318,9 @@ internal fun AnimeRankScreen(
 
                         HorizontalPager(
                             state = pagerState,
-                            modifier = Modifier.fillMaxSize().weight(1f),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f),
                             beyondViewportPageCount = 0,
                         ) { page ->
                             key(data.orderOptions.getOrNull(page)?.first ?: page) {
@@ -599,9 +600,13 @@ private fun AnimeGridItem(
 ) {
     MiuixCard(
         onClick = onClick,
-        onLongPress = { onViewImage(item.cover.substringBefore("@"), "https://www.bilibili.com/anime/", item.title) },
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
+        onLongPress = {
+            onViewImage(
+                item.cover.substringBefore("@"),
+                "https://www.bilibili.com/anime/",
+                item.title
+            )
+        },
         colors = MiuixCardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer,
         ),

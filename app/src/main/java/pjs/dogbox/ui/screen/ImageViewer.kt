@@ -15,6 +15,12 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -32,15 +38,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,7 +49,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -79,17 +79,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.utils.openPermissionManager
 import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.openPermissionManager
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.File
+import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.io.File
-import java.util.Locale
 
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")
 
@@ -127,7 +127,10 @@ private fun saveImageBytesToGallery(
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Cover")
+                put(
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Cover"
+                )
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
             val uri = context.contentResolver.insert(
@@ -181,7 +184,12 @@ fun ImageViewerScreen(
 
     val activity = context as? Activity
     val insetsController = remember {
-        activity?.window?.let { WindowInsetsControllerCompat(activity.window, activity.window.decorView) }
+        activity?.window?.let {
+            WindowInsetsControllerCompat(
+                activity.window,
+                activity.window.decorView
+            )
+        }
     }
 
     val view = LocalView.current
@@ -375,11 +383,17 @@ fun ImageViewerScreen(
         imageBytes != null -> {
             val size = imageBytes!!.size
             when {
-                size >= 1024L * 1024 * 1024 -> String.format(Locale.ROOT, "%.2f GB", size / 1024f / 1024f / 1024f)
+                size >= 1024L * 1024 * 1024 -> String.format(
+                    Locale.ROOT,
+                    "%.2f GB",
+                    size / 1024f / 1024f / 1024f
+                )
+
                 size >= 1024 * 1024 -> String.format(Locale.ROOT, "%.2f MB", size / 1024f / 1024f)
                 else -> String.format(Locale.ROOT, "%.2f KB", size / 1024f)
             }
         }
+
         infoError -> "大小未知"
         else -> "加载中..."
     }
@@ -518,7 +532,9 @@ fun ImageViewerScreen(
             ctrl?.isAppearanceLightStatusBars = light
             ctrl?.isAppearanceLightNavigationBars = light
         }
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

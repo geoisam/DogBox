@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,7 +55,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
-import pjs.dogbox.ui.components.grayTextFieldColors
 import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screen.movie.SpeedBottomSheet
@@ -67,10 +65,10 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -332,26 +330,32 @@ fun MediaLinkTestScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        TextField(
-                            value = url,
-                            onValueChange = { url = it },
-                            label = "播放链接",
-                            colors = grayTextFieldColors(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp),
-                            maxLines = 100,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Go,
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onGo = {
-                                    focusManager.clearFocus()
-                                    detectAndPlay(url.trim())
-                                }
-                            ),
-                        )
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            insideMargin = PaddingValues(16.dp),
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                TextField(
+                                    value = url,
+                                    onValueChange = { url = it },
+                                    label = "播放链接",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 160.dp),
+                                    maxLines = 6,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Uri,
+                                        imeAction = ImeAction.Go,
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onGo = {
+                                            focusManager.clearFocus()
+                                            detectAndPlay(url.trim())
+                                        }
+                                    ),
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -372,7 +376,11 @@ fun MediaLinkTestScreen(
                                         if (link != null) {
                                             url = link
                                         } else {
-                                            Toast.makeText(context, "未识别到链接", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "未识别到链接",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth(),

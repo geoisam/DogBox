@@ -1,7 +1,5 @@
 package pjs.dogbox.utils
 
-import pjs.dogbox.data.AppData
-
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -22,6 +20,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import pjs.dogbox.data.AppData
 import java.util.concurrent.TimeUnit
 
 object HttpUtil {
@@ -217,7 +216,10 @@ object HttpUtil {
         response.bodyAsText()
     }
 
-    suspend fun head(url: String, headers: Map<String, String> = emptyMap()): Result<Map<String, String>> =
+    suspend fun head(
+        url: String,
+        headers: Map<String, String> = emptyMap()
+    ): Result<Map<String, String>> =
         suspendCatching {
             val response = client.head(url) { applyHeaders(headers) }
             response.requireSuccess()

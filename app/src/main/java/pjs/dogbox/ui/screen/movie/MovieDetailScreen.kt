@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -76,23 +77,22 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
-import pjs.dogbox.ui.components.CoverImage
-import pjs.dogbox.ui.navigation.DisposableState
 import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
-import pjs.dogbox.utils.AdsFilter
-import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.data.SharedData
 import pjs.dogbox.data.WatchHistoryItem
-import kotlin.math.roundToInt
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.navigation.DisposableState
+import pjs.dogbox.utils.AdsFilter
+import pjs.dogbox.utils.HttpUtil
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 data class EpisodeInfo(
     val name: String,
@@ -193,7 +193,8 @@ internal fun extractVideoId(url: String): String {
         if (segments.isEmpty()) return ""
         val last = segments.last()
         // 播放页最后一段为纯数字或含 sid 参数
-        val isEpisode = last.matches(Regex("\\d+")) || url.contains("?sid=") || url.contains("&sid=")
+        val isEpisode =
+            last.matches(Regex("\\d+")) || url.contains("?sid=") || url.contains("&sid=")
         val target = if (isEpisode && segments.size >= 2) segments[segments.size - 2] else last
         return target.substringBefore(".").substringBefore("-").substringBefore("?").trim()
     }
@@ -256,7 +257,8 @@ private fun saveWatchHistory(
     } else {
         extractPath(episodeUrl)
     }
-    val epPath = if (epPathRaw.startsWith("/") || epPathRaw.startsWith("http")) epPathRaw else "/$epPathRaw"
+    val epPath =
+        if (epPathRaw.startsWith("/") || epPathRaw.startsWith("http")) epPathRaw else "/$epPathRaw"
     val key = AppData.sourceKey(host)
     // coverUrl 存完整链接（host 可能与 key 的 host 不同，不能仅存 path）
     val coverFull = coverUrl
@@ -394,7 +396,8 @@ private fun parseApiDetail(json: String): PageData? {
         val title = str("vod_name").takeIf { it.isNotBlank() } ?: "未知"
         // 类型：vod_year 按英文逗号分割，加上 vod_class
         val yearParts = str("vod_year").split(",", "，").map { it.trim() }.filter { it.isNotEmpty() }
-        val classParts = str("vod_class").split(",", "，").map { it.trim() }.filter { it.isNotEmpty() }
+        val classParts =
+            str("vod_class").split(",", "，").map { it.trim() }.filter { it.isNotEmpty() }
         val type = (yearParts + classParts).joinToString(",").takeIf { it.isNotBlank() } ?: "未知"
         val coverRaw = str("vod_pic")
         val coverUrl = when {
@@ -424,7 +427,8 @@ private fun parseApiDetail(json: String): PageData? {
                     epName = "第${ei + 1}集"
                     epLink = s
                 } else {
-                    epName = s.substring(0, dollar).trim().takeIf { it.isNotEmpty() } ?: "第${ei + 1}集"
+                    epName =
+                        s.substring(0, dollar).trim().takeIf { it.isNotEmpty() } ?: "第${ei + 1}集"
                     epLink = s.substring(dollar + 1).trim()
                 }
                 if (epLink.isBlank()) continue
@@ -497,7 +501,8 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
                             val href = linkEl.attr("href")
                             if (href.isBlank()) continue
                             val link = if (href.startsWith("http")) href else "$baseUrl$href"
-                            val epName = linkEl.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                            val epName = linkEl.selectFirst("span")?.text()?.trim()
+                                ?.takeIf { it.isNotEmpty() }
                                 ?: linkEl.text().trim().takeIf { it.isNotEmpty() }
                                 ?: linkEl.attr("title").trim()
                             if (epName.isNotEmpty()) {
@@ -517,14 +522,16 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
                 val tabItems = tabBox.select(".module-tab-item")
                 val listContents = doc.select(".module-play-list-content")
                 for ((index, tabItem) in tabItems.withIndex()) {
-                    val routeName = tabItem.selectFirst("span")?.text()?.trim() ?: "线路${index + 1}"
+                    val routeName =
+                        tabItem.selectFirst("span")?.text()?.trim() ?: "线路${index + 1}"
                     val episodes = mutableListOf<EpisodeInfo>()
                     if (index < listContents.size) {
                         val listContent = listContents[index]
                         for (linkEl in listContent.select(".module-play-list-link")) {
                             val href = linkEl.attr("href")
                             val link = if (href.startsWith("http")) href else "$baseUrl$href"
-                            val epName = linkEl.selectFirst("span")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+                            val epName = linkEl.selectFirst("span")?.text()?.trim()
+                                ?.takeIf { it.isNotEmpty() }
                                 ?: linkEl.text().trim()
                             if (epName.isNotEmpty()) {
                                 episodes.add(EpisodeInfo(name = epName, link = link))
@@ -562,11 +569,19 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         val encrypt = playerJson?.get("encrypt")?.jsonPrimitive?.contentOrNull ?: "0"
         val rawUrl = playerJson?.get("url")?.jsonPrimitive?.contentOrNull ?: ""
         val m3u8Url = when (encrypt) {
-            "1" -> try { java.net.URLDecoder.decode(rawUrl, "UTF-8") } catch (_: Exception) { rawUrl }
+            "1" -> try {
+                java.net.URLDecoder.decode(rawUrl, "UTF-8")
+            } catch (_: Exception) {
+                rawUrl
+            }
+
             "2" -> try {
                 val decoded = java.util.Base64.getDecoder().decode(rawUrl).toString(Charsets.UTF_8)
                 java.net.URLDecoder.decode(decoded, "UTF-8")
-            } catch (_: Exception) { rawUrl }
+            } catch (_: Exception) {
+                rawUrl
+            }
+
             else -> rawUrl
         }
         if (isBlockedVideoUrl(m3u8Url)) return null
@@ -588,17 +603,19 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             val htmlTitle = titleEl?.text()?.trim()?.takeIf { it.isNotBlank() }
             title = htmlTitle
                 ?: vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                        ?: "未知"
 
             // 类型：.title-box .tags 里面所有 tag 用英文,分割
             val tagEls = doc.select(".title-box .tags .tag")
             val tagType = if (tagEls.isNotEmpty()) {
-                tagEls.mapNotNull { it.text().trim().takeIf { t -> t.isNotEmpty() } }.joinToString(",").takeIf { it.isNotBlank() }
+                tagEls.mapNotNull { it.text().trim().takeIf { t -> t.isNotEmpty() } }
+                    .joinToString(",").takeIf { it.isNotBlank() }
             } else null
             type = tagType
                 ?: vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
 
             // 导演：.title-box 第一个 .director 去掉“导演:”
             // 主演：.title-box 第二个 .director 去掉“主演:”
@@ -606,8 +623,12 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             var dirTemp = ""
             var actTemp = ""
             if (fdzysDirectors.size >= 2) {
-                dirTemp = fdzysDirectors[0].text().trim().replaceFirst(Regex("^.*?导演[:：]\\s*"), "").trim()
-                actTemp = fdzysDirectors[1].text().trim().replaceFirst(Regex("^.*?主演[:：]\\s*"), "").trim()
+                dirTemp =
+                    fdzysDirectors[0].text().trim().replaceFirst(Regex("^.*?导演[:：]\\s*"), "")
+                        .trim()
+                actTemp =
+                    fdzysDirectors[1].text().trim().replaceFirst(Regex("^.*?主演[:：]\\s*"), "")
+                        .trim()
                 // 兼容无前缀时去掉冒号前内容
                 if (dirTemp == fdzysDirectors[0].text().trim()) {
                     dirTemp = dirTemp.replaceFirst(Regex("^.*?[：:]\\s*"), "").trim()
@@ -625,10 +646,10 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             }
             director = dirTemp.takeIf { it.isNotBlank() }
                 ?: vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
             actor = actTemp.takeIf { it.isNotBlank() }
                 ?: vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
 
             // 简介：.vod-content .intro 里面的文字
             val descEl = doc.selectFirst(".vod-content .intro")
@@ -640,8 +661,9 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
                 rawDesc = rawDesc.replaceFirst(Regex("^简介[:：\\s]*"), "").trim()
             }
             description = rawDesc?.takeIf { it.isNotBlank() }
-                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                        ?: "未知"
 
             // 封面：.img-box img 的 src，为空则 meta og:image
             val imgEl = doc.selectFirst(".img-box img")
@@ -651,9 +673,10 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
                 imgCover = imgEl.attr("src").trim()
                     .takeIf { it.isNotBlank() && !it.contains("loading.png") && !it.startsWith("data:") }
                     ?: imgEl.attr("data-src").trim().takeIf { it.isNotBlank() }
-                    ?: imgEl.attr("data-original").trim().takeIf { it.isNotBlank() }
+                            ?: imgEl.attr("data-original").trim().takeIf { it.isNotBlank() }
             }
-            val metaCover = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            val metaCover = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()
+                ?.takeIf { it.isNotBlank() }
             val rawCover = imgCover?.takeIf { it.isNotBlank() } ?: metaCover ?: "未知"
             coverUrl = when {
                 rawCover == "未知" -> "未知"
@@ -668,21 +691,23 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             val h1El = doc.selectFirst(".module-info-main h1") ?: doc.selectFirst("h1")
             title = h1El?.text()?.trim()?.takeIf { it.isNotBlank() }
                 ?: vodData?.get("vod_name")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() } ?: "未知"
+                        ?: doc.selectFirst("meta[property=og:title]")?.attr("content")?.trim()
+                    ?.takeIf { it.isNotBlank() } ?: "未知"
 
             // 类型：.module-info-main .module-info-tag 每个 .module-info-tag-link 文字去空格用/分割，/->,
             val tagLinks = doc.select(".module-info-main .module-info-tag .module-info-tag-link")
             val tagType = if (tagLinks.isNotEmpty()) {
                 val joined = tagLinks.mapNotNull {
                     // 先去掉空格
-                    it.text().replace(" ", "").replace("　", "").trim().takeIf { t -> t.isNotEmpty() }
+                    it.text().replace(" ", "").replace("　", "").trim()
+                        .takeIf { t -> t.isNotEmpty() }
                 }.joinToString("/")
                 // /改为英文,
                 joined.removeSuffix("/").replace("/", ",").takeIf { it.isNotBlank() }
             } else null
             type = tagType
                 ?: vodData?.get("vod_class")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
 
             // 导演：第一个 .module-info-item-content 先去掉空格，去掉最后一个/，/改为英文,
             // 主演：第二个
@@ -699,22 +724,25 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
             }
             director = dirTemp2.takeIf { it.isNotBlank() }
                 ?: vodData?.get("vod_director")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
             actor = actTemp2.takeIf { it.isNotBlank() }
                 ?: vodData?.get("vod_actor")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                        ?: "未知"
 
             // 封面：.module-info-poster img，优先 data-original/data-src（泥视频/永乐懒加载占位为 load.gif）
             val posterImg = doc.selectFirst(".module-info-poster img")
             fun isPlaceholder(u: String) = u.isBlank() || u.startsWith("data:") ||
-                u.contains("loading.png") || u.contains("load.gif")
+                    u.contains("loading.png") || u.contains("load.gif")
+
             var posterSrc = posterImg?.attr("data-original")?.trim()?.takeIf { !isPlaceholder(it) }
                 ?: posterImg?.attr("data-src")?.trim()?.takeIf { !isPlaceholder(it) }
                 ?: posterImg?.attr("src")?.trim()?.takeIf { !isPlaceholder(it) }
             if (posterSrc.isNullOrBlank()) {
-                posterSrc = doc.selectFirst(".module-info-poster img")?.attr("data-original")?.trim()
+                posterSrc =
+                    doc.selectFirst(".module-info-poster img")?.attr("data-original")?.trim()
             }
-            val metaCover2 = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
+            val metaCover2 = doc.selectFirst("meta[property=og:image]")?.attr("content")?.trim()
+                ?.takeIf { it.isNotBlank() }
             val rawCover2 = posterSrc?.takeIf { it.isNotBlank() } ?: metaCover2 ?: "未知"
             coverUrl = when {
                 rawCover2 == "未知" -> "未知"
@@ -730,8 +758,9 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
                 ?: doc.selectFirst(".module-info-introduction-content")
             val rawIntro = introEl?.text()?.trim()?.takeIf { it.isNotBlank() }
             description = rawIntro?.takeIf { it.isNotBlank() }
-                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()?.takeIf { it.isNotBlank() }
-                ?: "未知"
+                ?: doc.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                        ?: "未知"
         }
 
         PageData(
@@ -748,9 +777,6 @@ private fun parseInitialPage(html: String, baseUrl: String): PageData? {
         null
     }
 }
-
-
-
 
 
 @Composable
@@ -793,7 +819,8 @@ internal fun MovieDetailScreen(
     var showScaleSheet by state.showScaleSheet
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 64.dp
+    val sheetMaxHeight =
+        LocalConfiguration.current.screenHeightDp.dp - statusBarTop - 240.dp - 64.dp
 
     val activity = context as? android.app.Activity
 
@@ -945,9 +972,11 @@ internal fun MovieDetailScreen(
                         when (encrypt) {
                             "1" -> java.net.URLDecoder.decode(raw, "UTF-8")
                             "2" -> {
-                                val decoded = java.util.Base64.getDecoder().decode(raw).toString(Charsets.UTF_8)
+                                val decoded = java.util.Base64.getDecoder().decode(raw)
+                                    .toString(Charsets.UTF_8)
                                 java.net.URLDecoder.decode(decoded, "UTF-8")
                             }
+
                             else -> raw
                         }
                     }.getOrNull()
@@ -1344,7 +1373,11 @@ internal fun MovieDetailScreen(
                             Box(
                                 modifier = Modifier.combinedClickable(
                                     onClick = {
-                                        onViewImage(data.coverUrl, buildBaseUrl(videoUrl), data.title)
+                                        onViewImage(
+                                            data.coverUrl,
+                                            buildBaseUrl(videoUrl),
+                                            data.title
+                                        )
                                     },
                                 ),
                             ) {
@@ -1374,7 +1407,13 @@ internal fun MovieDetailScreen(
                                         .padding(horizontal = 6.dp, vertical = 3.dp),
                                 ) {
                                     MiuixText(
-                                        text = AppData.sourceName(AppData.sourceKey(extractHost(videoUrl))),
+                                        text = AppData.sourceName(
+                                            AppData.sourceKey(
+                                                extractHost(
+                                                    videoUrl
+                                                )
+                                            )
+                                        ),
                                         color = MiuixTheme.colorScheme.onPrimaryContainer,
                                         style = MiuixTheme.textStyles.footnote2,
                                         fontWeight = FontWeight.Bold,
@@ -1619,55 +1658,55 @@ internal fun MovieDetailScreen(
                     .height(0.5.dp)
                     .background(MiuixTheme.colorScheme.dividerLine),
             )
-                SheetActionItem(
-                    icon = R.drawable.link_outlined,
-                    label = "复制播放链接",
-                    onClick = {
-                        showCopySheet = false
-                        copyToClipboard(currentM3u8Url)
-                    },
-                )
-                SheetActionItem(
-                    icon = R.drawable.link_outlined,
-                    label = "复制详情页地址",
-                    onClick = {
-                        showCopySheet = false
-                        copyToClipboard(videoUrl)
-                    },
-                )
-                SheetActionItem(
-                    icon = R.drawable.link_outlined,
-                    label = "复制播放网页地址",
-                    onClick = {
-                        showCopySheet = false
-                        copyToClipboard(currentEpisodeUrl)
-                    },
-                )
-                SheetActionItem(
-                    icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开播放链接",
-                    onClick = {
-                        showCopySheet = false
-                        openInBrowser(currentM3u8Url)
-                    },
-                )
-                SheetActionItem(
-                    icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开详情页地址",
-                    onClick = {
-                        showCopySheet = false
-                        openInBrowser(videoUrl)
-                    },
-                )
-                SheetActionItem(
-                    icon = R.drawable.open_in_browser_outlined,
-                    label = "浏览器打开播放网页地址",
-                    onClick = {
-                        showCopySheet = false
-                        openInBrowser(currentEpisodeUrl)
-                    },
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+            SheetActionItem(
+                icon = R.drawable.link_outlined,
+                label = "复制播放链接",
+                onClick = {
+                    showCopySheet = false
+                    copyToClipboard(currentM3u8Url)
+                },
+            )
+            SheetActionItem(
+                icon = R.drawable.link_outlined,
+                label = "复制详情页地址",
+                onClick = {
+                    showCopySheet = false
+                    copyToClipboard(videoUrl)
+                },
+            )
+            SheetActionItem(
+                icon = R.drawable.link_outlined,
+                label = "复制播放网页地址",
+                onClick = {
+                    showCopySheet = false
+                    copyToClipboard(currentEpisodeUrl)
+                },
+            )
+            SheetActionItem(
+                icon = R.drawable.open_in_browser_outlined,
+                label = "浏览器打开播放链接",
+                onClick = {
+                    showCopySheet = false
+                    openInBrowser(currentM3u8Url)
+                },
+            )
+            SheetActionItem(
+                icon = R.drawable.open_in_browser_outlined,
+                label = "浏览器打开详情页地址",
+                onClick = {
+                    showCopySheet = false
+                    openInBrowser(videoUrl)
+                },
+            )
+            SheetActionItem(
+                icon = R.drawable.open_in_browser_outlined,
+                label = "浏览器打开播放网页地址",
+                onClick = {
+                    showCopySheet = false
+                    openInBrowser(currentEpisodeUrl)
+                },
+            )
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 
@@ -1794,6 +1833,7 @@ private fun PlayerPlaceholder(
                         )
                     }
                 }
+
                 else -> MiuixIcon(
                     painter = painterResource(R.drawable.autoplay_outlined),
                     contentDescription = null,
@@ -1935,70 +1975,70 @@ private fun IntroBottomSheet(
                 .height(height)
                 .verticalScroll(rememberScrollState()),
         ) {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 32.dp),
-                ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 32.dp),
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+                MiuixText(
+                    text = data.title,
+                    style = MiuixTheme.textStyles.title2,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (data.type.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
                     MiuixText(
-                        text = data.title,
-                        style = MiuixTheme.textStyles.title2,
-                        fontWeight = FontWeight.Bold,
+                        text = data.type,
+                        style = MiuixTheme.textStyles.body2,
                     )
-                    if (data.type.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        MiuixText(
-                            text = data.type,
-                            style = MiuixTheme.textStyles.body2,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                Spacer(modifier = Modifier.height(24.dp))
 
+                MiuixText(
+                    text = "简介",
+                    style = MiuixTheme.textStyles.title4,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                MiuixText(
+                    text = data.description,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+
+                if (data.director.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(24.dp))
                     MiuixText(
-                        text = "简介",
+                        text = "导演",
                         style = MiuixTheme.textStyles.title4,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     MiuixText(
-                        text = data.description,
+                        text = data.director,
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceSecondary,
                     )
-
-                    if (data.director.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        MiuixText(
-                            text = "导演",
-                            style = MiuixTheme.textStyles.title4,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        MiuixText(
-                            text = data.director,
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        )
-                    }
-
-                    if (data.actor.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        MiuixText(
-                            text = "主演",
-                            style = MiuixTheme.textStyles.title4,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        MiuixText(
-                            text = data.actor,
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+
+                if (data.actor.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MiuixText(
+                        text = "主演",
+                        style = MiuixTheme.textStyles.title4,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    MiuixText(
+                        text = data.actor,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }

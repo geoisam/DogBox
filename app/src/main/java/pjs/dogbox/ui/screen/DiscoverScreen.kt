@@ -20,14 +20,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pjs.dogbox.R
 import pjs.dogbox.ui.components.SheetSectionTitle
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 enum class DiscoverPage {
     ANIME_RANK,
@@ -61,7 +61,7 @@ private val groups = listOf(
         "推荐", listOf(
             DiscoverItem(
                 "电视直播",
-                "全球电视台网络直播",
+                "全球电视直播网络直播",
                 R.drawable.tv_guide_outlined,
                 DiscoverPage.TV_LIVE
             ),
@@ -88,7 +88,7 @@ private val groups = listOf(
     DiscoverGroup(
         "榜单", listOf(
             DiscoverItem(
-                "今日热榜",
+                "今日热搜",
                 "热门平台实时热搜榜单",
                 R.drawable.newsmode_outlined,
                 DiscoverPage.HOT_NEWS_RANK
@@ -112,14 +112,14 @@ private val groups = listOf(
                 DiscoverPage.MOVIE_WORLD
             ),
             DiscoverItem(
-                "中国票房",
+                "全球票房",
                 "中国大陆电影票房总榜",
                 R.drawable.movie_outlined,
                 DiscoverPage.BOX_OFFICE_TOTAL
             ),
             DiscoverItem(
                 "哔哩番剧",
-                "哔哩哔哩番剧分类索引",
+                "哔哩番剧分类索引",
                 R.drawable.manga_outlined,
                 DiscoverPage.ANIME_RANK
             ),
@@ -147,12 +147,13 @@ private val groups = listOf(
 fun DiscoverScreen(
     modifier: Modifier = Modifier,
     onNavigateToDetail: (DiscoverPage) -> Unit = {},
+    contentBottomPadding: Dp = 0.dp,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
+            .padding(start = 12.dp, end = 12.dp, bottom = contentBottomPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         groups.forEach { group ->
@@ -165,8 +166,6 @@ fun DiscoverScreen(
                     rowItems.forEach { it ->
                         Card(
                             modifier = Modifier.weight(1f),
-                            pressFeedbackType = PressFeedbackType.Sink,
-                            showIndication = true,
                             onClick = { onNavigateToDetail(it.page) },
                             insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         ) {

@@ -10,9 +10,12 @@ object AppRoutes {
     const val WATCH_HISTORY = "watch_history"
     const val LOCAL_VIDEOS = "local_videos"
     const val LOCAL_PLAY = "local_play?url={url}&title={title}"
-    const val ANALYZE_PLAY = "analyze_play?urls={urls}&index={index}&title={title}&referer={referer}"
-    const val ANALYZE_IMAGE_GALLERY = "analyze_image_gallery?urls={urls}&index={index}&referer={referer}&title={title}"
-    const val ANALYZE_RESULT = "analyze_result?type={type}&urls={urls}&referer={referer}&title={title}"
+    const val ANALYZE_PLAY =
+        "analyze_play?urls={urls}&index={index}&title={title}&referer={referer}"
+    const val ANALYZE_IMAGE_GALLERY =
+        "analyze_image_gallery?urls={urls}&index={index}&referer={referer}&title={title}"
+    const val ANALYZE_RESULT =
+        "analyze_result?type={type}&urls={urls}&referer={referer}&title={title}"
     const val ABOUT_ME = "about_me"
     const val SPONSOR = "sponsor"
     const val CONTRIBUTOR = "contributor"
@@ -37,11 +40,28 @@ object AppRoutes {
         "local_play?url=${Uri.encode(url)}&title=${Uri.encode(title)}"
 
     fun analyzePlay(urls: List<String>, index: Int, title: String, referer: String): String =
-        "analyze_play?urls=${Uri.encode(urls.joinToString("\n"))}&index=$index&title=${Uri.encode(title)}&referer=${Uri.encode(referer)}"
+        "analyze_play?urls=${Uri.encode(urls.joinToString("\n"))}&index=$index&title=${
+            Uri.encode(
+                title
+            )
+        }&referer=${Uri.encode(referer)}"
 
-    fun analyzeImageGallery(urls: List<String>, index: Int, referer: String, title: String): String =
-        "analyze_image_gallery?urls=${Uri.encode(urls.joinToString("\n"))}&index=$index&referer=${Uri.encode(referer)}&title=${Uri.encode(title)}"
+    fun analyzeImageGallery(
+        urls: List<String>,
+        index: Int,
+        referer: String,
+        title: String
+    ): String =
+        "analyze_image_gallery?urls=${Uri.encode(urls.joinToString("\n"))}&index=$index&referer=${
+            Uri.encode(
+                referer
+            )
+        }&title=${Uri.encode(title)}"
 
     fun analyzeResult(type: String, urls: List<String>, referer: String, title: String): String =
-        "analyze_result?type=${Uri.encode(type)}&urls=${Uri.encode(urls.joinToString("\n"))}&referer=${Uri.encode(referer)}&title=${Uri.encode(title)}"
+        "analyze_result?type=${Uri.encode(type)}&urls=${Uri.encode(urls.joinToString("\n"))}&referer=${
+            Uri.encode(
+                referer
+            )
+        }&title=${Uri.encode(title)}"
 }

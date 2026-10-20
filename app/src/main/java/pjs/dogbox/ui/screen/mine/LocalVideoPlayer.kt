@@ -1,7 +1,5 @@
 package pjs.dogbox.ui.screen.mine
 
-import pjs.dogbox.data.localvideo.LocalVideoStore
-
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -29,17 +27,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -66,11 +61,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -85,11 +80,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 import pjs.dogbox.R
+import pjs.dogbox.data.localvideo.LocalVideoStore
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
-import pjs.dogbox.ui.screen.movie.MoreSettingsContent
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
+import pjs.dogbox.ui.screen.movie.MoreSettingsContent
 import pjs.dogbox.ui.screen.movie.PauseOnBackground
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.PlayerSeekButton
@@ -102,17 +98,14 @@ import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.File
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
-import pjs.dogbox.ui.components.grayTextFieldColors
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import androidx.core.content.FileProvider
-import java.io.File
 
 private fun setSystemBarsVisible(
     controller: WindowInsetsControllerCompat?,
@@ -147,11 +140,16 @@ private fun resolveVideoFile(context: android.content.Context, uriString: String
                 null
             }
         }
+
         else -> null
     }
 }
 
-private fun renameVideoFile(context: android.content.Context, uriString: String, newName: String): File? {
+private fun renameVideoFile(
+    context: android.content.Context,
+    uriString: String,
+    newName: String
+): File? {
     return try {
         val uri = Uri.parse(uriString)
         val file = resolveVideoFile(context, uriString) ?: return null
@@ -237,7 +235,8 @@ fun LocalVideoPreview(
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val screenHeightDp = configuration.screenHeightDp
-    val currentScaleMode = getScaleModes(false)[currentScaleModeIndex.coerceIn(0, ALL_SCALE_MODES.lastIndex)]
+    val currentScaleMode =
+        getScaleModes(false)[currentScaleModeIndex.coerceIn(0, ALL_SCALE_MODES.lastIndex)]
 
     val transformableState = rememberTransformableState { _, zoomChange, panChange, _ ->
         val newScale = (scale * zoomChange).coerceIn(1f, 5f)
@@ -827,7 +826,6 @@ fun LocalVideoPreview(
                     value = renameValue,
                     onValueChange = { renameValue = it },
                     singleLine = true,
-                    colors = grayTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
@@ -924,7 +922,12 @@ fun LocalVideoPreview(
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onBackgroundPlaybackChange = {
+                        GlobalPlayerConfig.setBackgroundPlayback(
+                            context,
+                            it
+                        )
+                    },
                     onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },

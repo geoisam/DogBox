@@ -49,24 +49,23 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.data.invite.InviteExecutor
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.CryptUtil
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
-import pjs.dogbox.ui.components.grayTextFieldColors
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 private fun ts() = LocalDateTime.now().format(timeFormatter)
@@ -214,73 +213,78 @@ fun InviteMasterScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
             ) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    TextField(
-                        value = minIntervalTime,
-                        onValueChange = {
-                            minIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                                s.toIntOrNull()?.let { v ->
-                                    if (v > 999) s.take(3) else s
-                                } ?: s
-                            }
-                        },
-                        label = "最小间隔(秒)",
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = grayTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextField(
-                        value = maxIntervalTime,
-                        onValueChange = {
-                            maxIntervalTime = it.filter { c -> c.isDigit() }.take(3).let { s ->
-                                s.toIntOrNull()?.let { v ->
-                                    if (v > 999) s.take(3) else s
-                                } ?: s
-                            }
-                        },
-                        label = "最大间隔(秒)",
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = grayTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    insideMargin = PaddingValues(16.dp),
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            TextField(
+                                value = minIntervalTime,
+                                onValueChange = {
+                                    minIntervalTime =
+                                        it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                            s.toIntOrNull()?.let { v ->
+                                                if (v > 999) s.take(3) else s
+                                            } ?: s
+                                        }
+                                },
+                                label = "最小间隔(秒)",
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextField(
+                                value = maxIntervalTime,
+                                onValueChange = {
+                                    maxIntervalTime =
+                                        it.filter { c -> c.isDigit() }.take(3).let { s ->
+                                            s.toIntOrNull()?.let { v ->
+                                                if (v > 999) s.take(3) else s
+                                            } ?: s
+                                        }
+                                },
+                                label = "最大间隔(秒)",
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            TextField(
+                                value = inviteCount,
+                                onValueChange = {
+                                    inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
+                                        s.toIntOrNull()?.let { v ->
+                                            if (v > 99) s.take(2) else s
+                                        } ?: s
+                                    }
+                                },
+                                label = "邀请数量(次)",
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                label = "邀请码",
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                    }
                 }
-
                 Spacer(modifier = Modifier.height(12.dp))
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    TextField(
-                        value = inviteCount,
-                        onValueChange = {
-                            inviteCount = it.filter { c -> c.isDigit() }.take(2).let { s ->
-                                s.toIntOrNull()?.let { v ->
-                                    if (v > 99) s.take(2) else s
-                                } ?: s
-                            }
-                        },
-                        label = "邀请数量(次)",
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = grayTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        label = "邀请码",
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = grayTextFieldColors(),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Button(
                     onClick = {
                         if (isRunning) {

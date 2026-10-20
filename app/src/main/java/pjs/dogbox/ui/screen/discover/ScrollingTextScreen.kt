@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,24 +63,23 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.R
 import pjs.dogbox.data.SharedData
-import pjs.dogbox.ui.components.grayTextFieldColors
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ColorPalette
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private enum class ScrollDirection {
     RIGHT_TO_LEFT,
@@ -147,7 +145,6 @@ private fun ColorPickerDialog(
                     colorFromHex("#$filtered")?.let { selectedColor = it }
                 },
                 singleLine = true,
-                colors = grayTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
@@ -181,7 +178,10 @@ private fun TransparentColorPreview(
     modifier: Modifier = Modifier
 ) {
     androidx.compose.foundation.Canvas(
-        modifier = modifier.size(size).clip(CircleShape).border(1.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .border(1.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
     ) {
         val checker = 4.dp.toPx()
         drawRect(color = Color(0xFFE0E0E0))
@@ -230,7 +230,8 @@ private fun MarqueeText(
     val actualSpeed = if (isDynamic) speedSeconds * 1000 else 6000
     // lineHeightSp = 0 时使用系统默认行高，避免 lineHeight = fontSize 导致裁剪；
     // 仅在用户显式设置行高时才覆盖（参考 lyricon 文本 margins/paddings 逻辑：默认不干预）。
-    val resolvedLineHeight = if (lineHeightSp > 0) (fontSizeSp + lineHeightSp).sp else androidx.compose.ui.unit.TextUnit.Unspecified
+    val resolvedLineHeight =
+        if (lineHeightSp > 0) (fontSizeSp + lineHeightSp).sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val textStyle = TextStyle(
         color = textColor,
         fontSize = fontSizeSp.sp,
@@ -285,6 +286,7 @@ private fun MarqueeText(
 
                     ScrollDirection.LEFT_TO_RIGHT ->
                         (-textWidth - margin) + totalDistance * progress
+
                     else -> 0f
                 }
 
@@ -311,6 +313,7 @@ private fun MarqueeText(
 
                     ScrollDirection.TOP_TO_BOTTOM ->
                         (-textHeight - margin) + totalDistance * progress
+
                     else -> 0f
                 }
 
@@ -518,7 +521,8 @@ private fun FullScreenPlayback(
             // 参考 lyricon Theme 的状态栏写法：优先走 WindowInsetsControllerCompat，
             // 废弃的 systemUiVisibility 仅作为低版本兜底，避免与 edge-to-edge 冲突。
             val rootView = dialogView.rootView
-            val insetsController = activityWindow?.let { WindowInsetsControllerCompat(it, rootView) }
+            val insetsController =
+                activityWindow?.let { WindowInsetsControllerCompat(it, rootView) }
             // 全屏播放时隐藏系统栏，滑动可短暂唤出
             insetsController?.let {
                 it.hide(WindowInsetsCompat.Type.systemBars())
@@ -784,16 +788,17 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
                 insideMargin = PaddingValues(16.dp),
             ) {
-                TextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = "输入文字内容",
-                    colors = grayTextFieldColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    maxLines = 100,
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        label = "输入文字内容",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 160.dp),
+                        maxLines = 6,
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -884,7 +889,9 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     title = "水平位置",
                     items = listOf("居左", "居中", "居右"),
                     selectedIndex = horizontalAlignment.ordinal,
-                    onSelectedIndexChange = { horizontalAlignment = HorizontalPosition.entries[it] },
+                    onSelectedIndexChange = {
+                        horizontalAlignment = HorizontalPosition.entries[it]
+                    },
                 )
                 OverlayDropdownPreference(
                     title = "垂直位置",

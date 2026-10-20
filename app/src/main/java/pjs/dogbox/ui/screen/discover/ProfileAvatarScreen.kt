@@ -41,16 +41,15 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.data.AppData
-import pjs.dogbox.utils.HttpUtil
 import pjs.dogbox.ui.components.MiuixSubScreen
-import pjs.dogbox.ui.components.grayTextFieldColors
+import pjs.dogbox.utils.HttpUtil
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 internal class ProfileAvatarScreenState {
     val qqInput = mutableStateOf("")
@@ -84,12 +83,7 @@ internal fun ProfileAvatarScreen(
     LaunchedEffect(pagerState.currentPage) {
         currentTab = pagerState.currentPage
     }
-    var tabInitialized by remember { mutableStateOf(false) }
     LaunchedEffect(pagerState.settledPage) {
-        if (!tabInitialized) {
-            tabInitialized = true
-            return@LaunchedEffect
-        }
         val requester =
             if (pagerState.settledPage == 0) qqFocusRequester else douyinFocusRequester
         runCatching { requester.requestFocus() }
@@ -234,59 +228,66 @@ private fun AvatarFetchCard(
     multiline: Boolean = false,
     focusRequester: FocusRequester? = null,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = if (value.isBlank()) placeholder else label,
-            singleLine = !multiline,
-            maxLines = if (multiline) 100 else 1,
-            colors = grayTextFieldColors(),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            modifier = if (multiline) {
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 120.dp)
-            } else {
-                Modifier.fillMaxWidth()
-            }.then(
-                if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
-            ),
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = onFetch,
-            enabled = !isFetching,
-            colors = ButtonDefaults.buttonColorsPrimary(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-        ) {
-            MiuixText(
-                text = if (isFetching) "获取中..." else "开始获取",
-                style = MiuixTheme.textStyles.title4,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(16.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = if (value.isBlank()) placeholder else label,
+                singleLine = !multiline,
+                maxLines = if (multiline) 6 else 1,
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                modifier = if (multiline) {
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 160.dp)
+                } else {
+                    Modifier.fillMaxWidth()
+                }.then(
+                    if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+                ),
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onFetch,
+                enabled = !isFetching,
+                colors = ButtonDefaults.buttonColorsPrimary(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            ) {
+                MiuixText(
+                    text = if (isFetching) "获取中..." else "开始获取",
+                    style = MiuixTheme.textStyles.title4,
+                )
+            }
         }
     }
 }
 
 private data class DouyinAvatarInfo(val url: String, val nickname: String)
 
-private suspend fun resolveDouyinAvatar(link: String): DouyinAvatarInfo? = withContext(Dispatchers.IO) {
-    val finalUrl = HttpUtil.getFinalUrl(link, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
-        ?: return@withContext null
-    val secUid = Regex("""/user/([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)
-        ?: Regex("""[?&]sec_uid=([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)
-        ?: return@withContext null
-    val api = "https://www.iesdouyin.com/web/api/v2/user/info/?sec_uid=$secUid"
-    val body = HttpUtil.get(api, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
-        ?: return@withContext null
-    val userInfo = runCatching { Json.parseToJsonElement(body).jsonObject["user_info"]?.jsonObject }
-        .getOrNull() ?: return@withContext null
-    val nickname = userInfo["nickname"]?.jsonPrimitive?.contentOrNull ?: "抖音头像"
-    val avatar = userInfo["avatar_thumb"]?.jsonObject
-        ?.get("url_list")?.jsonArray
-        ?.firstOrNull()?.jsonPrimitive?.contentOrNull
-        ?: return@withContext null
-    DouyinAvatarInfo(avatar.replace("100x100", "1080x1080").replace(".jpeg", ".png"), nickname)
-}
+private suspend fun resolveDouyinAvatar(link: String): DouyinAvatarInfo? =
+    withContext(Dispatchers.IO) {
+        val finalUrl =
+            HttpUtil.getFinalUrl(link, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
+                ?: return@withContext null
+        val secUid = Regex("""/user/([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)
+            ?: Regex("""[?&]sec_uid=([0-9A-Za-z_-]+)""").find(finalUrl)?.groupValues?.get(1)
+            ?: return@withContext null
+        val api = "https://www.iesdouyin.com/web/api/v2/user/info/?sec_uid=$secUid"
+        val body = HttpUtil.get(api, mapOf("User-Agent" to AppData.UA_CHROME_M)).getOrNull()
+            ?: return@withContext null
+        val userInfo =
+            runCatching { Json.parseToJsonElement(body).jsonObject["user_info"]?.jsonObject }
+                .getOrNull() ?: return@withContext null
+        val nickname = userInfo["nickname"]?.jsonPrimitive?.contentOrNull ?: "抖音头像"
+        val avatar = userInfo["avatar_thumb"]?.jsonObject
+            ?.get("url_list")?.jsonArray
+            ?.firstOrNull()?.jsonPrimitive?.contentOrNull
+            ?: return@withContext null
+        DouyinAvatarInfo(avatar.replace("100x100", "1080x1080").replace(".jpeg", ".png"), nickname)
+    }

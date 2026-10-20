@@ -9,7 +9,6 @@ import android.media.AudioManager
 import android.os.BatteryManager
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -27,7 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -64,8 +62,9 @@ import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
+import pjs.dogbox.ui.components.AppBottomSheet
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -73,8 +72,6 @@ import kotlin.math.abs
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -116,7 +113,8 @@ fun VideoPlayerScreen(
             )
         )
     }
-    val currentScaleMode = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }
+    val currentScaleMode =
+        getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var locked by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
@@ -280,7 +278,11 @@ fun VideoPlayerScreen(
 
             override fun onPlayerError(error: PlaybackException) {
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    Toast.makeText(context, "播放出错：${error.localizedMessage}", Toast.LENGTH_SHORT)
+                    Toast.makeText(
+                        context,
+                        "播放出错：${error.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    )
                         .show()
                 }
                 if (isFullscreen) {
@@ -426,7 +428,10 @@ fun VideoPlayerScreen(
                                         listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
                                     )
                                 )
-                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp, vertical = 4.dp),
+                                .padding(
+                                    horizontal = if (isLandscape) 24.dp else 4.dp,
+                                    vertical = 4.dp
+                                ),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Row(
@@ -546,6 +551,7 @@ fun VideoPlayerScreen(
                                         if (longPressIsRight) isFastForwarding = true
                                         else isRewinding = true
                                     }
+
                                     var dragAxis =
                                         0 // 0=none, 1=horizontal(seek), 2=vertical(volume/brightness)
                                     var lastPos = down.position
@@ -773,7 +779,10 @@ fun VideoPlayerScreen(
                                         listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                                     )
                                 )
-                                .padding(horizontal = if (isLandscape) 24.dp else 4.dp, vertical = 4.dp),
+                                .padding(
+                                    horizontal = if (isLandscape) 24.dp else 4.dp,
+                                    vertical = 4.dp
+                                ),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             if (isVod) {
@@ -836,11 +845,11 @@ fun VideoPlayerScreen(
                                     onSeeking = { fraction ->
                                         seekPreviewPosition = (fraction * playerDuration).toLong()
                                     },
-modifier = Modifier.padding(horizontal = 12.dp),
-                            )
-                        }
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                )
+                            }
 
-                        if (isLandscape) {
+                            if (isLandscape) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.fillMaxWidth(),
@@ -899,7 +908,9 @@ modifier = Modifier.padding(horizontal = 12.dp),
                                     )
                                     Spacer(modifier = Modifier.width(24.dp))
                                     MiuixText(
-                                        text = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }.label,
+                                        text = getScaleModes(isLandscape).getOrElse(
+                                            currentScaleModeIndex
+                                        ) { ALL_SCALE_MODES.first() }.label,
                                         color = Color.White,
                                         style = MiuixTheme.textStyles.subtitle,
                                         modifier = Modifier.clickable {
@@ -952,7 +963,9 @@ modifier = Modifier.padding(horizontal = 12.dp),
                                         )
                                         Spacer(modifier = Modifier.width(24.dp))
                                         MiuixText(
-                                            text = getScaleModes(isLandscape).getOrElse(currentScaleModeIndex) { ALL_SCALE_MODES.first() }.label,
+                                            text = getScaleModes(isLandscape).getOrElse(
+                                                currentScaleModeIndex
+                                            ) { ALL_SCALE_MODES.first() }.label,
                                             color = Color.White,
                                             style = MiuixTheme.textStyles.subtitle,
                                             modifier = Modifier.clickable {
@@ -1096,7 +1109,12 @@ modifier = Modifier.padding(horizontal = 12.dp),
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onBackgroundPlaybackChange = {
+                        GlobalPlayerConfig.setBackgroundPlayback(
+                            context,
+                            it
+                        )
+                    },
                     onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
@@ -1171,7 +1189,12 @@ modifier = Modifier.padding(horizontal = 12.dp),
                     longPressSpeed = longPressSpeed,
                     onFlipHorizontalChange = { flipHorizontal = it },
                     onFlipVerticalChange = { flipVertical = it },
-                    onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                    onBackgroundPlaybackChange = {
+                        GlobalPlayerConfig.setBackgroundPlayback(
+                            context,
+                            it
+                        )
+                    },
                     onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                     onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                     onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },

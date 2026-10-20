@@ -20,15 +20,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,7 +63,6 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Document
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -71,9 +70,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import pjs.dogbox.R
-import pjs.dogbox.ui.components.CoverImage
-import pjs.dogbox.ui.components.PagerTabFollowEffect
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -81,25 +77,28 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import pjs.dogbox.R
 import pjs.dogbox.data.ApiSite
 import pjs.dogbox.data.ApiSites
 import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.theme.MiuixIcons
 import pjs.dogbox.utils.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.IOException
+import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
-import pjs.dogbox.ui.components.grayTextFieldColors
-import java.net.URLEncoder
 
 internal data class SearchSource(
     val key: String,
@@ -171,8 +170,12 @@ private fun parseSearchResults(
         // 过滤广告跳转
         if (linkText.contains("/go/ad/")) return@mapNotNull null
         val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
-        val coverText = imgEl.attr("data-original").ifBlank { imgEl.attr("data-src") }.ifBlank { imgEl.attr("src") }.trim()
-        if (coverText.isBlank() || coverText.startsWith("data:") || coverText.contains("loading.png") || coverText.contains("load.gif")) return@mapNotNull null
+        val coverText = imgEl.attr("data-original").ifBlank { imgEl.attr("data-src") }
+            .ifBlank { imgEl.attr("src") }.trim()
+        if (coverText.isBlank() || coverText.startsWith("data:") || coverText.contains("loading.png") || coverText.contains(
+                "load.gif"
+            )
+        ) return@mapNotNull null
         val cover = when {
             coverText.startsWith("http") -> coverText
             coverText.startsWith("//") -> "https:$coverText"
@@ -219,7 +222,8 @@ private fun parseApiSearchResults(
     source: SearchSource,
     currentPage: Int = 1,
 ): Pair<List<SearchItem>, PageInfo> {
-    val api = source.api ?: return emptyList<SearchItem>() to PageInfo(hasNext = false, nextUrl = null)
+    val api =
+        source.api ?: return emptyList<SearchItem>() to PageInfo(hasNext = false, nextUrl = null)
     val origin = ApiSites.originOf(api)
     val root = vodListJson.parseToJsonElement(json).jsonObject
     val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())
@@ -266,6 +270,7 @@ private suspend fun fetchPage(
             val base = "${AppData.FDZYS_HOST}/yu-${encoded}-xianguan-de-yingpian-shippin-zhibo"
             if (page <= 1) base else "$base?page=$page"
         }
+
         else -> {
             if (page <= 1) "${source.searchUrl}$encoded"
             else "${AppData.YXXQ_HOST}/search/${encoded}----------${page}---.html"
@@ -293,7 +298,10 @@ private suspend fun fetchPage(
             lastError = e
         }
         if (attempt == 0) {
-            try { delay(666) } catch (_: Throwable) {}
+            try {
+                delay(666)
+            } catch (_: Throwable) {
+            }
         }
     }
     Result.failure(lastError ?: IOException("未知网络错误"))
@@ -551,12 +559,11 @@ internal fun MovieSearchScreen(
                 label = "输入关键词搜索",
                 useLabelAsPlaceholder = true,
                 singleLine = true,
-                colors = grayTextFieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { triggerSearch(searchText) }),
                 leadingIcon = {
                     MiuixIcon(
-                        painter = painterResource(R.drawable.search_outlined),
+                        imageVector = MiuixIcons.Regular.Search,
                         contentDescription = "搜索",
                         tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                         modifier = Modifier
@@ -568,7 +575,7 @@ internal fun MovieSearchScreen(
                     if (searchText.isNotEmpty()) {
                         MiuixIconButton(onClick = { searchText = "" }) {
                             MiuixIcon(
-                                painter = painterResource(R.drawable.close_outlined),
+                                imageVector = MiuixIcons.Regular.SearchCleanup,
                                 contentDescription = "清空",
                                 modifier = Modifier.size(24.dp),
                             )
@@ -930,12 +937,14 @@ private fun SourceTabContent(
 }
 
 @Composable
-private fun SearchGridItem(item: SearchItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
+private fun SearchGridItem(
+    item: SearchItem,
+    onClick: () -> Unit,
+    onViewImage: (String, String, String) -> Unit
+) {
     Card(
         onClick = onClick,
         onLongPress = { onViewImage(item.cover, item.host, item.title) },
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
         insideMargin = PaddingValues(0.dp),
     ) {

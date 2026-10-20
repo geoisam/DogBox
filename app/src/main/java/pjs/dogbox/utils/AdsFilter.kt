@@ -40,7 +40,9 @@ object AdsFilter {
         return try {
             withContext(Dispatchers.IO) {
                 val playlist = HttpUtil.get(url).getOrThrow()
-                if (!playlist.replace("\uFEFF", "").trimStart().startsWith("#EXTM3U")) return@withContext url
+                if (!playlist.replace("\uFEFF", "").trimStart()
+                        .startsWith("#EXTM3U")
+                ) return@withContext url
                 val filtered = applyRegex(rule, playlist)
                 val resolved = resolveUrls(filtered, url) ?: return@withContext url
                 saveToCache(context, resolved)
@@ -60,8 +62,10 @@ object AdsFilter {
                         val obj = element.jsonObject
                         AdsRule(
                             name = obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
-                            hosts = obj["hosts"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList(),
-                            regex = obj["regex"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList(),
+                            hosts = obj["hosts"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                                ?: emptyList(),
+                            regex = obj["regex"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                                ?: emptyList(),
                         )
                     }
                 }
@@ -96,7 +100,9 @@ object AdsFilter {
             val trimmed = line.trim()
             when {
                 trimmed.isEmpty() -> {}
-                trimmed.startsWith("#") -> builder.append(resolveTagUris(trimmed, baseUrl)).append("\r\n")
+                trimmed.startsWith("#") -> builder.append(resolveTagUris(trimmed, baseUrl))
+                    .append("\r\n")
+
                 else -> {
                     hasSegments = true
                     builder.append(resolveSegment(baseUrl, trimmed)).append("\r\n")
@@ -107,7 +113,11 @@ object AdsFilter {
     }
 
     private fun resolveSegment(baseUrl: String, segment: String): String {
-        if (segment.startsWith("http://", true) || segment.startsWith("https://", true)) return segment
+        if (segment.startsWith("http://", true) || segment.startsWith(
+                "https://",
+                true
+            )
+        ) return segment
         return runCatching {
             java.net.URI(baseUrl).resolve(java.net.URI(segment)).toString()
         }.getOrElse {

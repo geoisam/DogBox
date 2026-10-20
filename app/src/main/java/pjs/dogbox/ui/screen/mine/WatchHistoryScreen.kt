@@ -57,14 +57,14 @@ import pjs.dogbox.data.WatchHistoryItem
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 @Composable
 fun WatchHistoryScreen(
@@ -113,16 +113,16 @@ fun WatchHistoryScreen(
                             MiuixIcon(
                                 painter = painterResource(R.drawable.close_outlined),
                                 contentDescription = "取消",
-                            modifier = Modifier.size(24.dp),
-                        )
+                                modifier = Modifier.size(24.dp),
+                            )
                         }
                     } else if (items.isNotEmpty()) {
                         MiuixIconButton(onClick = { isDeleteMode = true }) {
                             MiuixIcon(
                                 painter = painterResource(R.drawable.delete_outlined),
                                 contentDescription = "删除",
-                            modifier = Modifier.size(24.dp),
-                        )
+                                modifier = Modifier.size(24.dp),
+                            )
                         }
                     }
                 },
@@ -139,7 +139,8 @@ fun WatchHistoryScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = {
-                                val filtered = items.filter { it.orientation == pagerState.currentPage }
+                                val filtered =
+                                    items.filter { it.orientation == pagerState.currentPage }
                                 val allKeys = filtered.map { "${it.key}|${it.id}" }
                                 selectedIds.clear()
                                 selectedIds.addAll(allKeys)
@@ -151,7 +152,8 @@ fun WatchHistoryScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
-                                val filtered = items.filter { it.orientation == pagerState.currentPage }
+                                val filtered =
+                                    items.filter { it.orientation == pagerState.currentPage }
                                 val allKeys = filtered.map { "${it.key}|${it.id}" }
                                 val currentSelected = selectedIds.toSet()
                                 selectedIds.clear()
@@ -267,7 +269,8 @@ fun WatchHistoryScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(items.filter { it.orientation == page },
+                        items(
+                            items.filter { it.orientation == page },
                             key = { "${it.key}|${it.id}" }) { item ->
                             HistoryGridItem(
                                 item = item,

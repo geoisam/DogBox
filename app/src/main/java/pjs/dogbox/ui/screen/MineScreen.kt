@@ -39,6 +39,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -48,16 +49,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.LunarSnapshot
 import pjs.dogbox.utils.LunarUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.util.Calendar
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.util.Calendar
 
 @Composable
 fun MineScreen(
@@ -66,6 +66,7 @@ fun MineScreen(
     onNavigateToLocalVideos: () -> Unit = {},
     onNavigateToAboutMe: () -> Unit = {},
     onNavigateToSponsor: () -> Unit = {},
+    contentBottomPadding: Dp = 0.dp,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -148,13 +149,12 @@ fun MineScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 12.dp),
+        contentPadding = PaddingValues(bottom = contentBottomPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                pressFeedbackType = PressFeedbackType.Sink,
-                showIndication = true,
                 onClick = { showSheet = true },
                 insideMargin = PaddingValues(16.dp),
             ) {
@@ -470,8 +470,6 @@ fun MineCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = onClick,
         insideMargin = PaddingValues(12.dp),
     ) {
@@ -503,8 +501,6 @@ fun MineItem(
 ) {
     Card(
         modifier = modifier,
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = onClick,
         colors = CardDefaults.defaultColors(color = Color.Transparent),
         insideMargin = PaddingValues(vertical = 16.dp),
@@ -535,8 +531,6 @@ fun MineListItem(
     onClick: () -> Unit,
 ) {
     Card(
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = onClick,
         colors = CardDefaults.defaultColors(color = Color.Transparent),
     ) {

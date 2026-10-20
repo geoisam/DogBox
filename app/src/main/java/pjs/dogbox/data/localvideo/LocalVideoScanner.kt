@@ -1,7 +1,5 @@
 package pjs.dogbox.data.localvideo
 
-import pjs.dogbox.utils.openPermissionManager
-
 import android.Manifest
 import android.content.ContentUris
 import android.content.Context
@@ -13,6 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import pjs.dogbox.utils.openPermissionManager
 import java.util.Locale
 
 data class LocalVideoItem(
@@ -124,7 +123,12 @@ internal fun formatDuration(ms: Long): String {
 internal fun formatSize(bytes: Long): String {
     if (bytes <= 0) return ""
     return when {
-        bytes >= 1024L * 1024 * 1024 -> String.format(Locale.getDefault(), "%.2f GB", bytes / 1024f / 1024f / 1024f)
+        bytes >= 1024L * 1024 * 1024 -> String.format(
+            Locale.getDefault(),
+            "%.2f GB",
+            bytes / 1024f / 1024f / 1024f
+        )
+
         bytes >= 1024 * 1024 -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1024f / 1024f)
         else -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024f)
     }

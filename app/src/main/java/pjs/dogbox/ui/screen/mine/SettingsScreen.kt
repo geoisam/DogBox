@@ -1,7 +1,5 @@
 package pjs.dogbox.ui.screen.mine
 
-import pjs.dogbox.utils.openPermissionManager
-
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -27,30 +25,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import pjs.dogbox.R
+import pjs.dogbox.data.SharedData
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.PlaybackOrder
 import pjs.dogbox.ui.screen.movie.SPEED_KEY_POINTS
-import pjs.dogbox.data.SharedData
+import pjs.dogbox.utils.openPermissionManager
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.Slider
-import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
 
@@ -78,10 +79,33 @@ fun SettingsScreen(
     val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     var downloadMode by remember { mutableIntStateOf(SharedData.getDownloadMode(context)) }
-    var themeMode by remember { mutableIntStateOf(SharedData.getThemeMode(context).takeIf { it in 0..2 } ?: 0) }
+    var themeMode by remember {
+        mutableIntStateOf(
+            SharedData.getThemeMode(context).takeIf { it in 0..2 } ?: 0)
+    }
     var monetEnable by remember { mutableStateOf(SharedData.getDynamicColor(context)) }
     var dynamicColorStyle by remember { mutableStateOf(SharedData.getDynamicColorStyle(context)) }
     var showSpeedSheet by remember { mutableStateOf(false) }
+
+    // 毛玻璃 / 液态玻璃依赖运行时着色器（Android 13+），不支持时只能使用纯色底栏
+    val supportsNavBarEffect = isRuntimeShaderSupported()
+
+    var floatingNavBar by remember { mutableStateOf(SharedData.isFloatingNavBarEnabled(context)) }
+    var navBarEffect by remember {
+        mutableStateOf(
+            if (supportsNavBarEffect) SharedData.getNavBarEffect(
+                context
+            ) else 0
+        )
+    }
+
+    val FloatingEffectLabels = listOf("无", "毛玻璃", "液态玻璃")
+
+    val navBarEffectLabels = FloatingEffectLabels
+    val navBarEffectEnabled = supportsNavBarEffect
+    val navBarEffectIndex = navBarEffectLabels.indexOf(
+        FloatingEffectLabels[navBarEffect.coerceIn(0, 2)]
+    ).coerceAtLeast(0)
 
     fun applyTheme(
         mode: Int = themeMode,
@@ -136,19 +160,39 @@ fun SettingsScreen(
                     selectedIndex = themeMode,
                     onSelectedIndexChange = { applyTheme(mode = it) },
                 )
+                if (supportsDynamicColor) {
+                    SwitchPreference(
+                        title = "莫奈取色",
+                        checked = monetEnable,
+                        enabled = true,
+                        onCheckedChange = { applyTheme(monet = it) },
+                    )
+                    OverlayDropdownPreference(
+                        title = "配色风格",
+                        items = paletteStyleLabels,
+                        selectedIndex = paletteStyleIndex,
+                        enabled = monetEnable,
+                        onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
+                    )
+                }
                 SwitchPreference(
-                    title = "莫奈取色",
-                    summary = if (supportsDynamicColor) "跟随桌面壁纸动态取色" else "当前系统不支持动态取色",
-                    checked = monetEnable && supportsDynamicColor,
-                    enabled = supportsDynamicColor,
-                    onCheckedChange = { applyTheme(monet = it) },
+                    title = "悬浮底栏",
+                    checked = floatingNavBar,
+                    enabled = true,
+                    onCheckedChange = { enabled ->
+                        floatingNavBar = enabled
+                        SharedData.setFloatingNavBarEnabled(context, enabled)
+                    },
                 )
                 OverlayDropdownPreference(
-                    title = "配色风格",
-                    items = paletteStyleLabels,
-                    selectedIndex = paletteStyleIndex,
-                    enabled = monetEnable && supportsDynamicColor,
-                    onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
+                    title = "底栏效果",
+                    items = navBarEffectLabels,
+                    selectedIndex = navBarEffectIndex,
+                    enabled = navBarEffectEnabled,
+                    onSelectedIndexChange = { index ->
+                        navBarEffect = index
+                        SharedData.setNavBarEffect(context, index)
+                    },
                 )
             }
 
@@ -178,11 +222,10 @@ fun SettingsScreen(
                     endActions = {
                         MiuixText(
                             text = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
-                            modifier = Modifier
-                                .align(Alignment.CenterVertically)
-                                .padding(end = 8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            textAlign = TextAlign.End,
                         )
                     },
                     onClick = { showSpeedSheet = true },
@@ -301,9 +344,8 @@ private fun LongPressSpeedDialog(
                 )
                 MiuixText(
                     text = "${"%.2f".format(sliderSpeed)}x",
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -335,6 +377,7 @@ private fun LongPressSpeedDialog(
                         sliderSpeed = 3.0f
                         onSpeedConfirm(3.0f)
                     },
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),
                 )
             }

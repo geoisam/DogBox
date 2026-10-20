@@ -68,14 +68,17 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
+import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
 import pjs.dogbox.ui.navigation.TabStateCache
-import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator as MiuixCircularProgressIndicator
@@ -84,10 +87,6 @@ import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.net.URLEncoder
 
 internal data class MovieItem(
     val id: String,
@@ -287,7 +286,9 @@ internal fun MovieRatingScreen(
 
                     HorizontalPager(
                         state = pagerState,
-                        modifier = Modifier.fillMaxSize().weight(1f),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
                         beyondViewportPageCount = 0,
                     ) { page ->
                         key(categories[page]) {
@@ -503,7 +504,13 @@ private fun MovieCategoryContent(
                                         onSearchMovie(item.title)
                                     }
                                 },
-                                onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
+                                onViewImage = { _, _, _ ->
+                                    onViewImage(
+                                        item.coverLarge,
+                                        "https://m.douban.com/",
+                                        item.title
+                                    )
+                                },
                             )
                         }
 
@@ -682,7 +689,11 @@ private fun FilterChipBar(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
+private fun MovieGridItem(
+    item: MovieItem,
+    onClick: () -> Unit,
+    onViewImage: (String, String, String) -> Unit
+) {
     val slashIndex = item.subtitle.indexOf("/")
     val year = if (slashIndex >= 0) item.subtitle.substring(0, slashIndex).trim() else ""
     val rest =
@@ -691,8 +702,6 @@ private fun MovieGridItem(item: MovieItem, onClick: () -> Unit, onViewImage: (St
     MiuixCard(
         onClick = onClick,
         onLongPress = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         colors = MiuixCardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer,
         ),

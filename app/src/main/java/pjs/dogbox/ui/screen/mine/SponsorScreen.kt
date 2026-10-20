@@ -1,5 +1,6 @@
 package pjs.dogbox.ui.screen.mine
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,17 +23,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import android.graphics.BitmapFactory
 import pjs.dogbox.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 @Composable
 fun SponsorScreen(
@@ -97,8 +96,6 @@ fun SponsorScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillParentMaxHeight(0.5f),
-                    pressFeedbackType = PressFeedbackType.Sink,
-                    showIndication = true,
                     onClick = {
                         onViewImage(
                             "file:///android_asset/img/$assetName.jpg",

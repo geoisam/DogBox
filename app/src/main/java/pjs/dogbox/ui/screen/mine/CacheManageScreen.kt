@@ -39,10 +39,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.ui.components.MiuixSubScreen
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private data class DeviceStorageInfo(
     val appUsedBytes: Long,
@@ -93,7 +93,11 @@ fun CacheManageScreen(
                             withContext(Dispatchers.IO) { clearAppCache(context) }
                             storageInfo = withContext(Dispatchers.IO) { readStorageInfo(context) }
                             clearing = false
-                            Toast.makeText(context, "已清理${formatFileSize(cache)}缓存", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "已清理${formatFileSize(cache)}缓存",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 },
@@ -119,7 +123,7 @@ private fun readStorageInfo(context: Context): DeviceStorageInfo {
                 .getPackageInfo(context.packageName, 0)
                 .applicationInfo?.sourceDir
             appUsedBytes = (sourceDir?.let { File(it).length() } ?: 0L) +
-                getDirSize(File(context.applicationInfo.dataDir))
+                    getDirSize(File(context.applicationInfo.dataDir))
         } catch (_: Exception) {
         }
     }

@@ -32,8 +32,8 @@ import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private const val STATE_LOADING = 0
 private const val STATE_LOADED = 1

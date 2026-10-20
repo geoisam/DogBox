@@ -40,9 +40,9 @@ import kotlinx.coroutines.withContext
 import pjs.dogbox.MainActivity
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
+import pjs.dogbox.data.SharedData
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
-import pjs.dogbox.data.SharedData
 import java.io.File
 import java.io.FileOutputStream
 
@@ -83,7 +83,8 @@ class MediaDownloadService : Service() {
         fun obtainNextNotificationId(context: Context): Int {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             var cur = prefs.getInt(KEY_NEXT_NOTIFICATION_ID, NOTIFICATION_ID_START)
-            if (cur < NOTIFICATION_ID_START || cur >= NOTIFICATION_ID_END) cur = NOTIFICATION_ID_START
+            if (cur < NOTIFICATION_ID_START || cur >= NOTIFICATION_ID_END) cur =
+                NOTIFICATION_ID_START
             val next = cur + 1
             prefs.edit { putInt(KEY_NEXT_NOTIFICATION_ID, next) }
             // 叠加时间戳低位 + 随机数，极端情况下（卸载重装等）也能降低碰撞概率
@@ -207,12 +208,28 @@ class MediaDownloadService : Service() {
 
                 val useSystemDownloader =
                     SharedData.getDownloadMode(this) == 1 &&
-                        getSystemService(Context.DOWNLOAD_SERVICE) is DownloadManager
+                            getSystemService(Context.DOWNLOAD_SERVICE) is DownloadManager
 
                 val job = if (useSystemDownloader) {
-                    launchSystemDownloadBatch(notificationId, urls, referer, title, dirName, ext, doneTitle)
+                    launchSystemDownloadBatch(
+                        notificationId,
+                        urls,
+                        referer,
+                        title,
+                        dirName,
+                        ext,
+                        doneTitle
+                    )
                 } else {
-                    launchBuiltInDownloadBatch(notificationId, urls, referer, title, dirName, ext, doneTitle)
+                    launchBuiltInDownloadBatch(
+                        notificationId,
+                        urls,
+                        referer,
+                        title,
+                        dirName,
+                        ext,
+                        doneTitle
+                    )
                 }
                 activeJobs[notificationId] = job
             }
@@ -333,7 +350,12 @@ class MediaDownloadService : Service() {
                     runCatching { tmpFile.renameTo(finalFile) }
                     // rename 可能在跨分区失败，兜底拷贝
                     if (!finalFile.exists() && tmpFile.exists()) {
-                        runCatching { tmpFile.copyTo(finalFile, overwrite = true); tmpFile.delete() }
+                        runCatching {
+                            tmpFile.copyTo(
+                                finalFile,
+                                overwrite = true
+                            ); tmpFile.delete()
+                        }
                     }
                     return@withContext true.also {
                         MediaScannerConnection.scanFile(
@@ -385,7 +407,10 @@ class MediaDownloadService : Service() {
                     setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
                     setAllowedOverMetered(true)
                     setAllowedOverRoaming(true)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$subDir/$fileName")
+                    setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS,
+                        "$subDir/$fileName"
+                    )
                 }
                 enqueuedIds += dm.enqueue(request)
             } catch (_: Exception) {
@@ -414,7 +439,8 @@ class MediaDownloadService : Service() {
                             DownloadManager.STATUS_SUCCESSFUL -> {
                                 pending.remove(id)
                                 ok++
-                                val localUri = if (localUriIdx >= 0) cursor.getString(localUriIdx) else null
+                                val localUri =
+                                    if (localUriIdx >= 0) cursor.getString(localUriIdx) else null
                                 localUri?.let {
                                     runCatching { Uri.parse(it).path }.getOrNull()?.let { path ->
                                         MediaScannerConnection.scanFile(
@@ -456,15 +482,16 @@ class MediaDownloadService : Service() {
             .addAction(0, "取消", buildCancelPendingIntent(notificationId))
             .build()
 
-    private fun buildCancelPendingIntent(notificationId: Int): PendingIntent = PendingIntent.getService(
-        this,
-        notificationId,
-        Intent(this, MediaDownloadService::class.java).apply {
-            action = ACTION_CANCEL
-            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-        },
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
+    private fun buildCancelPendingIntent(notificationId: Int): PendingIntent =
+        PendingIntent.getService(
+            this,
+            notificationId,
+            Intent(this, MediaDownloadService::class.java).apply {
+                action = ACTION_CANCEL
+                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun notifyCompletion(
         notificationId: Int,

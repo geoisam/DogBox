@@ -36,7 +36,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -90,24 +89,23 @@ import androidx.core.graphics.createBitmap
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import pjs.dogbox.R
+import pjs.dogbox.ui.components.AppBottomSheet
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
-import pjs.dogbox.ui.components.AppBottomSheet
+import kotlin.math.abs
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @Composable
 fun getStatusBarHeight(): Dp {
@@ -1069,14 +1067,14 @@ internal fun PlayerCore(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                        runCatching {
-                            player = exoPlayer
-                            resizeMode = currentScaleMode.resizeMode
-                            refreshEndedFrame(exoPlayer)
-                        }
-                    }.also {
-                        onPlayerViewRef(it)
+                    runCatching {
+                        player = exoPlayer
+                        resizeMode = currentScaleMode.resizeMode
+                        refreshEndedFrame(exoPlayer)
                     }
+                }.also {
+                    onPlayerViewRef(it)
+                }
             },
             update = { playerView ->
                 playerView.resizeMode = currentScaleMode.resizeMode
@@ -1951,7 +1949,10 @@ internal fun EpisodePanelContent(
                 modifier = Modifier.weight(1f),
             ) { page ->
                 EpisodeChipGrid(
-                    episodes = episodes.subList(page * pageSize, minOf((page + 1) * pageSize, totalEpisodes)),
+                    episodes = episodes.subList(
+                        page * pageSize,
+                        minOf((page + 1) * pageSize, totalEpisodes)
+                    ),
                     startIndex = page * pageSize,
                     selectedIndex = selectedIndex,
                     onSelect = onSelect,

@@ -339,7 +339,7 @@ object LunarUtil {
         }
 
         return (festivals.distinctBy { it.name to it.date }.sortedBy { it.daysLeft }.take(2) +
-            jieQiList.distinctBy { it.name to it.date }.sortedBy { it.daysLeft }.take(1))
+                jieQiList.distinctBy { it.name to it.date }.sortedBy { it.daysLeft }.take(1))
             .sortedBy { it.daysLeft }
     }
 }

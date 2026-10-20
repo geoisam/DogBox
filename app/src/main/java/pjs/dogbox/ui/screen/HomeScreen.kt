@@ -1,11 +1,5 @@
 package pjs.dogbox.ui.screen
 
-import pjs.dogbox.ui.components.CoverImage
-import pjs.dogbox.ui.components.MiuixEmptyText
-import pjs.dogbox.ui.components.MiuixLoading
-import pjs.dogbox.ui.components.PagerTabFollowEffect
-import pjs.dogbox.ui.navigation.TabStateCache
-
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -67,6 +61,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -85,19 +80,23 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.CoverImage
+import pjs.dogbox.ui.components.MiuixEmptyText
+import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.utils.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.net.URLEncoder
 
 internal data class HomeItem(
     val id: String,
@@ -170,6 +169,7 @@ internal fun HomeScreen(
     modifier: Modifier = Modifier,
     onSearchMovie: (String) -> Unit = {},
     onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
+    contentBottomPadding: Dp = 0.dp,
 ) {
     var filterState by state.filterState
     var filterData by state.filterData
@@ -333,6 +333,7 @@ internal fun HomeScreen(
                             },
                             onViewImage = onViewImage,
                             onDataLoaded = { firstTabLoaded = true },
+                            contentBottomPadding = contentBottomPadding,
                         )
                     }
                 }
@@ -411,6 +412,7 @@ private fun HomeFilterHeader(
             "show-type" to { v -> tabState.selectedShowType = v },
         )
     }
+
     fun optionsFor(category: String): List<Pair<String, String>> {
         val d = filterData ?: return emptyList()
         return when (category) {
@@ -495,6 +497,7 @@ private fun FilterableTabContent(
     onItemClick: (String) -> Unit,
     onViewImage: (String, String, String) -> Unit,
     onDataLoaded: () -> Unit = {},
+    contentBottomPadding: Dp = 0.dp,
 ) {
 
     // movie_showing 接口 total 约 50+，count=20 取 3 页兜底；空页即止
@@ -713,7 +716,12 @@ private fun FilterableTabContent(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     state = gridState,
-                    contentPadding = PaddingValues(8.dp),
+                    contentPadding = PaddingValues(
+                        start = 8.dp,
+                        top = 8.dp,
+                        end = 8.dp,
+                        bottom = 8.dp + contentBottomPadding,
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -722,7 +730,13 @@ private fun FilterableTabContent(
                         HomeGridItem(
                             item = item,
                             onClick = { onItemClick(item.title) },
-                            onViewImage = { _, _, _ -> onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
+                            onViewImage = { _, _, _ ->
+                                onViewImage(
+                                    item.coverLarge,
+                                    "https://m.douban.com/",
+                                    item.title
+                                )
+                            },
                         )
                     }
                     if (tabState.isLoading) {
@@ -801,15 +815,17 @@ private fun parseRecommendItems(json: JsonObject): List<HomeItem> {
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun HomeGridItem(item: HomeItem, onClick: () -> Unit, onViewImage: (String, String, String) -> Unit) {
+private fun HomeGridItem(
+    item: HomeItem,
+    onClick: () -> Unit,
+    onViewImage: (String, String, String) -> Unit
+) {
     val slashIndex = item.subtitle.indexOf("/")
     val year = if (slashIndex >= 0) item.subtitle.substring(0, slashIndex).trim() else item.year
     val rest = if (slashIndex >= 0) item.subtitle.substring(slashIndex + 1).trim() else ""
 
     Card(
         colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = onClick,
         onLongPress = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
     ) {
@@ -868,7 +884,8 @@ private fun HomeGridItem(item: HomeItem, onClick: () -> Unit, onViewImage: (Stri
                         contentAlignment = Alignment.Center,
                     ) {
                         MiuixText(
-                            text = rest.replace(WHITESPACE_REGEX, "/").replace(MULTI_SLASH_REGEX, "/"),
+                            text = rest.replace(WHITESPACE_REGEX, "/")
+                                .replace(MULTI_SLASH_REGEX, "/"),
                             color = Color.White,
                             style = MiuixTheme.textStyles.footnote1,
                             maxLines = 1,

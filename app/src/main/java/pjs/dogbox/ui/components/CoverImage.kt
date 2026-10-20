@@ -12,8 +12,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import pjs.dogbox.R
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 
 @Composable
 internal fun CoverImage(

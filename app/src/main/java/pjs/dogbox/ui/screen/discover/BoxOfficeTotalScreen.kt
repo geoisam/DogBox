@@ -60,12 +60,15 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
 import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.util.Calendar
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
@@ -73,10 +76,6 @@ import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.util.Calendar
 
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getYearData"
 private const val MIN_YEAR = 2017
@@ -457,8 +456,6 @@ private fun YearSelector(
 private fun RankListItem(item: RankItem, onClick: () -> Unit) {
     MiuixCard(
         onClick = onClick,
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         modifier = Modifier.fillMaxWidth(),
         colors = MiuixCardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer,

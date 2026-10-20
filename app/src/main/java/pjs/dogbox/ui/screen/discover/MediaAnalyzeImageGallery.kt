@@ -82,18 +82,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
-import pjs.dogbox.utils.openPermissionManager
 import pjs.dogbox.data.AppData
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.CryptUtil
 import pjs.dogbox.utils.HttpUtil
+import pjs.dogbox.utils.openPermissionManager
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.File
+import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
-import java.io.File
-import java.util.Locale
 
 private fun imageHeadersForGallery(url: String, referer: String): NetworkHeaders {
     val builder = NetworkHeaders.Builder()
@@ -144,7 +144,10 @@ private fun saveImageBytesToGallery(
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Material/${CryptUtil.md5(title)}/Pictures")
+                put(
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Material/${CryptUtil.md5(title)}/Pictures"
+                )
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
             val uri = context.contentResolver.insert(
@@ -199,7 +202,12 @@ fun MediaAnalyzeImageGallery(
 
     val activity = context as? Activity
     val insetsController = remember {
-        activity?.window?.let { WindowInsetsControllerCompat(activity.window, activity.window.decorView) }
+        activity?.window?.let {
+            WindowInsetsControllerCompat(
+                activity.window,
+                activity.window.decorView
+            )
+        }
     }
 
     val view = LocalView.current
@@ -256,7 +264,12 @@ fun MediaAnalyzeImageGallery(
         // 若带 Referer 失败，尝试不带 Referer 重试一次（模拟浏览器直接访问）
         if (result.isFailure) {
             val retry = withContext(Dispatchers.IO) {
-                HttpUtil.getBytes(url, mapOf("User-Agent" to AppData.UA_CHROME_M), connectTimeout = 10, readTimeout = 15)
+                HttpUtil.getBytes(
+                    url,
+                    mapOf("User-Agent" to AppData.UA_CHROME_M),
+                    connectTimeout = 10,
+                    readTimeout = 15
+                )
             }
             return retry.getOrNull() ?: result.getOrNull()
         }
@@ -405,11 +418,17 @@ fun MediaAnalyzeImageGallery(
         imageBytes != null -> {
             val size = imageBytes!!.size
             when {
-                size >= 1024L * 1024 * 1024 -> String.format(Locale.ROOT, "%.2f GB", size / 1024f / 1024f / 1024f)
+                size >= 1024L * 1024 * 1024 -> String.format(
+                    Locale.ROOT,
+                    "%.2f GB",
+                    size / 1024f / 1024f / 1024f
+                )
+
                 size >= 1024 * 1024 -> String.format(Locale.ROOT, "%.2f MB", size / 1024f / 1024f)
                 else -> String.format(Locale.ROOT, "%.2f KB", size / 1024f)
             }
         }
+
         infoError -> "大小未知"
         else -> "加载中..."
     }
@@ -544,7 +563,9 @@ fun MediaAnalyzeImageGallery(
             ctrl?.isAppearanceLightStatusBars = light
             ctrl?.isAppearanceLightNavigationBars = light
         }
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

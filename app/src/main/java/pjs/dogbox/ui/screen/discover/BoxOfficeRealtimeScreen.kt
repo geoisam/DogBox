@@ -51,18 +51,18 @@ import pjs.dogbox.R
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.utils.HttpUtil
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.util.Calendar
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.NumberPicker as MiuixNumberPicker
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import java.util.Calendar
 
 private const val API_BASE = "https://zgdypf.zgdypw.cn/getDayData"
 
@@ -340,7 +340,14 @@ private fun RealtimeDatePickerDialog(
         val p = selectedDate.split("-").mapNotNull { it.toIntOrNull() }
         Triple(p.getOrNull(0) ?: todayParts.first, p.getOrNull(1) ?: 1, p.getOrNull(2) ?: 1)
     }
-    var pickYear by remember { mutableIntStateOf(initParts.first.coerceIn(MIN_DATE_YEAR, todayParts.first)) }
+    var pickYear by remember {
+        mutableIntStateOf(
+            initParts.first.coerceIn(
+                MIN_DATE_YEAR,
+                todayParts.first
+            )
+        )
+    }
     var pickMonth by remember { mutableIntStateOf(initParts.second.coerceIn(1, 12)) }
     var pickDay by remember {
         mutableIntStateOf(initParts.third.coerceIn(1, daysInMonth(pickYear, pickMonth)))

@@ -75,7 +75,9 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 import pjs.dogbox.R
+import pjs.dogbox.data.AppData
 import pjs.dogbox.service.MediaDownloadService
+import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.screen.movie.ALL_SCALE_MODES
 import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screen.movie.MoreSettingsContent
@@ -89,12 +91,10 @@ import pjs.dogbox.ui.screen.movie.formatTime
 import pjs.dogbox.ui.screen.movie.getQualityLabel
 import pjs.dogbox.ui.screen.movie.getScaleModes
 import pjs.dogbox.ui.screen.movie.refreshEndedFrame
-import pjs.dogbox.data.AppData
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import pjs.dogbox.ui.components.AppBottomSheet
 
 private fun setSystemBarsVisible(
     controller: WindowInsetsControllerCompat?,
@@ -294,9 +294,11 @@ fun MediaAnalyzePreview(
                     val pos = exoPlayer.duration
                     if (pos > 0) exoPlayer.seekTo((pos - 1).coerceAtLeast(0L))
                 }
+
                 Player.STATE_READY -> if (!exoPlayer.isPlaying) {
                     exoPlayer.seekTo(exoPlayer.currentPosition)
                 }
+
                 else -> {}
             }
         }
@@ -719,7 +721,12 @@ fun MediaAnalyzePreview(
                 longPressSpeed = longPressSpeed,
                 onFlipHorizontalChange = { flipHorizontal = it },
                 onFlipVerticalChange = { flipVertical = it },
-                onBackgroundPlaybackChange = { GlobalPlayerConfig.setBackgroundPlayback(context, it) },
+                onBackgroundPlaybackChange = {
+                    GlobalPlayerConfig.setBackgroundPlayback(
+                        context,
+                        it
+                    )
+                },
                 onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
                 onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
                 onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },

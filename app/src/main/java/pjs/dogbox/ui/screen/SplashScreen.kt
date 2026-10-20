@@ -24,9 +24,9 @@ import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.data.AppData
 import pjs.dogbox.utils.LunarUtil
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun SplashScreen(

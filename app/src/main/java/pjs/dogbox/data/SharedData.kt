@@ -5,6 +5,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -80,6 +83,9 @@ object SharedData {
     private const val KEY_LONG_PRESS_SPEED = "long_press_speed"
     private const val KEY_BACKGROUND_PLAYBACK = "background_playback"
     private const val KEY_ADS_FILTER = "ads_filter"
+
+    private const val KEY_FLOATING_NAV_BAR = "floating_nav_bar"
+    private const val KEY_NAV_BAR_EFFECT = "nav_bar_effect"
 
     private const val KEY_PLAYBACK_ORDER = "playback_order"
 
@@ -320,6 +326,48 @@ object SharedData {
 
     fun setAdsFilterEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit { putBoolean(KEY_ADS_FILTER, enabled) }
+    }
+
+    // === Floating Navigation Bar ===
+
+    /** 底栏设置（是否悬浮、特效类型），通过 [navBarSettings] 暴露给 UI 层实时响应。 */
+    data class NavBarSettings(
+        val floating: Boolean = true,
+        val effect: Int = 0,
+    )
+
+    private val _navBarSettings = MutableStateFlow(NavBarSettings())
+    val navBarSettings: StateFlow<NavBarSettings> = _navBarSettings.asStateFlow()
+    private var navBarSettingsLoaded = false
+
+    /** 首次读取时把持久化设置同步到 [navBarSettings]。 */
+    fun loadNavBarSettings(context: Context) {
+        if (navBarSettingsLoaded) return
+        navBarSettingsLoaded = true
+        _navBarSettings.value = NavBarSettings(
+            floating = isFloatingNavBarEnabled(context),
+            effect = getNavBarEffect(context),
+        )
+    }
+
+    fun isFloatingNavBarEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_FLOATING_NAV_BAR, true)
+    }
+
+    fun setFloatingNavBarEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_FLOATING_NAV_BAR, enabled) }
+        _navBarSettings.value = _navBarSettings.value.copy(floating = enabled)
+    }
+
+    fun getNavBarEffect(context: Context): Int {
+        val stored = getPrefs(context).getInt(KEY_NAV_BAR_EFFECT, -1)
+        return if (stored >= 0) stored
+        else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) 1 else 0
+    }
+
+    fun setNavBarEffect(context: Context, effect: Int) {
+        getPrefs(context).edit { putInt(KEY_NAV_BAR_EFFECT, effect) }
+        _navBarSettings.value = _navBarSettings.value.copy(effect = effect)
     }
 
     // === Playback Order ===
