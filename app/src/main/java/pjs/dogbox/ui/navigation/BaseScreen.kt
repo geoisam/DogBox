@@ -36,11 +36,11 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
 import pjs.dogbox.BuildConfig
 import pjs.dogbox.R
-import pjs.dogbox.data.ApiSites
-import pjs.dogbox.data.AppData
-import pjs.dogbox.data.SharedData
-import pjs.dogbox.data.fetchRemoteConfig
-import pjs.dogbox.data.parseUpdateInfo
+import pjs.dogbox.data.model.AppConfig
+import pjs.dogbox.data.remote.fetchRemoteConfig
+import pjs.dogbox.data.remote.parseUpdateInfo
+import pjs.dogbox.data.repository.ApiSitesRepository
+import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.ui.components.UpdateBottomSheet
 import pjs.dogbox.ui.components.navbar.FloatingBarContentHeight
@@ -48,49 +48,49 @@ import pjs.dogbox.ui.components.navbar.GlassBottomBar
 import pjs.dogbox.ui.components.navbar.NavBarEffect
 import pjs.dogbox.ui.components.navbar.NavBarEntry
 import pjs.dogbox.ui.components.navbar.glassSurface
-import pjs.dogbox.ui.screen.DiscoverPage
-import pjs.dogbox.ui.screen.DiscoverScreen
-import pjs.dogbox.ui.screen.HomeScreen
-import pjs.dogbox.ui.screen.HomeScreenState
-import pjs.dogbox.ui.screen.ImageViewerScreen
-import pjs.dogbox.ui.screen.MineScreen
-import pjs.dogbox.ui.screen.about.ChangeLogScreen
-import pjs.dogbox.ui.screen.about.ContributorScreen
-import pjs.dogbox.ui.screen.about.LicenseScreen
-import pjs.dogbox.ui.screen.discover.AnimeRankScreen
-import pjs.dogbox.ui.screen.discover.AnimeRankScreenState
-import pjs.dogbox.ui.screen.discover.BoxOfficeRealtimeScreen
-import pjs.dogbox.ui.screen.discover.BoxOfficeTotalScreen
-import pjs.dogbox.ui.screen.discover.BoxOfficeTotalScreenState
-import pjs.dogbox.ui.screen.discover.HotNewsRankScreen
-import pjs.dogbox.ui.screen.discover.InviteMasterScreen
-import pjs.dogbox.ui.screen.discover.MediaAnalyzeImageGallery
-import pjs.dogbox.ui.screen.discover.MediaAnalyzePreview
-import pjs.dogbox.ui.screen.discover.MediaAnalyzeResultScreen
-import pjs.dogbox.ui.screen.discover.MediaAnalyzeScreen
-import pjs.dogbox.ui.screen.discover.MediaLinkTestScreen
-import pjs.dogbox.ui.screen.discover.MovieRatingScreen
-import pjs.dogbox.ui.screen.discover.MovieRatingScreenState
-import pjs.dogbox.ui.screen.discover.MovieWorldScreen
-import pjs.dogbox.ui.screen.discover.MovieWorldScreenState
-import pjs.dogbox.ui.screen.discover.ProfileAvatarScreen
-import pjs.dogbox.ui.screen.discover.ProfileAvatarScreenState
-import pjs.dogbox.ui.screen.discover.ScrollingTextScreen
-import pjs.dogbox.ui.screen.discover.TvLiveScreen
-import pjs.dogbox.ui.screen.mine.AboutMeScreen
-import pjs.dogbox.ui.screen.mine.CacheManageScreen
-import pjs.dogbox.ui.screen.mine.LocalVideoPreview
-import pjs.dogbox.ui.screen.mine.LocalVideosScreen
-import pjs.dogbox.ui.screen.mine.SettingsScreen
-import pjs.dogbox.ui.screen.mine.SponsorScreen
-import pjs.dogbox.ui.screen.mine.WatchHistoryScreen
-import pjs.dogbox.ui.screen.movie.MovieDetailScreen
-import pjs.dogbox.ui.screen.movie.MovieDetailScreenState
-import pjs.dogbox.ui.screen.movie.MovieSearchScreen
-import pjs.dogbox.ui.screen.movie.MovieSearchScreenState
-import pjs.dogbox.ui.screen.movie.extractHost
-import pjs.dogbox.ui.screen.movie.extractPath
-import pjs.dogbox.ui.screen.movie.extractPathWithQuery
+import pjs.dogbox.ui.screens.DiscoverPage
+import pjs.dogbox.ui.screens.DiscoverScreen
+import pjs.dogbox.ui.screens.HomeScreen
+import pjs.dogbox.ui.screens.HomeScreenState
+import pjs.dogbox.ui.screens.ImageViewerScreen
+import pjs.dogbox.ui.screens.MineScreen
+import pjs.dogbox.ui.screens.about.ChangeLogScreen
+import pjs.dogbox.ui.screens.about.ContributorScreen
+import pjs.dogbox.ui.screens.about.LicenseScreen
+import pjs.dogbox.ui.screens.discover.AnimeRankScreen
+import pjs.dogbox.ui.screens.discover.AnimeRankScreenState
+import pjs.dogbox.ui.screens.discover.BoxOfficeRealtimeScreen
+import pjs.dogbox.ui.screens.discover.BoxOfficeTotalScreen
+import pjs.dogbox.ui.screens.discover.BoxOfficeTotalScreenState
+import pjs.dogbox.ui.screens.discover.HotNewsRankScreen
+import pjs.dogbox.ui.screens.discover.InviteMasterScreen
+import pjs.dogbox.ui.screens.discover.MediaAnalyzeImageGallery
+import pjs.dogbox.ui.screens.discover.MediaAnalyzePreview
+import pjs.dogbox.ui.screens.discover.MediaAnalyzeResultScreen
+import pjs.dogbox.ui.screens.discover.MediaAnalyzeScreen
+import pjs.dogbox.ui.screens.discover.MediaLinkTestScreen
+import pjs.dogbox.ui.screens.discover.MovieRatingScreen
+import pjs.dogbox.ui.screens.discover.MovieRatingScreenState
+import pjs.dogbox.ui.screens.discover.MovieWorldScreen
+import pjs.dogbox.ui.screens.discover.MovieWorldScreenState
+import pjs.dogbox.ui.screens.discover.ProfileAvatarScreen
+import pjs.dogbox.ui.screens.discover.ProfileAvatarScreenState
+import pjs.dogbox.ui.screens.discover.ScrollingTextScreen
+import pjs.dogbox.ui.screens.discover.TvLiveScreen
+import pjs.dogbox.ui.screens.mine.AboutMeScreen
+import pjs.dogbox.ui.screens.mine.CacheManageScreen
+import pjs.dogbox.ui.screens.mine.LocalVideoPreview
+import pjs.dogbox.ui.screens.mine.LocalVideosScreen
+import pjs.dogbox.ui.screens.mine.SettingsScreen
+import pjs.dogbox.ui.screens.mine.SponsorScreen
+import pjs.dogbox.ui.screens.mine.WatchHistoryScreen
+import pjs.dogbox.ui.screens.movie.MovieDetailScreen
+import pjs.dogbox.ui.screens.movie.MovieDetailScreenState
+import pjs.dogbox.ui.screens.movie.MovieSearchScreen
+import pjs.dogbox.ui.screens.movie.MovieSearchScreenState
+import pjs.dogbox.ui.screens.movie.extractHost
+import pjs.dogbox.ui.screens.movie.extractPath
+import pjs.dogbox.ui.screens.movie.extractPathWithQuery
 import pjs.dogbox.ui.theme.MiuixIcons
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -112,24 +112,24 @@ fun BaseScreen(
     val logs = remember { mutableStateListOf<String>() }
     val registry = remember { ScreenStateRegistry() }
 
-    var showTipsDialog by remember { mutableStateOf(SharedData.isFirstLaunch(context)) }
+    var showTipsDialog by remember { mutableStateOf(AppRepository.isFirstLaunch(context)) }
 
     var showUpdateDialog by remember { mutableStateOf(false) }
     var updateVer by remember { mutableStateOf("1.0.0") }
     var updateNote by remember { mutableStateOf("修复了一些已知问题") }
-    var updateDown by remember { mutableStateOf(AppData.GITHUB_PAGE) }
+    var updateDown by remember { mutableStateOf(AppConfig.GITHUB_PAGE) }
 
     LaunchedEffect(Unit) {
-        if (!SharedData.isAutoCheckUpdate(context)) return@LaunchedEffect
-        if (SharedData.isAutoCheckDoneThisLaunch()) return@LaunchedEffect
+        if (!AppRepository.isAutoCheckUpdate(context)) return@LaunchedEffect
+        if (AppRepository.isAutoCheckDoneThisLaunch()) return@LaunchedEffect
         val configJson = fetchRemoteConfig()
         val updateInfo = parseUpdateInfo(configJson)
         if (updateInfo != null) {
             if (updateInfo.code > BuildConfig.VERSION_CODE) {
-                SharedData.setCachedCheckFailed(false)
-                SharedData.setCachedUpToDate(false)
-                SharedData.setCachedUpdateInfo(
-                    SharedData.CachedUpdateInfo(
+                AppRepository.setCachedCheckFailed(false)
+                AppRepository.setCachedUpToDate(false)
+                AppRepository.setCachedUpdateInfo(
+                    AppRepository.CachedUpdateInfo(
                         versionCode = updateInfo.code,
                         versionName = updateInfo.ver,
                         note = updateInfo.note,
@@ -141,16 +141,16 @@ fun BaseScreen(
                 updateDown = updateInfo.down
                 showUpdateDialog = true
             } else {
-                SharedData.setCachedUpdateInfo(null)
-                SharedData.setCachedCheckFailed(false)
-                SharedData.setCachedUpToDate(true)
+                AppRepository.setCachedUpdateInfo(null)
+                AppRepository.setCachedCheckFailed(false)
+                AppRepository.setCachedUpToDate(true)
             }
         } else {
-            SharedData.setCachedUpdateInfo(null)
-            SharedData.setCachedUpToDate(false)
-            SharedData.setCachedCheckFailed(true)
+            AppRepository.setCachedUpdateInfo(null)
+            AppRepository.setCachedUpToDate(false)
+            AppRepository.setCachedCheckFailed(true)
         }
-        SharedData.markAutoCheckDone()
+        AppRepository.markAutoCheckDone()
     }
 
     NavHost(
@@ -274,7 +274,7 @@ fun BaseScreen(
         ) { entry ->
             val query = entry.arguments?.getString("query") ?: ""
             val searchState = rememberEntryState(registry, entry) {
-                MovieSearchScreenState(query, ApiSites.ensureLoaded(context))
+                MovieSearchScreenState(query, ApiSitesRepository.ensureLoaded(context))
             }
             val onViewImage: (String, String, String) -> Unit = { url, referer, title ->
                 navController.navigate(AppRoutes.imageViewer(url, referer, title))
@@ -283,20 +283,20 @@ fun BaseScreen(
                 state = searchState,
                 onBack = { navController.popBackStack() },
                 onPlayVideo = { url ->
-                    ApiSites.ensureLoaded(context)
+                    ApiSitesRepository.ensureLoaded(context)
                     val host = extractHost(url)
-                    val key = AppData.sourceKey(host)
+                    val key = AppConfig.sourceKey(host)
                     // API 详情链接 path 相同，仅 query(ids=) 能区分影片，需 path+query 定位历史
                     val detailPath =
-                        if (ApiSites.isApiDetailUrl(url)) extractPathWithQuery(url) else extractPath(
+                        if (ApiSitesRepository.isApiDetailUrl(url)) extractPathWithQuery(url) else extractPath(
                             url
                         )
-                    val historyItem = SharedData.getWatchHistory(context)
+                    val historyItem = AppRepository.getWatchHistory(context)
                         .find { it.id == detailPath && it.key == key }
                     val episodeUrl = historyItem?.let {
                         // API 选集存的是完整直链，原样使用；旧数据存 path，需拼 host
                         if (it.url.startsWith("http")) it.url
-                        else "${AppData.hostForKey(it.key)}${it.url}"
+                        else "${AppConfig.hostForKey(it.key)}${it.url}"
                     }
                     navController.navigate(
                         AppRoutes.play(url, historyItem?.progress ?: 0L, episodeUrl)
@@ -334,8 +334,8 @@ fun BaseScreen(
             WatchHistoryScreen(
                 onBack = { navController.popBackStack() },
                 onPlayMovie = { item ->
-                    ApiSites.ensureLoaded(context)
-                    val origin = AppData.hostForKey(item.key)
+                    ApiSitesRepository.ensureLoaded(context)
+                    val origin = AppConfig.hostForKey(item.key)
                     // 兼容旧数据（存 path）与 API 数据（url 可能是完整直链）
                     val detailAbs = if (item.id.startsWith("http")) item.id else "$origin${item.id}"
                     val episodeAbs =
@@ -529,7 +529,7 @@ fun BaseScreen(
         isOpen = showTipsDialog,
         onDismiss = {
             showTipsDialog = false
-            SharedData.markTipsDialogShown(context)
+            AppRepository.markTipsDialogShown(context)
         },
     )
 
@@ -569,8 +569,8 @@ private fun MainScaffold(
         currentPageIndex = pagerState.currentPage
     }
 
-    SharedData.loadNavBarSettings(context)
-    val navBarSettings by SharedData.navBarSettings.collectAsState()
+    AppRepository.loadNavBarSettings(context)
+    val navBarSettings by AppRepository.navBarSettings.collectAsState()
     val isFloating = navBarSettings.floating
     // 毛玻璃 / 液态玻璃依赖运行时着色器，Android 13 以下自动降级为纯色底栏
     val glassSupported = isRuntimeShaderSupported()
@@ -641,9 +641,11 @@ private fun MainScaffold(
             }
         },
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             // 只有页面内容进入 backdrop，避免底栏把自身也录进背板造成自模糊
             Box(
                 modifier = Modifier

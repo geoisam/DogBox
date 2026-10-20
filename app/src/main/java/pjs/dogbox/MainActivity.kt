@@ -16,10 +16,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowInsetsControllerCompat
-import pjs.dogbox.data.SharedData
+import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.navigation.BaseScreen
-import pjs.dogbox.ui.screen.SplashScreen
-import pjs.dogbox.ui.screen.movie.GlobalPlayerConfig
+import pjs.dogbox.ui.screens.SplashScreen
+import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.theme.DogBoxTheme
 import pjs.dogbox.ui.theme.resolveDarkTheme
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
@@ -28,16 +28,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        SharedData.resetAutoCheckDone()
+        AppRepository.resetAutoCheckDone()
         GlobalPlayerConfig.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             val context = this@MainActivity
-            var themeMode by remember { mutableIntStateOf(SharedData.getThemeMode(context)) }
-            var dynamicColor by remember { mutableStateOf(SharedData.getDynamicColor(context)) }
+            var themeMode by remember { mutableIntStateOf(AppRepository.getThemeMode(context)) }
+            var dynamicColor by remember { mutableStateOf(AppRepository.getDynamicColor(context)) }
             var dynamicColorStyle by remember {
                 mutableStateOf(
-                    SharedData.getDynamicColorStyle(
+                    AppRepository.getDynamicColorStyle(
                         context
                     )
                 )
