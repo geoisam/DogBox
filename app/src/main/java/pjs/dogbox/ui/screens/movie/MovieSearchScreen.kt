@@ -49,6 +49,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -84,13 +85,15 @@ import pjs.dogbox.data.repository.ApiSitesRepository
 import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.PagerTabFollowEffect
-import pjs.dogbox.ui.theme.MiuixIcons
 import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.icon.basic.SearchCleanup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.IOException
 import java.net.URLEncoder
@@ -568,7 +571,7 @@ internal fun MovieSearchScreen(
                 keyboardActions = KeyboardActions(onSearch = { triggerSearch(searchText) }),
                 leadingIcon = {
                     MiuixIcon(
-                        imageVector = MiuixIcons.Regular.Search,
+                        imageVector = MiuixIcons.Basic.Search,
                         contentDescription = "搜索",
                         tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                         modifier = Modifier
@@ -580,9 +583,9 @@ internal fun MovieSearchScreen(
                     if (searchText.isNotEmpty()) {
                         MiuixIconButton(onClick = { searchText = "" }) {
                             MiuixIcon(
-                                imageVector = MiuixIcons.Regular.SearchCleanup,
+                                imageVector = MiuixIcons.Basic.SearchCleanup,
                                 contentDescription = "清空",
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }

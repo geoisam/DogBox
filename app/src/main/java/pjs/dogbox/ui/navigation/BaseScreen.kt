@@ -91,10 +91,11 @@ import pjs.dogbox.ui.screens.movie.MovieSearchScreenState
 import pjs.dogbox.ui.screens.movie.extractHost
 import pjs.dogbox.ui.screens.movie.extractPath
 import pjs.dogbox.ui.screens.movie.extractPathWithQuery
-import pjs.dogbox.ui.theme.MiuixIcons
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -102,6 +103,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+
 
 @Composable
 fun BaseScreen(
@@ -574,7 +576,17 @@ private fun MainScaffold(
     val isFloating = navBarSettings.floating
     // 毛玻璃 / 液态玻璃依赖运行时着色器，Android 13 以下自动降级为纯色底栏
     val glassSupported = isRuntimeShaderSupported()
-    val backdrop = if (glassSupported) rememberLayerBackdrop() else null
+    // 背板只记录自身绘制的内容，若页面没画背景就会模糊到透明黑，
+    // 所以先铺一层不透明表面色再记录页面内容。
+    val backdropColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (glassSupported) {
+        rememberLayerBackdrop {
+            drawRect(backdropColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
     val navEffect = if (glassSupported) {
         NavBarEffect.fromIndex(navBarSettings.effect)
     } else {
@@ -594,7 +606,7 @@ private fun MainScaffold(
                 actions = {
                     MiuixIconButton(onClick = { onSearchMovie("") }) {
                         MiuixIcon(
-                            imageVector = MiuixIcons.Regular.Search,
+                            imageVector = MiuixIcons.Basic.Search,
                             contentDescription = "搜索",
                             modifier = Modifier.size(24.dp),
                         )

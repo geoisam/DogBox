@@ -193,9 +193,7 @@ fun GlassBottomBar(
                     scaleY = scale
                 },
                 onDrawSurface = {
-                    drawRect(
-                        if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.04f),
-                    )
+                    drawRect(colors.surface.copy(alpha = 0.28f))
                 },
             )
             .innerShadow(indicatorShape) {
@@ -223,7 +221,7 @@ fun GlassBottomBar(
             modifier = Modifier
                 .width(barWidth)
                 .height(BarHeight)
-                .then(if (glassAvailable) interactiveHighlight.gestureModifier else Modifier)
+                .then(if (effect != NavBarEffect.NONE && glassAvailable) interactiveHighlight.gestureModifier else Modifier)
                 .pointerInput(itemCount, tabWidthPx) {
                     var dragStart = 0f
                     detectBarDrag(
@@ -267,16 +265,8 @@ fun GlassBottomBar(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .dropShadow(
-                        shape = barShape,
-                        shadow = Shadow(
-                            radius = 12.dp,
-                            color = Color.Black,
-                            alpha = if (isDark) 0.35f else 0.12f,
-                        ),
-                    )
                     .then(surfaceModifier)
-                    .then(if (glassAvailable) interactiveHighlight.modifier else Modifier),
+                    .then(if (effect != NavBarEffect.NONE && glassAvailable) interactiveHighlight.modifier else Modifier),
             )
 
             // 指示器：跟随选中项，可拖动
