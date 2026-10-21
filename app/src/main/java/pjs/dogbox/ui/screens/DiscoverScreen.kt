@@ -167,6 +167,7 @@ fun DiscoverScreen(
                         Card(
                             modifier = Modifier.weight(1f),
                             onClick = { onNavigateToDetail(it.page) },
+                            showIndication = true,
                             insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {

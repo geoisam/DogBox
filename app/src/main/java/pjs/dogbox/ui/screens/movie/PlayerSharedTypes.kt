@@ -61,6 +61,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -1667,7 +1668,12 @@ internal fun NonFullscreenPlayer(
                         if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                         onInteraction()
                     },
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.4f),
+                            CircleShape
+                        ),
                 ) {
                     MiuixIcon(
                         painter = painterResource(R.drawable.play_filled),

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -127,6 +128,8 @@ fun MoviePlayerScreen(
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var locked by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
+    var isTouchActive by remember { mutableStateOf(false) }
+    var controlsResetTick by remember { mutableIntStateOf(0) }
     var bgColorIndex by remember { mutableIntStateOf(0) }
     val bgColors = listOf(Color.Black, Color.White, Color.Gray)
 
@@ -378,8 +381,16 @@ fun MoviePlayerScreen(
     var singleTapJob by remember { mutableStateOf<Job?>(null) }
     val viewConfig = LocalViewConfiguration.current
 
-    LaunchedEffect(showControls, playerIsPlaying, showSpeedSheet, showScaleSheet, showMoreSheet) {
-        if (showControls && playerIsPlaying) {
+    LaunchedEffect(
+        showControls,
+        playerIsPlaying,
+        showSpeedSheet,
+        showScaleSheet,
+        showMoreSheet,
+        isTouchActive,
+        controlsResetTick,
+    ) {
+        if (showControls && playerIsPlaying && !isTouchActive) {
             delay(5000)
             showControls = false
         }
@@ -395,7 +406,21 @@ fun MoviePlayerScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(bgColors[bgColorIndex]),
+                .background(bgColors[bgColorIndex])
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        try {
+                            awaitFirstDown(requireUnconsumed = false)
+                            isTouchActive = true
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Main)
+                                if (event.changes.none { it.pressed }) break
+                            }
+                        } finally {
+                            isTouchActive = false
+                        }
+                    }
+                },
         ) {
             PlayerCore(
                 exoPlayer = exoPlayer,
@@ -435,7 +460,7 @@ fun MoviePlayerScreen(
                 isAdjustingVolumeChange = { isAdjustingVolume = it },
                 onVolumePercentChange = { volumePercent = it },
                 scope = scope,
-                resetControlsTimer = { hideControls() },
+                resetControlsTimer = { controlsResetTick++ },
                 showControls = showControls,
                 isSwitchingEpisode = isSwitchingEpisode,
                 playerIsPlaying = playerIsPlaying,
@@ -730,7 +755,7 @@ fun MoviePlayerScreen(
                                                 }
                                             }
                                         } else if (dragAxis == 1) {
-                                            hideControls()
+                                            controlsResetTick++
                                             seekHideJob = scope.launch {
                                                 delay(1500)
                                                 isSeeking = false
@@ -750,6 +775,10 @@ fun MoviePlayerScreen(
                                 onClick = {
                                     locked = !locked
                                 },
+                                modifier = Modifier.background(
+                                    Color.Black.copy(alpha = 0.4f),
+                                    CircleShape
+                                ),
                             ) {
                                 MiuixIcon(
                                     painter = painterResource(
@@ -771,6 +800,10 @@ fun MoviePlayerScreen(
                                             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                                     }
                                 },
+                                modifier = Modifier.background(
+                                    Color.Black.copy(alpha = 0.4f),
+                                    CircleShape
+                                ),
                             ) {
                                 MiuixIcon(
                                     painter = painterResource(R.drawable.mobile_rotate_outlined),
@@ -791,6 +824,10 @@ fun MoviePlayerScreen(
                                 onClick = {
                                     playerViewRef?.let { saveScreenshot(it, context) }
                                 },
+                                modifier = Modifier.background(
+                                    Color.Black.copy(alpha = 0.4f),
+                                    CircleShape
+                                ),
                             ) {
                                 MiuixIcon(
                                     painter = painterResource(R.drawable.screenshot_keyboard_outlined),
@@ -1158,7 +1195,12 @@ fun MoviePlayerScreen(
                             if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                             hideControls()
                         },
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.4f),
+                                CircleShape
+                            ),
                     ) {
                         MiuixIcon(
                             painter = painterResource(R.drawable.play_filled),

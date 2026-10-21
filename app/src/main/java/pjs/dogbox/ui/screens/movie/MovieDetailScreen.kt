@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,6 +92,7 @@ import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.navigation.DisposableState
 import pjs.dogbox.utils.ads.AdsFilter
 import pjs.dogbox.utils.network.HttpUtil
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.net.URLDecoder
@@ -1372,106 +1374,111 @@ internal fun MovieDetailScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showIntroSheet = true },
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { showIntroSheet = true },
+                            showIndication = true,
+                            insideMargin = PaddingValues(12.dp),
                         ) {
-                            Box(
-                                modifier = Modifier.combinedClickable(
-                                    onClick = {
-                                        onViewImage(
-                                            data.coverUrl,
-                                            buildBaseUrl(videoUrl),
-                                            data.title
-                                        )
-                                    },
-                                ),
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                CoverImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(data.coverUrl)
-                                        .crossfade(true)
-                                        .httpHeaders(
-                                            NetworkHeaders.Builder()
-                                                .set("Referer", buildBaseUrl(videoUrl))
-                                                .build()
-                                        ).build(),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(width = 100.dp, height = 140.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                )
                                 Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .background(
-                                            color = MiuixTheme.colorScheme.primaryContainer
-                                                .copy(alpha = 0.9f),
-                                            shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.combinedClickable(
+                                        onClick = {
+                                            onViewImage(
+                                                data.coverUrl,
+                                                buildBaseUrl(videoUrl),
+                                                data.title
+                                            )
+                                        },
+                                    ),
+                                ) {
+                                    CoverImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(data.coverUrl)
+                                            .crossfade(true)
+                                            .httpHeaders(
+                                                NetworkHeaders.Builder()
+                                                    .set("Referer", buildBaseUrl(videoUrl))
+                                                    .build()
+                                            ).build(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(width = 100.dp, height = 140.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp)
+                                            .background(
+                                                color = MiuixTheme.colorScheme.primaryContainer
+                                                    .copy(alpha = 0.9f),
+                                                shape = RoundedCornerShape(12.dp),
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                                    ) {
+                                        MiuixText(
+                                            text = AppConfig.sourceName(
+                                                AppConfig.sourceKey(
+                                                    extractHost(
+                                                        videoUrl
+                                                    )
+                                                )
+                                            ),
+                                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            fontWeight = FontWeight.Bold,
                                         )
-                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .height(140.dp)
+                                        .weight(1f),
                                 ) {
                                     MiuixText(
-                                        text = AppConfig.sourceName(
-                                            AppConfig.sourceKey(
-                                                extractHost(
-                                                    videoUrl
-                                                )
-                                            )
-                                        ),
-                                        color = MiuixTheme.colorScheme.onPrimaryContainer,
-                                        style = MiuixTheme.textStyles.footnote2,
+                                        text = data.title,
+                                        style = MiuixTheme.textStyles.title4,
                                         fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    MiuixText(
+                                        text = "类型：${data.type}",
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MiuixText(
+                                        text = "导演：${data.director}",
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MiuixText(
+                                        text = "主演：${data.actor}",
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MiuixText(
+                                        text = "简介：${data.description}",
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(
-                                modifier = Modifier
-                                    .height(140.dp)
-                                    .weight(1f),
-                            ) {
-                                MiuixText(
-                                    text = data.title,
-                                    style = MiuixTheme.textStyles.title4,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                MiuixText(
-                                    text = "类型：${data.type}",
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                MiuixText(
-                                    text = "导演：${data.director}",
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                MiuixText(
-                                    text = "主演：${data.actor}",
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                MiuixText(
-                                    text = "简介：${data.description}",
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
                             }
                         }
 
@@ -1479,37 +1486,68 @@ internal fun MovieDetailScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            ActionIconItem(
-                                icon = R.drawable.link_outlined,
-                                label = "链接工具",
+                            Card(
+                                modifier = Modifier.weight(1f),
                                 onClick = { showCopySheet = true },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.link_outlined,
+                                    label = "链接工具",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
                                 modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.kid_star_outlined,
-                                label = "收藏视频",
                                 onClick = { },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.kid_star_outlined,
+                                    label = "收藏视频",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
                                 modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.cloud_download_outlined,
-                                label = "缓存视频",
                                 onClick = { },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.cloud_download_outlined,
+                                    label = "缓存视频",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
                                 modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.speed_outlined,
-                                label = "播放倍速",
                                 onClick = { showSpeedSheet = true },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.speed_outlined,
+                                    label = "播放倍速",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
                                 modifier = Modifier.weight(1f),
-                            )
-                            ActionIconItem(
-                                icon = R.drawable.aspect_ratio_outlined,
-                                label = "视频画幅",
                                 onClick = { showScaleSheet = true },
-                                modifier = Modifier.weight(1f),
-                            )
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = R.drawable.aspect_ratio_outlined,
+                                    label = "视频画幅",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(32.dp))
@@ -1911,15 +1949,11 @@ private fun ChipScrollRow(
 private fun ActionIconItem(
     icon: Int,
     label: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp)),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         MiuixIcon(
             painter = painterResource(icon),

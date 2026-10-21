@@ -158,6 +158,7 @@ fun MineScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { showSheet = true },
+                showIndication = true,
                 insideMargin = PaddingValues(16.dp),
             ) {
                 Column(
@@ -473,6 +474,7 @@ fun MineCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick,
+        showIndication = true,
         insideMargin = PaddingValues(12.dp),
     ) {
         Column(
@@ -505,6 +507,7 @@ fun MineItem(
         modifier = modifier,
         onClick = onClick,
         colors = CardDefaults.defaultColors(color = Color.Transparent),
+        showIndication = true,
         insideMargin = PaddingValues(vertical = 16.dp),
     ) {
         Column(
@@ -535,6 +538,7 @@ fun MineListItem(
     Card(
         onClick = onClick,
         colors = CardDefaults.defaultColors(color = Color.Transparent),
+        showIndication = true,
     ) {
         Row(
             modifier = Modifier

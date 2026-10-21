@@ -827,6 +827,7 @@ private fun HomeGridItem(
     Card(
         colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
         onClick = onClick,
+        showIndication = true,
         onLongPress = { onViewImage(item.coverLarge, "https://m.douban.com/", item.title) },
     ) {
         Column {

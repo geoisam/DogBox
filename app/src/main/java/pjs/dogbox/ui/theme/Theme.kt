@@ -12,6 +12,8 @@ import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme
 import top.yukonga.miuix.kmp.theme.platformDynamicColors
 
 
@@ -36,6 +38,15 @@ fun DogBoxTheme(
     }
 
 
+    // miuix 静态方案中 background 与卡片色(surfaceContainer)一致(浅色均为纯白、深色均为 #242424)，
+    // 会造成 bottom sheet / 对话框内卡片与背景融为一体，这里手动拉开层次(与 Monet 行为一致)
+    val staticLightColors = remember {
+        lightColorScheme(background = Color(0xFFF7F7F7))
+    }
+    val staticDarkColors = remember {
+        darkColorScheme(background = Color(0xFF181818))
+    }
+
     val context = LocalContext.current
     val keyColor: Color? = if (dynamicColor) rememberWallpaperSeedColor(context, isDark) else null
 
@@ -48,6 +59,8 @@ fun DogBoxTheme(
             colorSchemeMode = mode,
             keyColor = keyColor,
             paletteStyle = paletteStyle,
+            lightColors = staticLightColors,
+            darkColors = staticDarkColors,
             isDark = if (followSystem) null else isDark,
         )
     }

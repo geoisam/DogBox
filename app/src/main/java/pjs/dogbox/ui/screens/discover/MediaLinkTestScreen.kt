@@ -6,7 +6,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -38,7 +36,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -368,78 +365,83 @@ fun MediaLinkTestScreen(
                         ) {
                             Card(
                                 modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    val link = extractShareUrl(url)
+                                    if (link != null) {
+                                        url = link
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "未识别到链接",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
                                     icon = R.drawable.link_outlined,
                                     label = "过滤链接",
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        val link = extractShareUrl(url)
-                                        if (link != null) {
-                                            url = link
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                "未识别到链接",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             Card(
                                 modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                },
+                                showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
                                     icon = R.drawable.kid_star_outlined,
                                     label = "收藏视频",
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             Card(
                                 modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                },
+                                showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
                                     icon = R.drawable.cloud_download_outlined,
                                     label = "缓存视频",
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             Card(
                                 modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    showSpeedSheet = true
+                                },
+                                showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
                                     icon = R.drawable.speed_outlined,
                                     label = "播放倍速",
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        showSpeedSheet = true
-                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             Card(
                                 modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    showScaleSheet = true
+                                },
+                                showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
                                     icon = R.drawable.aspect_ratio_outlined,
                                     label = "视频画幅",
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        showScaleSheet = true
-                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -495,15 +497,11 @@ fun MediaLinkTestScreen(
 private fun ActionIconItem(
     icon: Int,
     label: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp)),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         MiuixIcon(
             painter = painterResource(icon),

@@ -331,7 +331,6 @@ private fun GlassBottomBarItem(
             .clip(RoundedCornerShape(percent = 50))
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
                 role = Role.Tab,
                 onClick = onClick,
             ),
