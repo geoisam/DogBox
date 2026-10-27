@@ -92,6 +92,7 @@ fun SettingsScreen(
     val supportsNavBarEffect = isRuntimeShaderSupported()
 
     var floatingNavBar by remember { mutableStateOf(AppRepository.isFloatingNavBarEnabled(context)) }
+    var hideNavBarDivider by remember { mutableStateOf(AppRepository.isNavBarDividerHidden(context)) }
     var navBarEffect by remember {
         mutableStateOf(
             if (supportsNavBarEffect) AppRepository.getNavBarEffect(
@@ -185,16 +186,29 @@ fun SettingsScreen(
                         AppRepository.setFloatingNavBarEnabled(context, enabled)
                     },
                 )
-                OverlayDropdownPreference(
-                    title = "底栏效果",
-                    items = navBarEffectLabels,
-                    selectedIndex = navBarEffectIndex,
-                    enabled = navBarEffectEnabled,
-                    onSelectedIndexChange = { index ->
-                        navBarEffect = index
-                        AppRepository.setNavBarEffect(context, index)
-                    },
-                )
+                // 悬浮底栏开启时显示特效选项；关闭后该行换成“隐藏分割线”（作用于停靠式导航栏）
+                if (floatingNavBar) {
+                    OverlayDropdownPreference(
+                        title = "底栏效果",
+                        items = navBarEffectLabels,
+                        selectedIndex = navBarEffectIndex,
+                        enabled = navBarEffectEnabled,
+                        onSelectedIndexChange = { index ->
+                            navBarEffect = index
+                            AppRepository.setNavBarEffect(context, index)
+                        },
+                    )
+                } else {
+                    SwitchPreference(
+                        title = "隐藏分割线",
+                        checked = hideNavBarDivider,
+                        enabled = true,
+                        onCheckedChange = { enabled ->
+                            hideNavBarDivider = enabled
+                            AppRepository.setNavBarDividerHidden(context, enabled)
+                        },
+                    )
+                }
             }
 
             SettingsSectionHeader("通用")

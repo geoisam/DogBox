@@ -279,9 +279,6 @@ fun InviteMasterScreen(
                                 singleLine = true,
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))

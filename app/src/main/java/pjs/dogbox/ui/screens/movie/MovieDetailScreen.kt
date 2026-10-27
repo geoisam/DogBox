@@ -147,6 +147,8 @@ internal class MovieDetailScreenState(
     val playErrorMsg = mutableStateOf<String?>(null)
     val isPlayLoading = mutableStateOf(false)
     val playRetryKey = mutableIntStateOf(0)
+    // 重载当前集后需要恢复到的播放位置（0 表示不需要），由广告过滤开关切换触发
+    val pendingResumePosition = mutableStateOf(0L)
 
     val showIntroSheet = mutableStateOf(false)
     val showRouteSheet = mutableStateOf(false)
@@ -815,6 +817,7 @@ internal fun MovieDetailScreen(
     var playErrorMsg by state.playErrorMsg
     var isPlayLoading by state.isPlayLoading
     var playRetryKey by state.playRetryKey
+    var pendingResumePosition by state.pendingResumePosition
 
     var showIntroSheet by state.showIntroSheet
     var showRouteSheet by state.showRouteSheet
@@ -1237,6 +1240,11 @@ internal fun MovieDetailScreen(
             if (m3u8.isNotEmpty()) {
                 playErrorMsg = null
                 currentM3u8Url = m3u8
+                // 广告过滤开关切换触发的重载：在新流上恢复切换时刻的播放位置
+                if (pendingResumePosition > 0L) {
+                    targetPosition = pendingResumePosition
+                    pendingResumePosition = 0L
+                }
                 try {
                     exoPlayer.apply {
                         setMediaItem(MediaItem.fromUri(m3u8))
@@ -1256,7 +1264,22 @@ internal fun MovieDetailScreen(
             Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
         } finally {
             isPlayLoading = false
+            pendingResumePosition = 0L
         }
+    }
+
+    // 切换广告过滤开关后重载当前集（重新应用/取消过滤），并恢复切换时刻的播放进度，
+    // 否则开关只在下次换集/重试时才生效，用户会认为过滤无效
+    var lastAdsFilter by remember { mutableStateOf(GlobalPlayerConfig.adsFilter) }
+    LaunchedEffect(GlobalPlayerConfig.adsFilter) {
+        val current = GlobalPlayerConfig.adsFilter
+        if (current == lastAdsFilter) return@LaunchedEffect
+        lastAdsFilter = current
+        if (pageData == null || isPlayLoading || isSwitchingEpisode || currentM3u8Url.isEmpty()) {
+            return@LaunchedEffect
+        }
+        pendingResumePosition = runCatching { exoPlayer.currentPosition }.getOrDefault(0L)
+        playRetryKey++
     }
 
     val data = pageData

@@ -21,8 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -47,7 +45,6 @@ import pjs.dogbox.ui.components.navbar.FloatingBarContentHeight
 import pjs.dogbox.ui.components.navbar.GlassBottomBar
 import pjs.dogbox.ui.components.navbar.NavBarEffect
 import pjs.dogbox.ui.components.navbar.NavBarEntry
-import pjs.dogbox.ui.components.navbar.glassSurface
 import pjs.dogbox.ui.screens.DiscoverPage
 import pjs.dogbox.ui.screens.DiscoverScreen
 import pjs.dogbox.ui.screens.HomeScreen
@@ -578,8 +575,12 @@ private fun MainScaffold(
     val glassSupported = isRuntimeShaderSupported()
     // 背板只记录自身绘制的内容，若页面没画背景就会模糊到透明黑，
     // 所以先铺一层不透明表面色再记录页面内容。
+    // 仅悬浮底栏需要背板：悬浮栏浮在内容之上，背板能延伸到它身后；
+    // 停靠式默认导航栏下方没有内容（背板被底栏 padding 截断，不延伸到栏后），
+    // 玻璃效果取不到栏后画面，会把内容底边糊成一层半透明色膜盖在内容上，
+    // 因此停靠栏固定为纯色 + 分割线，不套玻璃。
     val backdropColor = MiuixTheme.colorScheme.surface
-    val backdrop = if (glassSupported) {
+    val backdrop = if (glassSupported && isFloating) {
         rememberLayerBackdrop {
             drawRect(backdropColor)
             drawContent()
@@ -587,7 +588,7 @@ private fun MainScaffold(
     } else {
         null
     }
-    val navEffect = if (glassSupported) {
+    val navEffect = if (glassSupported && isFloating) {
         NavBarEffect.fromIndex(navBarSettings.effect)
     } else {
         NavBarEffect.NONE
@@ -623,21 +624,12 @@ private fun MainScaffold(
         },
         bottomBar = {
             if (!isFloating) {
+                // 停靠式默认导航栏固定纯色，分割线可由设置隐藏。
+                // 背板不延伸到停靠栏身后，这里套 glassSurface 的话 blur 录制区外扩
+                // 只能抓到内容底边，绘制时会把内容底部盖上一层模糊的半透明色膜。
                 NavigationBar(
-                    // 毛玻璃需要底栏自身透明，否则不透明背景会盖住模糊结果
-                    color = if (navEffect == NavBarEffect.NONE) {
-                        MiuixTheme.colorScheme.surface
-                    } else {
-                        Color.Transparent
-                    },
-                    showDivider = navEffect == NavBarEffect.NONE,
-                    modifier = Modifier.glassSurface(
-                        effect = navEffect,
-                        backdrop = backdrop,
-                        shape = RectangleShape,
-                        surfaceColor = MiuixTheme.colorScheme.surface,
-                        tintAlpha = if (navEffect == NavBarEffect.LIQUID_GLASS) 0.24f else 0.52f,
-                    ),
+                    color = MiuixTheme.colorScheme.surface,
+                    showDivider = !navBarSettings.hideDivider,
                 ) {
                     AppDestinations.entries.forEachIndexed { index, dest ->
                         NavigationBarItem(

@@ -88,6 +88,7 @@ object AppRepository {
 
     private const val KEY_FLOATING_NAV_BAR = "floating_nav_bar"
     private const val KEY_NAV_BAR_EFFECT = "nav_bar_effect"
+    private const val KEY_HIDE_NAV_BAR_DIVIDER = "hide_nav_bar_divider"
 
     private const val KEY_PLAYBACK_ORDER = "playback_order"
 
@@ -332,10 +333,11 @@ object AppRepository {
 
     // === Floating Navigation Bar ===
 
-    /** 底栏设置（是否悬浮、特效类型），通过 [navBarSettings] 暴露给 UI 层实时响应。 */
+    /** 底栏设置（是否悬浮、特效类型、是否隐藏分割线），通过 [navBarSettings] 暴露给 UI 层实时响应。 */
     data class NavBarSettings(
         val floating: Boolean = true,
         val effect: Int = 0,
+        val hideDivider: Boolean = false,
     )
 
     private val _navBarSettings = MutableStateFlow(NavBarSettings())
@@ -349,6 +351,7 @@ object AppRepository {
         _navBarSettings.value = NavBarSettings(
             floating = isFloatingNavBarEnabled(context),
             effect = getNavBarEffect(context),
+            hideDivider = isNavBarDividerHidden(context),
         )
     }
 
@@ -370,6 +373,16 @@ object AppRepository {
     fun setNavBarEffect(context: Context, effect: Int) {
         getPrefs(context).edit { putInt(KEY_NAV_BAR_EFFECT, effect) }
         _navBarSettings.value = _navBarSettings.value.copy(effect = effect)
+    }
+
+    /** 停靠式默认导航栏是否隐藏顶部分割线（仅悬浮底栏关闭时可见的设置项）。 */
+    fun isNavBarDividerHidden(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_HIDE_NAV_BAR_DIVIDER, false)
+    }
+
+    fun setNavBarDividerHidden(context: Context, hidden: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_HIDE_NAV_BAR_DIVIDER, hidden) }
+        _navBarSettings.value = _navBarSettings.value.copy(hideDivider = hidden)
     }
 
     // === Playback Order ===
