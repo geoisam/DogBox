@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit
 
 object HttpUtil {
 
+    private const val DEFAULT_TIMEOUT_MS = 15_000L
+
     private val JSON_CONTENT_TYPE = ContentType.parse("application/json; charset=utf-8")
 
     /** 全局 OkHttp 连接池，Ktor 客户端与 Coil 图片加载共享 */
@@ -97,12 +99,32 @@ object HttpUtil {
             Result.failure(e)
         }
 
-    suspend fun get(url: String, headers: Map<String, String> = emptyMap()): Result<String> =
-        suspendCatching {
-            val response = client.get(url) { applyHeaders(headers) }
-            response.requireSuccess()
-            response.bodyAsText()
+    suspend fun get(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        requestTimeoutMillis: Long = 15_000,
+        connectTimeoutMillis: Long = 15_000,
+        socketTimeoutMillis: Long = 15_000,
+    ): Result<String> = suspendCatching {
+        val reqTimeout = requestTimeoutMillis
+        val connTimeout = connectTimeoutMillis
+        val sockTimeout = socketTimeoutMillis
+        val customized = reqTimeout != DEFAULT_TIMEOUT_MS ||
+                connTimeout != DEFAULT_TIMEOUT_MS ||
+                sockTimeout != DEFAULT_TIMEOUT_MS
+        val response = client.get(url) {
+            applyHeaders(headers)
+            if (customized) {
+                timeout {
+                    this.requestTimeoutMillis = reqTimeout
+                    this.connectTimeoutMillis = connTimeout
+                    this.socketTimeoutMillis = sockTimeout
+                }
+            }
         }
+        response.requireSuccess()
+        response.bodyAsText()
+    }
 
     suspend fun getBytes(
         url: String,

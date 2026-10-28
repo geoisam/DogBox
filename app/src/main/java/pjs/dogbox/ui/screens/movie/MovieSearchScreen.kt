@@ -217,6 +217,15 @@ private fun parseSearchResults(
 
 private val vodListJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
+/** 单页抓取最大尝试次数（含首次请求），超时/异常/首页空结果均计入 */
+private const val MAX_RETRY_ATTEMPTS = 3
+
+/** 重试退避基数：第 1 次重试等 500ms，第 2 次等 1000ms（指数退避） */
+private const val RETRY_BACKOFF_BASE_MS = 500L
+
+/** 首轮搜索结束后，对失败源统一延迟补搜，给站点恢复时间 */
+private const val AUTO_RETRY_DELAY_MS = 1500L
+
 private fun JsonObject.optStr(name: String): String =
     this[name]?.jsonPrimitive?.contentOrNull?.trim() ?: ""
 
@@ -287,13 +296,22 @@ private suspend fun fetchPage(
 
 
     var lastError: Throwable? = null
-    repeat(2) { attempt ->
+    var lastEmpty = false
+    // 无限翻页到末尾的空页属于正常情况；仅首页的空结果视为瞬时故障需要重试
+    val retryOnEmpty = page == 1
+    var attempt = 0
+    while (attempt < MAX_RETRY_ATTEMPTS) {
         try {
             val html = HttpUtil.get(
                 url, mapOf(
                     "User-Agent" to AppConfig.UA_CHROME_PC,
                     "Referer" to "${source.host}/",
-                )
+                ),
+                // 搜索请求用短超时：失败源更快进入重试循环，而非等满 15s
+                // 连接 5s + 读取 8s，总上限 10s
+                requestTimeoutMillis = 10_000,
+                connectTimeoutMillis = 5_000,
+                socketTimeoutMillis = 8_000,
             ).getOrThrow()
             val result = if (source.isApi) {
                 parseApiSearchResults(html, source, page)
@@ -301,18 +319,30 @@ private suspend fun fetchPage(
                 AppConfig.FDZYS_KEY -> parseFdzysSearchResults(html, source.host, page)
                 else -> parseSearchResults(html, source.host, page)
             }
-            return@withContext Result.success(result)
+            // 部分站点 CDN 抖动会返回 HTTP 200 但内容为空/残缺 HTML，解析成空列表，
+            // 这是最常见的“需要重试”场景，首页空结果也纳入重试
+            if (result.first.isEmpty() && retryOnEmpty && attempt < MAX_RETRY_ATTEMPTS - 1) {
+                lastEmpty = true
+            } else {
+                return@withContext Result.success(result)
+            }
         } catch (e: Throwable) {
             lastError = e
+            lastEmpty = false
         }
-        if (attempt == 0) {
+        attempt++
+        if (attempt < MAX_RETRY_ATTEMPTS) {
             try {
-                delay(666)
+                // 指数退避，避免给过载的站点雪上加霜
+                delay(RETRY_BACKOFF_BASE_MS * attempt)
             } catch (_: Throwable) {
             }
         }
     }
-    Result.failure(lastError ?: IOException("未知网络错误"))
+    Result.failure(
+        lastError ?: if (lastEmpty) IOException("搜索结果为空（已重试）")
+        else IOException("未知网络错误")
+    )
 }
 
 private fun parseFdzysSearchResults(
@@ -435,6 +465,36 @@ internal fun MovieSearchScreen(
         keyboardController?.show()
     }
 
+    suspend fun searchOne(source: SearchSource, query: String) {
+        val s = sourceStates.getValue(source)
+        if (s.isLoading) return
+        s.isLoading = true
+        s.loadError = false
+        s.currentPage = 1
+        s.hasMore = true
+        try {
+            fetchPage(source, query, 1).fold(
+                onSuccess = { (items, pageInfo) ->
+                    s.itemList = items.distinctBy { it.link }
+                    s.hasMore = pageInfo.hasNext
+                    s.loadError = false
+                },
+                onFailure = {
+                    s.itemList = emptyList()
+                    s.hasMore = false
+                    s.loadError = true
+                },
+            )
+        } catch (e: Throwable) {
+            s.itemList = emptyList()
+            s.hasMore = false
+            s.loadError = true
+        } finally {
+            s.isLoading = false
+            s.hasSearched = true
+        }
+    }
+
     LaunchedEffect(activeQuery, retryKey) {
         val searchKey = "$activeQuery|$retryKey"
         if (lastSearchKey == searchKey) return@LaunchedEffect
@@ -446,31 +506,22 @@ internal fun MovieSearchScreen(
             coroutineScope {
                 sources.forEach { source ->
                     launch {
-                        val state = sourceStates.getValue(source)
-                        state.isLoading = true
-                        state.loadError = false
-                        try {
-                            fetchPage(source, activeQuery, 1).fold(
-                                onSuccess = { (items, pageInfo) ->
-                                    state.itemList = items.distinctBy { it.link }
-                                    state.hasMore = pageInfo.hasNext
-                                },
-                                onFailure = {
-                                    state.itemList = emptyList()
-                                    state.hasMore = false
-                                    state.loadError = true
-                                },
-                            )
-                        } catch (e: Throwable) {
-                            state.itemList = emptyList()
-                            state.hasMore = false
-                            state.loadError = true
-                        } finally {
-                            state.isLoading = false
-                            state.hasSearched = true
-                        }
+                        searchOne(source, activeQuery)
                         completed += source
                         orderedSources = completed + sources.filterNot { it in completed }
+                    }
+                }
+            }
+            // 第二轮：对第一轮失败（网络抖动/接口超时/空结果）的源自动补搜一次，
+            // 新搜索会取消本协程，因此不会与后续搜索互相干扰
+            val failedSources = sources.filter {
+                sourceStates.getValue(it).run { loadError && itemList.isEmpty() }
+            }
+            if (failedSources.isNotEmpty()) {
+                delay(AUTO_RETRY_DELAY_MS)
+                coroutineScope {
+                    failedSources.forEach { source ->
+                        launch { searchOne(source, activeQuery) }
                     }
                 }
             }
@@ -492,35 +543,9 @@ internal fun MovieSearchScreen(
 
     fun retrySource(source: SearchSource) {
         if (activeQuery.isBlank()) return
-        val s = sourceStates.getValue(source)
-        if (s.isLoading) return
         scope.launch {
-            s.isLoading = true
-            s.loadError = false
             // 仅重置当前源的分页，不影响其它源
-            s.currentPage = 1
-            s.hasMore = true
-            try {
-                fetchPage(source, activeQuery, 1).fold(
-                    onSuccess = { (items, pageInfo) ->
-                        s.itemList = items.distinctBy { it.link }
-                        s.hasMore = pageInfo.hasNext
-                        s.loadError = false
-                    },
-                    onFailure = {
-                        s.itemList = emptyList()
-                        s.hasMore = false
-                        s.loadError = true
-                    },
-                )
-            } catch (e: Throwable) {
-                s.itemList = emptyList()
-                s.hasMore = false
-                s.loadError = true
-            } finally {
-                s.isLoading = false
-                s.hasSearched = true
-            }
+            searchOne(source, activeQuery)
         }
     }
 

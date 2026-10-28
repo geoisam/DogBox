@@ -8,7 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
 
 /**
  * 所有视频播放器统一的后台播放控制。
@@ -21,7 +21,7 @@ import androidx.media3.exoplayer.ExoPlayer
  * - 当开关为 true 时不做任何处理，保持后台继续播放。
  */
 @Composable
-fun PauseOnBackground(exoPlayer: ExoPlayer) {
+fun PauseOnBackground(exoPlayer: Player?) {
     // 直接读 State，保证开关即时生效
     val backgroundPlayback = GlobalPlayerConfig.backgroundPlayback
     val currentBackgroundPlayback by rememberUpdatedState(backgroundPlayback)
@@ -31,15 +31,16 @@ fun PauseOnBackground(exoPlayer: ExoPlayer) {
     val lifecycleOwner = rememberUpdatedState(context as? LifecycleOwner).value
 
     DisposableEffect(lifecycleOwner, exoPlayer) {
-        if (lifecycleOwner == null) {
+        val player = exoPlayer
+        if (lifecycleOwner == null || player == null) {
             onDispose { }
         } else {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
                     if (!currentBackgroundPlayback) {
                         // playWhenReady 为 true（含缓冲中）也要停，否则后台会自动出声
-                        if (exoPlayer.playWhenReady || exoPlayer.isPlaying) {
-                            exoPlayer.pause()
+                        if (player.playWhenReady || player.isPlaying) {
+                            player.pause()
                         }
                     }
                 }

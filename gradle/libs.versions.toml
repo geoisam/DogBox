@@ -62,6 +62,7 @@ androidx-media3-rtmp = { module = "androidx.media3:media3-datasource-rtmp", vers
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 androidx-media3-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
+androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 
 fleeksoft-ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "fleeksoft-ksoup" }
 com-tyme = { module = "cn.6tail:tyme4j", version.ref = "com-tyme" }

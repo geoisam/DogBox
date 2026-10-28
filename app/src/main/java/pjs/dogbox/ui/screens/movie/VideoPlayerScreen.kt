@@ -63,7 +63,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
@@ -84,7 +83,7 @@ import top.yukonga.miuix.kmp.basic.Text as MiuixText
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
-    exoPlayer: ExoPlayer,
+    exoPlayer: Player,
     title: String?,
     isVod: Boolean = true,
     isFullscreen: Boolean,

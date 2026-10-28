@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.compose)
     implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.session)
 
     implementation(libs.fleeksoft.ksoup)
     implementation(libs.com.tyme)

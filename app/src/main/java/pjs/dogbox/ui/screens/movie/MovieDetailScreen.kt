@@ -66,12 +66,14 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.session.MediaController
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.fleeksoft.ksoup.Ksoup
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -124,6 +126,7 @@ internal data class PageData(
     val m3u8Url: String,
 )
 
+@androidx.annotation.OptIn(UnstableApi::class)
 internal class MovieDetailScreenState(
     private val appContext: Context,
     videoUrl: String,
@@ -164,7 +167,14 @@ internal class MovieDetailScreenState(
     val playerVideoHeight = mutableIntStateOf(0)
     val wasPlayingBeforePause = mutableStateOf(false)
 
-    val exoPlayer: ExoPlayer = ExoPlayer.Builder(appContext).build()
+    private val controllerFuture: ListenableFuture<MediaController> = connectMediaController(appContext)
+    private val mediaController = mutableStateOf<MediaController?>(null)
+
+    /**
+     * 播放器由 MediaPlaybackService 持有，并通过 MediaSession 暴露给系统媒体控制器。
+     * 服务连接未就绪时为 null，UI 此时显示加载占位。
+     */
+    val exoPlayer: Player? get() = mediaController.value
 
     // videoUrl 即详情页链接，用于生成 id（详情页 path）
     val detailUrl: String = videoUrl
@@ -172,9 +182,16 @@ internal class MovieDetailScreenState(
     init {
         // 预加载 sites.json，使 AppData key/host 映射对 API 站点生效
         runCatching { ApiSitesRepository.ensureLoaded(appContext) }
+        controllerFuture.addListener({
+            try {
+                mediaController.value = controllerFuture.get()
+            } catch (_: Exception) {
+            }
+        }, appContext.mainExecutor)
     }
 
     fun saveCurrentToHistory() {
+        val controller = exoPlayer ?: return
         val epName = pageData.value?.routes?.getOrNull(selectedRouteIndex.value)
             ?.episodes?.getOrNull(selectedEpisodeIndex.value)?.name ?: ""
         saveWatchHistory(
@@ -184,14 +201,21 @@ internal class MovieDetailScreenState(
             pageData.value?.title ?: "",
             pageData.value?.coverUrl ?: "",
             epName,
-            exoPlayer,
+            controller,
         )
     }
 
     override fun dispose() {
         saveCurrentToHistory()
         AppRepository.flushWatchHistory(appContext)
-        exoPlayer.release()
+        val controller = mediaController.value
+        if (controller != null) {
+            if (!GlobalPlayerConfig.backgroundPlayback) {
+                controller.pause()
+            }
+            runCatching { controller.release() }
+        }
+        MediaController.releaseFuture(controllerFuture)
     }
 }
 
@@ -246,7 +270,7 @@ private fun saveWatchHistory(
     title: String,
     coverUrl: String,
     episodeName: String,
-    player: ExoPlayer,
+    player: Player,
 ) {
     runCatching { ApiSitesRepository.ensureLoaded(context) }
     val isApiDetail = ApiSitesRepository.isApiDetailUrl(detailUrl)
@@ -836,10 +860,14 @@ internal fun MovieDetailScreen(
 
     val activity = context as? Activity
 
-    val exoPlayer = state.exoPlayer
-
     var playerVideoWidth by state.playerVideoWidth
     var playerVideoHeight by state.playerVideoHeight
+
+    // 媒体服务连接未就绪时显示加载占位，连接完成后重组继续
+    val exoPlayer: Player = state.exoPlayer ?: run {
+        PlayerPlaceholder(onBack = onBack, isLoading = true)
+        return
+    }
 
     PauseOnBackground(exoPlayer)
 
@@ -1043,7 +1071,15 @@ internal fun MovieDetailScreen(
                 try {
                     exoPlayer.apply {
                         stop()
-                        setMediaItem(MediaItem.fromUri(prevM3u8Url))
+                        setMediaItem(
+                            buildPlaybackMediaItem(
+                                uri = prevM3u8Url,
+                                title = pageData?.title,
+                                subtitle = pageData?.routes?.getOrNull(prevRouteIdx)
+                                    ?.episodes?.getOrNull(prevEpIdx)?.name,
+                                artworkUrl = pageData?.coverUrl,
+                            ),
+                        )
                         prepare()
                         playWhenReady = true
                     }
@@ -1064,7 +1100,14 @@ internal fun MovieDetailScreen(
                     pendingSwitchTarget = null
                     exoPlayer.apply {
                         stop()
-                        setMediaItem(MediaItem.fromUri(m3u8))
+                        setMediaItem(
+                            buildPlaybackMediaItem(
+                                uri = m3u8,
+                                title = pageData?.title,
+                                subtitle = ep.name,
+                                artworkUrl = pageData?.coverUrl,
+                            ),
+                        )
                         prepare()
                         playWhenReady = true
                     }
@@ -1193,7 +1236,14 @@ internal fun MovieDetailScreen(
                         currentM3u8Url = m3u8
                         try {
                             exoPlayer.apply {
-                                setMediaItem(MediaItem.fromUri(m3u8))
+                                setMediaItem(
+                                    buildPlaybackMediaItem(
+                                        uri = m3u8,
+                                        title = result.title,
+                                        subtitle = ep.name,
+                                        artworkUrl = result.coverUrl,
+                                    ),
+                                )
                                 prepare()
                                 playWhenReady = true
                             }
@@ -1247,7 +1297,14 @@ internal fun MovieDetailScreen(
                 }
                 try {
                     exoPlayer.apply {
-                        setMediaItem(MediaItem.fromUri(m3u8))
+                        setMediaItem(
+                            buildPlaybackMediaItem(
+                                uri = m3u8,
+                                title = pd.title,
+                                subtitle = ep.name,
+                                artworkUrl = pd.coverUrl,
+                            ),
+                        )
                         prepare()
                         playWhenReady = true
                     }

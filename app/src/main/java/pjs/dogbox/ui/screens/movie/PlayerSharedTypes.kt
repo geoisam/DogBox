@@ -94,7 +94,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.createBitmap
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -191,7 +190,7 @@ internal fun getQualityLabel(width: Int, height: Int): String {
     }
 }
 
-internal fun refreshEndedFrame(exoPlayer: ExoPlayer) {
+internal fun refreshEndedFrame(exoPlayer: Player) {
     runCatching {
         if (exoPlayer.playbackState == Player.STATE_ENDED) {
             val pos = exoPlayer.duration
@@ -1019,7 +1018,7 @@ internal fun MoreSettingsContent(
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 internal fun PlayerCore(
-    exoPlayer: ExoPlayer,
+    exoPlayer: Player,
     currentScaleMode: ScaleMode,
     flipHorizontal: Boolean,
     flipVertical: Boolean,
@@ -1564,7 +1563,7 @@ internal fun PlayerSeekButton(
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 internal fun NonFullscreenPlayer(
-    exoPlayer: ExoPlayer,
+    exoPlayer: Player,
     currentScaleMode: ScaleMode,
     flipHorizontal: Boolean,
     flipVertical: Boolean,
