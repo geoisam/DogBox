@@ -33,6 +33,10 @@ object AdsFilter {
     private const val CACHE_EXTENSION = ".m3u8"
     private const val EXTM3U_HEADER = "#EXTM3U"
     private const val STREAM_INF_TAG = "#EXT-X-STREAM-INF"
+    private const val ENDLIST_TAG = "#EXT-X-ENDLIST"
+
+    /** 旧缓存文件的保留宽限期：播放器可能仍在使用上一轮写出的 playlist。 */
+    private const val CACHE_GRACE_MS = 5 * 60 * 1000L
 
     private data class AdsRule(
         val name: String,
@@ -50,9 +54,16 @@ object AdsFilter {
         val rule = matchRule(url, getRules(context)) ?: return url
         return try {
             withContext(Dispatchers.IO) {
-                // 每次过滤用唯一文件名，避免并发会话互相覆盖；旧文件写入成功后清理
+                // 每次过滤用唯一文件名，避免并发会话互相覆盖。
+                // keep 收集本轮写出的全部文件名，最后统一清理其余旧文件：
+                // 一轮过滤可能写出 1 个 master + N 个变体 media 文件，不能边写边删。
                 val cacheTag = System.currentTimeMillis().toString()
-                filterPlaylist(context, url, rule, cacheTag)
+                val keep = mutableSetOf<String>()
+                try {
+                    filterPlaylist(context, url, rule, cacheTag, keep)
+                } finally {
+                    if (keep.isNotEmpty()) cleanupStaleCache(context, keep)
+                }
             }
         } catch (_: Exception) {
             url
@@ -64,13 +75,15 @@ object AdsFilter {
         url: String,
         rule: AdsRule,
         cacheTag: String,
+        keep: MutableSet<String>,
     ): String {
         val playlist = HttpUtil.get(url).getOrThrow()
         if (!playlist.replace("\uFEFF", "").trimStart().startsWith(EXTM3U_HEADER)) return url
         return if (playlist.contains(STREAM_INF_TAG)) {
-            filterMasterPlaylist(context, url, playlist, rule, cacheTag)
+            filterMasterPlaylist(context, url, playlist, rule, cacheTag, keep)
         } else {
-            filterMediaPlaylist(context, url, playlist, rule, cacheTag) ?: url
+            filterMediaPlaylist(context, url, playlist, rule, cacheTag, keep, variantIndex = 0)
+                ?: url
         }
     }
 
@@ -85,12 +98,13 @@ object AdsFilter {
         playlist: String,
         rule: AdsRule,
         cacheTag: String,
+        keep: MutableSet<String>,
     ): String {
         val builder = StringBuilder(playlist.length + 128)
         var pendingVariant = false
         var filteredVariants = 0
+        var variantIndex = 0
         val masterName = cacheFileName(cacheTag, isMedia = false)
-        val mediaName = cacheFileName(cacheTag, isMedia = true)
         for (rawLine in playlist.lines()) {
             val trimmed = rawLine.trim()
             when {
@@ -102,15 +116,27 @@ object AdsFilter {
                     pendingVariant = true
                 }
 
-                // 变体地址行：指向真正的分片列表（广告所在），需下载并过滤
+                // 变体地址行：指向真正的分片列表（广告所在），需下载并过滤。
+                // 每个变体必须写独立缓存文件：若共用同一个文件名，后面的变体会覆盖前面的，
+                // master 里所有变体最终指向同一份分片列表，码率/分辨率声明与实际内容不符，
+                // 播放器自适应码率会不停切换同一个流，表现为卡顿、卡死后重缓冲。
                 pendingVariant && !trimmed.startsWith("#") -> {
                     val variantUrl = resolveSegment(url, trimmed)
+                    val index = ++variantIndex
                     val filteredVariant = runCatching {
                         val media = HttpUtil.get(variantUrl).getOrThrow()
                         if (!media.replace("\uFEFF", "").trimStart().startsWith(EXTM3U_HEADER)) {
                             null
                         } else {
-                            filterMediaPlaylist(context, variantUrl, media, rule, cacheTag)
+                            filterMediaPlaylist(
+                                context,
+                                variantUrl,
+                                media,
+                                rule,
+                                cacheTag,
+                                keep,
+                                variantIndex = index,
+                            )
                         }
                     }.getOrNull()
                     if (filteredVariant == null) return url
@@ -125,9 +151,8 @@ object AdsFilter {
             }
         }
         if (filteredVariants == 0) return url
-        val result = saveToCache(context, builder.toString(), masterName)
-        cleanupStaleCache(context, keep = setOf(masterName, mediaName))
-        return result
+        keep += masterName
+        return saveToCache(context, builder.toString(), masterName)
     }
 
     /** 过滤一级 media playlist；过滤后不含任何分片则视为失败。 */
@@ -137,26 +162,50 @@ object AdsFilter {
         playlist: String,
         rule: AdsRule,
         cacheTag: String,
+        keep: MutableSet<String>,
+        variantIndex: Int,
     ): String? {
-        val filtered = applyRegex(rule, playlist)
+        val filtered = preserveEndList(playlist, applyRegex(rule, playlist))
         val resolved = resolveUrls(filtered, url) ?: return null
-        val fileName = cacheFileName(cacheTag, isMedia = true)
-        val result = saveToCache(context, resolved, fileName)
-        cleanupStaleCache(context, keep = setOf(fileName))
-        return result
+        val fileName = cacheFileName(cacheTag, isMedia = true, variantIndex = variantIndex)
+        keep += fileName
+        return saveToCache(context, resolved, fileName)
     }
 
-    private fun cacheFileName(tag: String, isMedia: Boolean): String =
-        "$CACHE_PREFIX$tag${if (isMedia) CACHE_MEDIA_INFIX else ""}$CACHE_EXTENSION"
+    private fun cacheFileName(tag: String, isMedia: Boolean, variantIndex: Int = 0): String {
+        val mediaInfix = if (isMedia) CACHE_MEDIA_INFIX else ""
+        val variantSuffix = if (isMedia && variantIndex > 0) "_v$variantIndex" else ""
+        return "$CACHE_PREFIX$tag$mediaInfix$variantSuffix$CACHE_EXTENSION"
+    }
 
-    /** 清理历次过滤留下的旧缓存文件（ExoPlayer 在 prepare 时读一次 manifest，旧文件可安全删除）。 */
+    /**
+     * 规则里的 `.*` 有可能把 `#EXT-X-ENDLIST` 一起吃掉，那样点播流会被当成直播流，
+     * 播放器会周期性地重新读取本地 playlist，一旦文件被清理就整段卡死，所以这里补回来。
+     */
+    private fun preserveEndList(original: String, filtered: String): String =
+        if (original.contains(ENDLIST_TAG) && !filtered.contains(ENDLIST_TAG)) {
+            filtered.trimEnd('\r', '\n') + "\r\n" + ENDLIST_TAG + "\r\n"
+        } else {
+            filtered
+        }
+
+    /**
+     * 清理历次过滤留下的旧缓存文件。
+     *
+     * 播放器并不是只在 prepare 时读一次 playlist：HLS 自适应切换码率、seek 到未缓冲区间、
+     * 直播式（无 ENDLIST）playlist 刷新时都会重新读取本地文件，后台播放时旧影片也可能仍在用。
+     * 因此只清理超过宽限期、确定无人引用的文件，绝不删除本轮刚写出的文件。
+     */
     private fun cleanupStaleCache(context: Context, keep: Set<String>) {
         runCatching {
+            val now = System.currentTimeMillis()
             context.cacheDir.listFiles()?.forEach { file ->
                 val name = file.name
-                if (name.startsWith(CACHE_PREFIX) && name.endsWith(CACHE_EXTENSION) && name !in keep) {
-                    file.delete()
-                }
+                val isCacheFile = name.startsWith(CACHE_PREFIX) &&
+                        (name.endsWith(CACHE_EXTENSION) || name.endsWith("$CACHE_EXTENSION.tmp"))
+                if (!isCacheFile || name in keep) return@forEach
+                if (now - file.lastModified() < CACHE_GRACE_MS) return@forEach
+                file.delete()
             }
         }
     }
@@ -253,9 +302,22 @@ object AdsFilter {
         return builder.toString()
     }
 
+    /**
+     * 原子落盘：先写 .tmp 再 rename。
+     *
+     * 播放器按需重读 playlist（码率切换 / 刷新），如果直接原地覆盖，
+     * 读到写了一半的文件就是解析失败；rename 是同分区原子操作，读者要么看到旧内容、
+     * 要么看到完整新内容。
+     */
     private fun saveToCache(context: Context, playlist: String, fileName: String): String {
         val file = File(context.cacheDir, fileName)
-        file.writeText(playlist)
+        val tmpFile = File(context.cacheDir, "$fileName.tmp")
+        tmpFile.writeText(playlist)
+        if (!tmpFile.renameTo(file)) {
+            // rename 失败（极少数文件系统）时退回直接写
+            runCatching { file.writeText(playlist) }
+            runCatching { tmpFile.delete() }
+        }
         return Uri.fromFile(file).toString()
     }
 }

@@ -67,13 +67,13 @@ import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.components.ScrollToTopFab
 import pjs.dogbox.ui.navigation.rememberTabStateCache
 import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
-import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
@@ -663,18 +663,9 @@ private fun HotTabContent(
         }
 
         if (showFab) {
-            MiuixFab(
+            ScrollToTopFab(
                 onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-            ) {
-                MiuixIcon(
-                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                    contentDescription = "回到顶部",
-                    modifier = Modifier.size(28.dp),
-                )
-            }
+            )
         }
     }
 }

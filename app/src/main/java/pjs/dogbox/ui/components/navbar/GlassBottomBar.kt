@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
@@ -51,6 +52,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -140,7 +142,7 @@ fun GlassBottomBar(
         if (!currentDragging) indicator.animateTo(safeIndex.toFloat(), spring(1f, 420f))
     }
 
-    val surfaceHighlight = if (isDark) {
+    val frostedHighlight = if (isDark) {
         Highlight.GlassStrokeMiddleDark
     } else {
         Highlight.GlassStrokeMiddleLight
@@ -150,63 +152,80 @@ fun GlassBottomBar(
     // 按下时跟随手指的高光反馈
     val interactiveHighlight = remember(scope) { InteractiveHighlight(scope) }
 
+    val isLiquid = effect == NavBarEffect.LIQUID_GLASS && glassAvailable
+    val isFrosted = effect == NavBarEffect.FROSTED_GLASS && glassAvailable
+
+    // 底板：毛玻璃用重度模糊 + 奶白表面，液态玻璃用轻度模糊 + 高通透表面 + 边缘折射
     val surfaceModifier: Modifier = when {
-        effect == NavBarEffect.LIQUID_GLASS && backdrop != null && glassAvailable -> Modifier.glassSurface(
+        isLiquid -> Modifier.glassSurface(
             effect = effect,
             backdrop = backdrop,
             shape = barShape,
-            surfaceColor = colors.surface,
-            tintAlpha = 0.24f,
+            surfaceColor = colors.surfaceContainer,
+            isDark = isDark,
             highlight = liquidHighlight,
         )
 
-        effect == NavBarEffect.FROSTED_GLASS && backdrop != null && glassAvailable -> Modifier.glassSurface(
+        isFrosted -> Modifier.glassSurface(
             effect = effect,
             backdrop = backdrop,
             shape = barShape,
             surfaceColor = colors.surface,
-            tintAlpha = 0.52f,
-            highlight = surfaceHighlight,
+            isDark = isDark,
+            highlight = frostedHighlight,
         )
 
         else -> Modifier.background(colors.surfaceContainer, barShape)
     }
 
+    // 指示器：毛玻璃用主色药丸（磨砂板上的实心高亮），
+    // 液态玻璃用近乎中性的玻璃药丸，靠折射与内阴影表现"凸起的玻璃"。
     val indicatorModifier: Modifier = when {
-        effect == NavBarEffect.LIQUID_GLASS && backdrop != null && glassAvailable -> Modifier
+        isLiquid -> Modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { indicatorShape },
                 effects = {
+                    // 和底板走同一套玻璃效果，避免高透明底板上出现一块没做玻璃的清晰区域
+                    liquidGlassBase()
                     val progress = press.value
                     lens(
-                        refractionHeight = 10f * densityScale * progress,
-                        refractionAmount = 14f * densityScale * progress,
+                        refractionHeight = 12f * densityScale * progress,
+                        refractionAmount = 16f * densityScale * progress,
                         depthEffect = true,
                         chromaticAberration = 0.5f,
                     )
                 },
-                highlight = { pillHighlight.copy(alpha = 0.4f + press.value * 0.6f) },
+                highlight = { pillHighlight.copy(alpha = 0.35f + press.value * 0.65f) },
                 layerBlock = {
                     val scale = 1f + 0.06f * press.value
                     scaleX = scale
                     scaleY = scale
                 },
                 onDrawSurface = {
-                    drawRect(colors.surface.copy(alpha = 0.28f))
+                    // 药丸比底板略浓一点，才有"玻璃浮起来"的层次
+                    drawRect(colors.surfaceContainer.copy(alpha = liquidSurfaceAlpha(isDark) + 0.08f))
+                    drawRect(
+                        if (isDark) {
+                            Color.White.copy(alpha = 0.06f + 0.05f * press.value)
+                        } else {
+                            Color.Black.copy(alpha = 0.05f + 0.05f * press.value)
+                        }
+                    )
                 },
             )
             .innerShadow(indicatorShape) {
                 InnerShadow(
-                    radius = 8.dp * press.value,
-                    color = Color.Black.copy(alpha = 0.18f),
-                    alpha = press.value,
+                    radius = 6.dp + 6.dp * press.value,
+                    offset = DpOffset(0.dp, 1.dp),
+                    color = Color.Black.copy(alpha = 0.20f),
+                    alpha = 0.45f + 0.45f * press.value,
                 )
             }
 
-        effect == NavBarEffect.FROSTED_GLASS -> Modifier
-            .background(colors.surface.copy(alpha = 0.55f), indicatorShape)
-            .border(1.dp, Color.White.copy(alpha = 0.10f), indicatorShape)
+        isFrosted -> Modifier
+            .background(accent.copy(alpha = 0.20f), indicatorShape)
+            .border(1.dp, Color.White.copy(alpha = 0.12f), indicatorShape)
 
         else -> Modifier.background(accent.copy(alpha = 0.14f), indicatorShape)
     }
@@ -265,7 +284,39 @@ fun GlassBottomBar(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(
+                        // 液态玻璃靠投影把自己从内容上"抬起来"，毛玻璃则平贴在表面
+                        if (isLiquid) {
+                            Modifier.dropShadow(
+                                shape = barShape,
+                                shadow = Shadow(
+                                    radius = 12.dp,
+                                    color = Color.Black,
+                                    alpha = if (isDark) 0.34f else 0.16f,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
                     .then(surfaceModifier)
+                    .then(
+                        // 液态玻璃的厚度感：内阴影压住上边缘，镜面光泽扫过表面
+                        if (isLiquid) {
+                            Modifier
+                                .innerShadow(barShape) {
+                                    InnerShadow(
+                                        radius = 10.dp,
+                                        offset = DpOffset(0.dp, 2.dp),
+                                        color = Color.Black.copy(alpha = 0.22f),
+                                        alpha = 0.55f,
+                                    )
+                                }
+                                .liquidSheen(isDark, barShape)
+                        } else {
+                            Modifier
+                        }
+                    )
                     .then(if (effect != NavBarEffect.NONE && glassAvailable) interactiveHighlight.modifier else Modifier),
             )
 
@@ -352,6 +403,27 @@ private fun GlassBottomBarItem(
         )
     }
 }
+
+/**
+ * 液态玻璃的镜面光泽：上边缘一道白光、下边缘一道暗边，模拟玻璃的厚度与曲率。
+ *
+ * 毛玻璃不加这一层，两者在纯色内容前也能一眼区分开。
+ */
+private fun Modifier.liquidSheen(isDark: Boolean, shape: Shape): Modifier = this
+    .clip(shape)
+    .background(
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = if (isDark) 0.16f else 0.24f),
+            0.38f to Color.White.copy(alpha = if (isDark) 0.04f else 0.07f),
+            1f to Color.Transparent,
+        )
+    )
+    .background(
+        Brush.verticalGradient(
+            0.55f to Color.Transparent,
+            1f to Color.Black.copy(alpha = if (isDark) 0.20f else 0.07f),
+        )
+    )
 
 /**
  * 在 Initial 阶段消费拖动事件，这样子节点的点击手势会随之取消，

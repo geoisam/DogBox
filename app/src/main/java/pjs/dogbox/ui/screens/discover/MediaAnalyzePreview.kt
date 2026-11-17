@@ -72,7 +72,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
@@ -93,6 +92,7 @@ import pjs.dogbox.ui.screens.movie.formatTime
 import pjs.dogbox.ui.screens.movie.getQualityLabel
 import pjs.dogbox.ui.screens.movie.getScaleModes
 import pjs.dogbox.ui.screens.movie.refreshEndedFrame
+import pjs.dogbox.utils.player.DecoderModeManager
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
@@ -163,10 +163,10 @@ fun MediaAnalyzePreview(
 
     var isPlaying by remember { mutableStateOf(false) }
     var isBuffering by remember { mutableStateOf(true) }
-    var videoWidth by remember { mutableIntStateOf(0) }
-    var videoHeight by remember { mutableIntStateOf(0) }
+    var wantsToPlay by remember { mutableStateOf(true) }
 
     var playerCurrentPosition by remember { mutableStateOf(0L) }
+    var loadedUrl by remember { mutableStateOf("") }
     var playerDuration by remember { mutableStateOf(0L) }
     var playerBufferedPercentage by remember { mutableIntStateOf(0) }
     var isMuted by remember { mutableStateOf(false) }
@@ -224,7 +224,9 @@ fun MediaAnalyzePreview(
         }
     }
 
-    val exoPlayer = remember {
+    // 解码方式切换时重建播放器，并从当前进度继续播放。
+    val decoderMode = GlobalPlayerConfig.decoderMode
+    val exoPlayer = remember(decoderMode) {
         val headers = HashMap<String, String>().apply {
             if (referer.isNotBlank()) put("Referer", referer)
             put("User-Agent", AppConfig.UA_WECHAT_PC)
@@ -233,29 +235,48 @@ fun MediaAnalyzePreview(
             .setUserAgent(AppConfig.UA_WECHAT_PC)
             .setDefaultRequestProperties(headers)
         val sourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(sourceFactory)
-            .build()
+        DecoderModeManager.buildPlayer(context) {
+            setMediaSourceFactory(sourceFactory)
+        }
+    }
+
+    var videoWidth by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.width)
+    }
+    var videoHeight by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.height)
     }
 
     PauseOnBackground(exoPlayer)
 
-    LaunchedEffect(currentVideoUrl) {
-        exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(currentVideoUrl)))
+    LaunchedEffect(currentVideoUrl, exoPlayer) {
+        val sameVideo = loadedUrl == currentVideoUrl
+        val resumePosition = if (sameVideo) playerCurrentPosition else 0L
+        loadedUrl = currentVideoUrl
+        exoPlayer.setMediaItem(
+            MediaItem.fromUri(Uri.parse(currentVideoUrl)),
+            resumePosition.coerceAtLeast(0L),
+        )
         exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
-        isPlaying = false
-        isBuffering = true
-        playerCurrentPosition = 0L
-        playerDuration = 0L
-        videoWidth = 0
-        videoHeight = 0
+        exoPlayer.playWhenReady = wantsToPlay
+        if (!sameVideo) {
+            isPlaying = false
+            isBuffering = true
+            playerCurrentPosition = 0L
+            playerDuration = 0L
+            videoWidth = 0
+            videoHeight = 0
+        }
     }
 
-    val playerListener = remember {
+    val playerListener = remember(exoPlayer) {
         object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                wantsToPlay = playWhenReady
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -272,14 +293,25 @@ fun MediaAnalyzePreview(
     DisposableEffect(exoPlayer) {
         isPlaying = exoPlayer.isPlaying
         exoPlayer.addListener(playerListener)
+        // 补一次当前尺寸，避免在订阅监听前就已经上报过视频尺寸。
+        val videoSize = exoPlayer.videoSize
+        if (videoSize.width > 0 && videoSize.height > 0) {
+            videoWidth = videoSize.width
+            videoHeight = videoSize.height
+        }
         onDispose {
             exoPlayer.removeListener(playerListener)
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             exoPlayer.release()
         }
     }
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    LaunchedEffect(exoPlayer) {
         while (true) {
             playerCurrentPosition = exoPlayer.currentPosition
             playerDuration = exoPlayer.duration
@@ -288,7 +320,7 @@ fun MediaAnalyzePreview(
         }
     }
 
-    LaunchedEffect(isFullscreen) {
+    LaunchedEffect(isFullscreen, exoPlayer) {
         if (!isFullscreen) {
             delay(200)
             when (exoPlayer.playbackState) {
@@ -429,6 +461,13 @@ fun MediaAnalyzePreview(
                         }
                     },
                     update = { pv ->
+                        // 切换解码方式会重建播放器，这里必须把视图重新绑定到新实例。
+                        if (pv.player !== exoPlayer) {
+                            runCatching {
+                                pv.player = exoPlayer
+                                refreshEndedFrame(exoPlayer)
+                            }
+                        }
                         pv.resizeMode = currentScaleMode.resizeMode
                         pv.scaleX = if (flipHorizontal) -1f else 1f
                         pv.scaleY = if (flipVertical) -1f else 1f

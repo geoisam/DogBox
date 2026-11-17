@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "pjs.dogbox"
-        minSdk = 29
+        minSdk = 30
         targetSdk = 37
         versionCode = 26101500
         versionName = "0.4.0"

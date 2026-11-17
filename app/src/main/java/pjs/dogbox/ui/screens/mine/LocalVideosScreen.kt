@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.util.Size
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -70,13 +68,13 @@ import pjs.dogbox.data.repository.LocalVideoStore
 import pjs.dogbox.data.repository.formatDuration
 import pjs.dogbox.data.repository.formatSize
 import pjs.dogbox.data.repository.hasFileAccessPermission
-import pjs.dogbox.data.repository.openFileAccessPermissionPage
 import pjs.dogbox.data.repository.queryMediaStoreVideos
 import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.ScrollToTopFab
+import pjs.dogbox.utils.system.openAllFilesAccessSettings
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -275,7 +273,7 @@ fun LocalVideosScreen(
                 !hasPermission -> {
                     CenterPillButton(
                         text = "去授权",
-                        onClick = { openFileAccessPermissionPage(context) },
+                        onClick = { openAllFilesAccessSettings(context) },
                     )
                 }
 
@@ -380,23 +378,13 @@ fun LocalVideosScreen(
                             derivedStateOf { !isAtTop && !isScrollingDown }
                         }
                         if (showFab) {
-                            FloatingActionButton(
+                            ScrollToTopFab(
                                 onClick = {
                                     scope.launch {
                                         gridState.animateScrollToItem(0)
                                     }
                                 },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(24.dp),
-                            ) {
-                                MiuixIcon(
-                                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                                    contentDescription = "回到顶部",
-                                    tint = MiuixTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(28.dp),
-                                )
-                            }
+                            )
                         }
                     }
                 }
@@ -620,18 +608,10 @@ private fun VideoThumbnail(
                     } finally {
                         runCatching { mmr.release() }
                     }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                } else {
                     context.contentResolver.loadThumbnail(
                         uri,
                         Size(512, 512),
-                        null,
-                    )
-                } else {
-                    val id = uri.lastPathSegment?.toLongOrNull() ?: 0L
-                    MediaStore.Video.Thumbnails.getThumbnail(
-                        context.contentResolver,
-                        id,
-                        MediaStore.Video.Thumbnails.MINI_KIND,
                         null,
                     )
                 }

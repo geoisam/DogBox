@@ -8,32 +8,14 @@ object AppConfig {
 
     const val GITHUB_PAGE = "https://github.com/geoisam"
 
-    const val YXXQ_HOST = "https://www.yxxq41.cc"
-    const val YXXQ_SEARCH = "$YXXQ_HOST/search/-------------.html?wd="
-    const val YXXQ_KEY = "YXXQ"
-    const val YXXQ_NAME = "映像星球"
+    fun sourceKey(host: String): String =
+        ApiSitesRepository.keyForHost(host) ?: ""
 
-    const val FDZYS_HOST = "https://fdzys.net"
-    const val FDZYS_KEY = "FDZYS"
-    const val FDZYS_NAME = "饭搭子"
+    fun sourceName(key: String): String =
+        ApiSitesRepository.nameForKey(key) ?: "未知来源"
 
-    fun sourceKey(host: String): String = when {
-        host.contains("yxxq") -> YXXQ_KEY
-        host.contains("fdzys") -> FDZYS_KEY
-        else -> ApiSitesRepository.keyForHost(host) ?: YXXQ_KEY
-    }
-
-    fun sourceName(key: String): String = when (key) {
-        YXXQ_KEY -> YXXQ_NAME
-        FDZYS_KEY -> FDZYS_NAME
-        else -> ApiSitesRepository.nameForKey(key) ?: "未知来源"
-    }
-
-    fun hostForKey(key: String): String = when (key) {
-        YXXQ_KEY -> YXXQ_HOST
-        FDZYS_KEY -> FDZYS_HOST
-        else -> ApiSitesRepository.originForKey(key) ?: YXXQ_HOST
-    }
+    fun hostForKey(key: String): String =
+        ApiSitesRepository.originForKey(key) ?: ""
 
     const val UA_CHROME_PC =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/169.0.0.0 Safari/537.36 Edg/169.0.0.0"

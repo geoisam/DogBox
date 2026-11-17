@@ -1,18 +1,14 @@
 package pjs.dogbox.ui.screens
 
-import android.Manifest
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -64,7 +60,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -82,7 +77,7 @@ import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.network.HttpUtil
-import pjs.dogbox.utils.system.openPermissionManager
+import pjs.dogbox.utils.system.openAllFilesAccessSettings
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
@@ -123,39 +118,27 @@ private fun saveImageBytesToGallery(
 ): Boolean =
     try {
         val fileName = "${sanitizeFileName(title)}_${System.currentTimeMillis()}.$ext"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
-                put(
-                    MediaStore.Images.Media.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Cover"
-                )
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            val uri = context.contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                values
-            ) ?: return false
-            context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            context.contentResolver.update(uri, values, null, null)
-            true
-        } else {
-            val dir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "DogBox/Cover"
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Images.Media.MIME_TYPE, mimeFor(ext))
+            put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                "${Environment.DIRECTORY_DOWNLOADS}/DogBox/Cover"
             )
-            if (!dir.exists()) dir.mkdirs()
-            File(dir, fileName).writeBytes(bytes)
-            true
+            put(MediaStore.Images.Media.IS_PENDING, 1)
         }
+        val uri = context.contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            values
+        ) ?: return false
+        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+        values.clear()
+        values.put(MediaStore.Images.Media.IS_PENDING, 0)
+        context.contentResolver.update(uri, values, null, null)
+        true
     } catch (_: Exception) {
         false
     }
-
-
 private fun setSystemBarsVisible(
     controller: WindowInsetsControllerCompat?,
     visible: Boolean,
@@ -290,32 +273,12 @@ fun ImageViewerScreen(
     }
 
     fun hasFileAccessPermission(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Environment.isExternalStorageManager()
-        } else
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            ) == PackageManager.PERMISSION_GRANTED
-
-    fun openFileAccessPermissionPage() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            runCatching {
-                context.startActivity(
-                    Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                )
-            }.onFailure {
-                openPermissionManager(context)
-            }
-        } else {
-            openPermissionManager(context)
-        }
-    }
+        Environment.isExternalStorageManager()
 
     fun requestDownloadPermission() {
         if (!hasFileAccessPermission()) {
             Toast.makeText(context, "权限不足", Toast.LENGTH_SHORT).show()
-            openFileAccessPermissionPage()
+            openAllFilesAccessSettings(context)
             return
         }
         downloadImage()

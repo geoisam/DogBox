@@ -1,6 +1,5 @@
 package pjs.dogbox.services
 
-import android.app.DownloadManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,8 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaScannerConnection
-import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
@@ -43,7 +40,6 @@ import kotlinx.coroutines.withContext
 import pjs.dogbox.MainActivity
 import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
-import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.utils.network.HttpUtil
 import pjs.dogbox.utils.security.CryptUtil
 import java.io.File
@@ -71,9 +67,6 @@ class MediaDownloadService : Service() {
         const val EXTRA_NOTIFICATION_ID = "extra_notification_id"
         const val EXTRA_NOTIFY_TITLE = "extra_notify_title"
 
-        /** 系统下载器轮询间隔 */
-        private const val SYSTEM_POLL_INTERVAL_MS = 800L
-
         private const val PREFS_NAME = "app_settings"
         private const val KEY_NEXT_NOTIFICATION_ID = "next_notification_id"
         private const val NOTIFICATION_ID_START = 10001
@@ -93,13 +86,6 @@ class MediaDownloadService : Service() {
             // 叠加时间戳低位 + 随机数，极端情况下（卸载重装等）也能降低碰撞概率
             // 但主要唯一性由持久化自增值保证
             return cur
-        }
-
-        fun typeNameForDirName(dirName: String): String = when (dirName) {
-            "Pictures" -> "图片素材"
-            "Videos" -> "视频素材"
-            "Music" -> "背景音乐素材"
-            else -> "素材"
         }
 
         private fun defaultDoneTitleForDirName(dirName: String): String = when (dirName) {
@@ -142,13 +128,7 @@ class MediaDownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val activeJobs = mutableMapOf<Int, Job>()
 
-    /** notificationId -> 系统 DownloadManager 任务 id 列表 */
-    private val systemDownloadIds = mutableMapOf<Int, List<Long>>()
-
     private val mainHandler = Handler(Looper.getMainLooper())
-
-    /** 已提示过"等待网络"的批次，避免重复弹出 */
-    private val waitingNetworkWarned = mutableSetOf<Int>()
 
     /** 独立下载 OkHttp：不与 Coil/解析共用 Dispatcher，避免大文件与图片网格抢占 maxRequestsPerHost */
     private val downloadOkHttpClient: okhttp3.OkHttpClient by lazy {
@@ -198,47 +178,26 @@ class MediaDownloadService : Service() {
                 val notificationId = obtainNextNotificationId(this)
 
                 ensureChannel()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(
-                        notificationId,
-                        buildForegroundNotification(notificationId),
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-                    )
-                } else {
-                    startForeground(
-                        notificationId,
-                        buildForegroundNotification(notificationId),
-                    )
-                }
+                startForeground(
+                    notificationId,
+                    buildForegroundNotification(notificationId),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
 
                 activeJobs[notificationId]?.cancel()
                 activeJobs.remove(notificationId)
 
-                val useSystemDownloader =
-                    AppRepository.getDownloadMode(this) == 1 &&
-                            getSystemService(Context.DOWNLOAD_SERVICE) is DownloadManager
-
-                val job = if (useSystemDownloader) {
-                    launchSystemDownloadBatch(
-                        notificationId,
-                        urls,
-                        referer,
-                        title,
-                        dirName,
-                        ext,
-                        doneTitle
-                    )
-                } else {
-                    launchBuiltInDownloadBatch(
-                        notificationId,
-                        urls,
-                        referer,
-                        title,
-                        dirName,
-                        ext,
-                        doneTitle
-                    )
-                }
+                // 统一走内置下载器：不依赖系统 DownloadManager 的省流量 / 厂商拦截策略，
+                // 同时保留 UA、失败重试与 .tmp 原子落盘。
+                val job = launchBuiltInDownloadBatch(
+                    notificationId,
+                    urls,
+                    referer,
+                    title,
+                    dirName,
+                    ext,
+                    doneTitle,
+                )
                 activeJobs[notificationId] = job
             }
 
@@ -246,14 +205,6 @@ class MediaDownloadService : Service() {
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
                 if (notificationId != -1) {
                     activeJobs.remove(notificationId)?.cancel()
-
-                    // 取消系统下载器中的任务（同时删除已下载的部分文件）
-                    waitingNetworkWarned.remove(notificationId)
-                    systemDownloadIds.remove(notificationId)?.let { ids ->
-                        runCatching {
-                            getSystemService(DownloadManager::class.java)?.remove(*ids.toLongArray())
-                        }
-                    }
 
                     getSystemService(NotificationManager::class.java)?.cancel(notificationId)
                 }
@@ -311,6 +262,8 @@ class MediaDownloadService : Service() {
         }
         if (!isActive) return@launch
         notifyCompletion(notificationId, doneTitle, urls.size, ok, fail)
+        // 通知可能因未授予通知权限而不可见，再用 Toast 兜一份结果
+        showToast("$doneTitle：共 ${urls.size} 个，成功 $ok 个，失败 $fail 个")
         activeJobs.remove(notificationId)
         stopIfIdle()
     }
@@ -405,124 +358,6 @@ class MediaDownloadService : Service() {
         }
     }
 
-    // ==================== 系统下载器（DownloadManager） ====================
-
-    private fun launchSystemDownloadBatch(
-        notificationId: Int,
-        urls: List<String>,
-        referer: String,
-        title: String,
-        dirName: String,
-        ext: String,
-        doneTitle: String,
-    ): Job {
-        val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val subDir = "DogBox/Material/${CryptUtil.md5(title)}/$dirName"
-
-        val enqueuedIds = mutableListOf<Long>()
-        for ((i, url) in urls.withIndex()) {
-            val fileName = "${i + 1}_${System.currentTimeMillis()}.$ext"
-            try {
-                val request = DownloadManager.Request(Uri.parse(url)).apply {
-                    setTitle(fileName)
-                    setDescription(title.ifBlank { typeNameForDirName(dirName) })
-                    addRequestHeader("User-Agent", AppConfig.UA_CHROME_M)
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
-                    setAllowedOverMetered(true)
-                    setAllowedOverRoaming(true)
-                    setDestinationInExternalPublicDir(
-                        Environment.DIRECTORY_DOWNLOADS,
-                        "$subDir/$fileName"
-                    )
-                }
-                enqueuedIds += dm.enqueue(request)
-            } catch (_: Exception) {
-                enqueuedIds += -1L
-            }
-        }
-        systemDownloadIds[notificationId] = enqueuedIds
-
-        // 立即反馈：流量环境下系统下载器经常被系统静默拦下（见下方轮询里的等待网络提示），
-        // Toast 保证"点击下载"一定有入口反馈
-        val enqueuedCount = enqueuedIds.count { it != -1L }
-        if (enqueuedCount == 0) {
-            showToast("下载任务提交失败，可尝试改用内置下载器", Toast.LENGTH_LONG)
-        } else {
-            showToast("已提交 $enqueuedCount 个下载任务（系统下载器）")
-        }
-
-        return scope.launch {
-            val pending = enqueuedIds.filter { it != -1L }.toMutableSet()
-            var ok = 0
-            var fail = enqueuedIds.count { it == -1L }
-
-            while (isActive && pending.isNotEmpty()) {
-                delay(SYSTEM_POLL_INTERVAL_MS)
-                if (!isActive) break
-
-                val query = DownloadManager.Query().setFilterById(*pending.toLongArray())
-                dm.query(query)?.use { cursor ->
-                    val idIdx = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
-                    val statusIdx = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
-                    val reasonIdx = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
-                    val localUriIdx = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idIdx)
-                        when (cursor.getInt(statusIdx)) {
-                            DownloadManager.STATUS_SUCCESSFUL -> {
-                                pending.remove(id)
-                                ok++
-                                val localUri =
-                                    if (localUriIdx >= 0) cursor.getString(localUriIdx) else null
-                                localUri?.let {
-                                    runCatching { Uri.parse(it).path }.getOrNull()?.let { path ->
-                                        MediaScannerConnection.scanFile(
-                                            this@MediaDownloadService,
-                                            arrayOf(path),
-                                            null,
-                                            null,
-                                        )
-                                    }
-                                }
-                            }
-
-                            DownloadManager.STATUS_PAUSED -> {
-                                val reason = if (reasonIdx >= 0) cursor.getInt(reasonIdx) else -1
-                                if (reason == DownloadManager.PAUSED_WAITING_FOR_NETWORK
-                                    || reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI
-                                ) {
-                                    // 流量环境常见：任务被系统静默挂起（省流量模式/厂商"流量下载需确认"策略），
-                                    // 只读 SUCCESSFUL/FAILED 时表现为"一直在下载却没有任何提示"
-                                    if (waitingNetworkWarned.add(notificationId)) {
-                                        showToast(
-                                            "系统下载器在等待 Wi-Fi/流量确认：" +
-                                                "请在系统通知或\"下载\"管理中允许流量下载，或在设置里改用内置下载器",
-                                            Toast.LENGTH_LONG,
-                                        )
-                                    }
-                                }
-                            }
-
-                            DownloadManager.STATUS_FAILED -> {
-                                pending.remove(id)
-                                fail++
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!isActive) return@launch
-            notifyCompletion(notificationId, doneTitle, urls.size, ok, fail)
-            // 单独 Toast 一份结果：通知可能因未授予通知权限而不可见
-            showToast("$doneTitle：共 ${urls.size} 个，成功 $ok 个，失败 $fail 个")
-            activeJobs.remove(notificationId)
-            systemDownloadIds.remove(notificationId)
-            waitingNetworkWarned.remove(notificationId)
-            stopIfIdle()
-        }
-    }
-
     // ==================== 通知 ====================
 
     /** 前台服务必需的占位通知，不展示进度，仅保留取消入口 */
@@ -580,7 +415,6 @@ class MediaDownloadService : Service() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java) ?: return
         LEGACY_CHANNEL_IDS.forEach { id ->
             runCatching { nm.deleteNotificationChannel(id) }

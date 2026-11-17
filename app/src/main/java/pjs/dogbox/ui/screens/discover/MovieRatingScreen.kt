@@ -75,6 +75,7 @@ import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.components.ScrollToTopFab
 import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -82,7 +83,6 @@ import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator as MiuixCircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.FloatingActionButton as MiuixFab
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
@@ -531,24 +531,13 @@ private fun MovieCategoryContent(
             }
 
             if (!isAtTop) {
-                MiuixFab(
+                ScrollToTopFab(
                     onClick = {
                         scope.launch {
                             lazyGridState.animateScrollToItem(0)
                         }
                     },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(20.dp),
-                    containerColor = MiuixTheme.colorScheme.primaryContainer,
-                ) {
-                    MiuixIcon(
-                        painter = painterResource(R.drawable.arrow_upward_outlined),
-                        contentDescription = "回到顶部",
-                        modifier = Modifier.size(28.dp),
-                        tint = MiuixTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
+                )
             }
         }
     }

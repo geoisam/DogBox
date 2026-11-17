@@ -35,6 +35,7 @@ import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screens.movie.PlaybackOrder
 import pjs.dogbox.ui.screens.movie.SPEED_KEY_POINTS
+import pjs.dogbox.utils.player.DecoderMode
 import pjs.dogbox.utils.system.openPermissionManager
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -49,6 +50,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
@@ -56,7 +58,10 @@ import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
 
-private val DownloadModeLabels = listOf("内置下载器", "系统下载器")
+private val SearchThreadKeyPoints =
+    List(AppRepository.MAX_SEARCH_THREADS - AppRepository.MIN_SEARCH_THREADS + 1) {
+        (AppRepository.MIN_SEARCH_THREADS + it).toFloat()
+    }
 
 private val PaletteStyleOptions = listOf(
     "TonalSpot" to "经典色调",
@@ -79,7 +84,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    var downloadMode by remember { mutableIntStateOf(AppRepository.getDownloadMode(context)) }
     var themeMode by remember {
         mutableIntStateOf(
             AppRepository.getThemeMode(context).takeIf { it in 0..2 } ?: 0)
@@ -87,6 +91,8 @@ fun SettingsScreen(
     var monetEnable by remember { mutableStateOf(AppRepository.getDynamicColor(context)) }
     var dynamicColorStyle by remember { mutableStateOf(AppRepository.getDynamicColorStyle(context)) }
     var showSpeedSheet by remember { mutableStateOf(false) }
+    var searchThreads by remember { mutableIntStateOf(AppRepository.getSearchThreads(context)) }
+    var showSearchThreadDialog by remember { mutableStateOf(false) }
 
     // 毛玻璃 / 液态玻璃依赖运行时着色器（Android 13+），不支持时只能使用纯色底栏
     val supportsNavBarEffect = isRuntimeShaderSupported()
@@ -214,18 +220,18 @@ fun SettingsScreen(
             SettingsSectionHeader("通用")
 
             Card(modifier = Modifier.fillMaxWidth()) {
-                OverlayDropdownPreference(
-                    title = "下载方式",
-                    items = DownloadModeLabels,
-                    selectedIndex = downloadMode.coerceIn(0, DownloadModeLabels.lastIndex),
-                    onSelectedIndexChange = { mode ->
-                        downloadMode = mode
-                        AppRepository.setDownloadMode(context, mode)
-                    },
-                )
                 ArrowPreference(
-                    title = "缓存管理",
-                    onClick = onNavigateToCacheManage,
+                    title = "搜索线程",
+                    endActions = {
+                        MiuixText(
+                            text = searchThreads.toString(),
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            textAlign = TextAlign.End,
+                        )
+                    },
+                    onClick = { showSearchThreadDialog = true },
                 )
             }
 
@@ -255,6 +261,16 @@ fun SettingsScreen(
                         GlobalPlayerConfig.setPlaybackOrder(context, PlaybackOrder.entries[index])
                     },
                 )
+                OverlayDropdownPreference(
+                    title = "解码方式",
+                    items = DecoderMode.entries.map { it.label },
+                    selectedIndex = DecoderMode.entries
+                        .indexOf(GlobalPlayerConfig.decoderMode)
+                        .coerceAtLeast(0),
+                    onSelectedIndexChange = { index ->
+                        GlobalPlayerConfig.setDecoderMode(context, DecoderMode.entries[index])
+                    },
+                )
                 SwitchPreference(
                     title = "后台播放",
                     checked = GlobalPlayerConfig.backgroundPlayback,
@@ -275,6 +291,10 @@ fun SettingsScreen(
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 ArrowPreference(
+                    title = "缓存管理",
+                    onClick = onNavigateToCacheManage,
+                )
+                ArrowPreference(
                     title = "通知管理",
                     onClick = { openNotificationSettings(context) },
                 )
@@ -294,6 +314,17 @@ fun SettingsScreen(
                 GlobalPlayerConfig.setLongPressSpeed(context, speed)
             },
             onDismiss = { showSpeedSheet = false },
+        )
+    }
+
+    if (showSearchThreadDialog) {
+        SearchThreadDialog(
+            currentThreads = searchThreads,
+            onThreadsConfirm = { threads ->
+                searchThreads = threads
+                AppRepository.setSearchThreads(context, threads)
+            },
+            onDismiss = { showSearchThreadDialog = false },
         )
     }
 }
@@ -391,6 +422,89 @@ private fun LongPressSpeedDialog(
                     onClick = {
                         sliderSpeed = 3.0f
                         onSpeedConfirm(3.0f)
+                    },
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchThreadDialog(
+    currentThreads: Int,
+    onThreadsConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var sliderThreads by remember(currentThreads) { mutableIntStateOf(currentThreads) }
+
+    OverlayDialog(
+        show = true,
+        title = "搜索线程",
+        insideMargin = DpSize(0.dp, 24.dp),
+        onDismissRequest = onDismiss,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiuixText(
+                    text = "搜索线程",
+                    style = MiuixTheme.textStyles.body1,
+                )
+                MiuixText(
+                    text = sliderThreads.toString(),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Slider(
+                value = sliderThreads.toFloat(),
+                onValueChange = {
+                    sliderThreads = it.roundToInt().coerceIn(
+                        AppRepository.MIN_SEARCH_THREADS,
+                        AppRepository.MAX_SEARCH_THREADS,
+                    )
+                },
+                onValueChangeFinished = { onThreadsConfirm(sliderThreads) },
+                valueRange = AppRepository.MIN_SEARCH_THREADS.toFloat()..
+                        AppRepository.MAX_SEARCH_THREADS.toFloat(),
+                steps = AppRepository.MAX_SEARCH_THREADS - AppRepository.MIN_SEARCH_THREADS - 1,
+                showKeyPoints = true,
+                keyPoints = SearchThreadKeyPoints,
+                magnetThreshold = 0.4f,
+                hapticEffect = SliderDefaults.SliderHapticEffect.Step,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            MiuixText(
+                text = "同时搜索 ${sliderThreads} 个片源，数值过高可能导致卡顿",
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TextButton(
+                    text = "取消",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    text = "恢复默认",
+                    onClick = {
+                        sliderThreads = AppRepository.DEFAULT_SEARCH_THREADS
+                        onThreadsConfirm(AppRepository.DEFAULT_SEARCH_THREADS)
                     },
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f),

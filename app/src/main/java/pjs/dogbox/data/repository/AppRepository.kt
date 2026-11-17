@@ -35,7 +35,7 @@ object AppRepository {
         val timestamp: Long,
         val orientation: Int = 0,
         val episodeName: String = "",
-        val key: String = AppConfig.YXXQ_KEY,
+        val key: String = "",
     ) {
         // host 不再持久化，按 key 动态获取
         val host: String
@@ -81,16 +81,20 @@ object AppRepository {
     private const val KEY_DYNAMIC_COLOR_STYLE = "dynamic_color_style"
     private const val KEY_AUTO_CHECK_UPDATE = "auto_check_update"
     private const val KEY_SCROLL_TEXT_CONFIG = "scroll_text_config"
-    private const val KEY_DOWNLOAD_MODE = "download_mode"
     private const val KEY_LONG_PRESS_SPEED = "long_press_speed"
     private const val KEY_BACKGROUND_PLAYBACK = "background_playback"
     private const val KEY_ADS_FILTER = "ads_filter"
+    private const val KEY_SEARCH_THREADS = "search_threads"
+    private const val KEY_INVITE_MIN_INTERVAL = "invite_min_interval"
+    private const val KEY_INVITE_MAX_INTERVAL = "invite_max_interval"
+    private const val KEY_INVITE_COUNT = "invite_count"
 
     private const val KEY_FLOATING_NAV_BAR = "floating_nav_bar"
     private const val KEY_NAV_BAR_EFFECT = "nav_bar_effect"
     private const val KEY_HIDE_NAV_BAR_DIVIDER = "hide_nav_bar_divider"
 
     private const val KEY_PLAYBACK_ORDER = "playback_order"
+    private const val KEY_DECODER_MODE = "decoder_mode"
 
     private fun getPrefs(context: Context): android.content.SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -125,7 +129,7 @@ object AppRepository {
         return try {
             val key = obj["key"]?.jsonPrimitive?.contentOrNull
                 ?: obj["host"]?.jsonPrimitive?.contentOrNull?.let { AppConfig.sourceKey(it) }
-                ?: AppConfig.YXXQ_KEY
+                ?: ""
             WatchHistoryItem(
                 id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
                 url = obj["url"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -171,8 +175,10 @@ object AppRepository {
         return try {
             val arr = Json.parseToJsonElement(jsonStr).jsonArray
             arr.mapNotNull { jsonToWatchItem(it.jsonObject) }
-                // 已下线来源的历史记录不再展示
-                .filterNot { it.key == "NIVOD" || it.key == "YLSP" }
+                // 已下线来源（含已移除的映像星球 / 饭搭子）的历史记录不再展示
+                .filterNot {
+                    it.key == "NIVOD" || it.key == "YLSP" || it.key == "YXXQ" || it.key == "FDZYS"
+                }
                 .sortedByDescending { it.timestamp }
         } catch (_: Exception) {
             emptyList()
@@ -291,16 +297,6 @@ object AppRepository {
         autoCheckDoneState = false
     }
 
-    // === Download Mode ===
-    // 0 = built-in download (default), 1 = system download manager
-    fun getDownloadMode(context: Context): Int {
-        return getPrefs(context).getInt(KEY_DOWNLOAD_MODE, 0)
-    }
-
-    fun setDownloadMode(context: Context, mode: Int) {
-        getPrefs(context).edit { putInt(KEY_DOWNLOAD_MODE, mode) }
-    }
-
     // === Long Press Speed ===
 
     fun getLongPressSpeed(context: Context): Float {
@@ -329,6 +325,48 @@ object AppRepository {
 
     fun setAdsFilterEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit { putBoolean(KEY_ADS_FILTER, enabled) }
+    }
+
+    // === Search Threads ===
+
+    /** 影片搜索时同时并发请求的片源数量，默认 10，可调范围 5..20。 */
+    fun getSearchThreads(context: Context): Int {
+        return getPrefs(context).getInt(KEY_SEARCH_THREADS, DEFAULT_SEARCH_THREADS)
+            .coerceIn(MIN_SEARCH_THREADS, MAX_SEARCH_THREADS)
+    }
+
+    fun setSearchThreads(context: Context, threads: Int) {
+        getPrefs(context).edit {
+            putInt(KEY_SEARCH_THREADS, threads.coerceIn(MIN_SEARCH_THREADS, MAX_SEARCH_THREADS))
+        }
+    }
+
+    const val MIN_SEARCH_THREADS = 5
+    const val MAX_SEARCH_THREADS = 20
+    const val DEFAULT_SEARCH_THREADS = 10
+
+    // === Invite Master Form ===
+
+    /** 邀请达人页记住的三个数字输入，默认值与页面初始值一致。 */
+    fun getInviteMinInterval(context: Context): String =
+        getPrefs(context).getString(KEY_INVITE_MIN_INTERVAL, "10") ?: "10"
+
+    fun getInviteMaxInterval(context: Context): String =
+        getPrefs(context).getString(KEY_INVITE_MAX_INTERVAL, "30") ?: "30"
+
+    fun getInviteCount(context: Context): String =
+        getPrefs(context).getString(KEY_INVITE_COUNT, "5") ?: "5"
+
+    fun setInviteMinInterval(context: Context, value: String) {
+        getPrefs(context).edit { putString(KEY_INVITE_MIN_INTERVAL, value) }
+    }
+
+    fun setInviteMaxInterval(context: Context, value: String) {
+        getPrefs(context).edit { putString(KEY_INVITE_MAX_INTERVAL, value) }
+    }
+
+    fun setInviteCount(context: Context, value: String) {
+        getPrefs(context).edit { putString(KEY_INVITE_COUNT, value) }
     }
 
     // === Floating Navigation Bar ===
@@ -393,6 +431,16 @@ object AppRepository {
 
     fun setPlaybackOrder(context: Context, order: Int) {
         getPrefs(context).edit { putInt(KEY_PLAYBACK_ORDER, order) }
+    }
+
+    // === Decoder Mode ===
+
+    fun getDecoderMode(context: Context): String {
+        return getPrefs(context).getString(KEY_DECODER_MODE, "HARDWARE") ?: "HARDWARE"
+    }
+
+    fun setDecoderMode(context: Context, mode: String) {
+        getPrefs(context).edit { putString(KEY_DECODER_MODE, mode) }
     }
 
     // === Scrolling Text Config ===

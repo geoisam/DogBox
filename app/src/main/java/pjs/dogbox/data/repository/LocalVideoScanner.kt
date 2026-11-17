@@ -1,17 +1,10 @@
 package pjs.dogbox.data.repository
 
-import android.Manifest
 import android.content.ContentUris
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.provider.Settings
-import androidx.core.content.ContextCompat
-import pjs.dogbox.utils.system.openPermissionManager
 import java.util.Locale
 
 data class LocalVideoItem(
@@ -27,37 +20,11 @@ data class LocalVideoItem(
 )
 
 internal fun hasFileAccessPermission(context: Context): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        Environment.isExternalStorageManager()
-    } else {
-        val read = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.READ_EXTERNAL_STORAGE,
-        ) == PackageManager.PERMISSION_GRANTED
-        val write = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        ) == PackageManager.PERMISSION_GRANTED
-        read || write
-    }
-
-internal fun openFileAccessPermissionPage(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-        }.onFailure {
-            openPermissionManager(context)
-        }
-    } else {
-        openPermissionManager(context)
-    }
-}
+    Environment.isExternalStorageManager()
 
 internal fun queryMediaStoreVideos(context: Context): List<LocalVideoItem> {
     val items = mutableListOf<LocalVideoItem>()
-    val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-    } else {
-        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-    }
+    val collection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
     val projection = arrayOf(
         MediaStore.Video.Media._ID,
         MediaStore.Video.Media.DISPLAY_NAME,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,14 +52,15 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.ui.screens.movie.PauseOnBackground
 import pjs.dogbox.ui.screens.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screens.movie.SpeedBottomSheet
+import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screens.movie.VideoPlayerScreen
+import pjs.dogbox.utils.player.DecoderModeManager
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -81,6 +83,9 @@ fun MediaLinkTestScreen(
     var isFullscreen by remember { mutableStateOf(false) }
     var isDetecting by remember { mutableStateOf(false) }
     var isVod by remember { mutableStateOf(false) }
+    var wantsToPlay by remember { mutableStateOf(true) }
+    var playingUrl by remember { mutableStateOf("") }
+    var playingPosition by remember { mutableStateOf(0L) }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -93,12 +98,36 @@ fun MediaLinkTestScreen(
 
     val activity = context as? Activity
 
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build()
+    // 解码方式切换时重建播放器，并从当前链接和进度继续播放。
+    val decoderMode = GlobalPlayerConfig.decoderMode
+    val exoPlayer = remember(decoderMode) {
+        DecoderModeManager.buildPlayer(context)
     }
 
-    var playerVideoWidth by remember { mutableIntStateOf(0) }
-    var playerVideoHeight by remember { mutableIntStateOf(0) }
+    LaunchedEffect(exoPlayer) {
+        if (playingUrl.isNotBlank()) {
+            exoPlayer.setMediaItem(
+                MediaItem.fromUri(playingUrl),
+                playingPosition.coerceAtLeast(0L),
+            )
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = wantsToPlay
+        }
+    }
+
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            playingPosition = exoPlayer.currentPosition
+            delay(200)
+        }
+    }
+
+    var playerVideoWidth by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.width)
+    }
+    var playerVideoHeight by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.height)
+    }
 
     PauseOnBackground(exoPlayer)
 
@@ -108,8 +137,18 @@ fun MediaLinkTestScreen(
                 playerVideoWidth = videoSize.width
                 playerVideoHeight = videoSize.height
             }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                wantsToPlay = playWhenReady
+            }
         }
         exoPlayer.addListener(listener)
+        // 补一次当前尺寸，避免在订阅监听前就已经上报过视频尺寸。
+        val videoSize = exoPlayer.videoSize
+        if (videoSize.width > 0 && videoSize.height > 0) {
+            playerVideoWidth = videoSize.width
+            playerVideoHeight = videoSize.height
+        }
         onDispose {
             exoPlayer.removeListener(listener)
         }
@@ -171,6 +210,9 @@ fun MediaLinkTestScreen(
                     }
                 }
                 exoPlayer.addListener(listener)
+                playingUrl = inputUrl
+                playingPosition = 0L
+                wantsToPlay = true
                 exoPlayer.stop()
                 exoPlayer.setMediaItem(MediaItem.fromUri(inputUrl))
                 exoPlayer.prepare()

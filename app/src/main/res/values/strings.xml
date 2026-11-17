@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DogBox</string>
+    <string name="media_control_rewind_10">后退 10 秒</string>
+    <string name="media_control_forward_10">快进 10 秒</string>
 </resources>

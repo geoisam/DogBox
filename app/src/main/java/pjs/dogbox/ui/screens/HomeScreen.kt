@@ -85,12 +85,12 @@ import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.components.ScrollToTopFab
 import pjs.dogbox.ui.navigation.TabStateCache
 import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.net.URLEncoder
@@ -756,23 +756,15 @@ private fun FilterableTabContent(
         }
 
         if (tabState.itemList.isNotEmpty() && showFab) {
-            FloatingActionButton(
+            ScrollToTopFab(
                 onClick = {
                     scope.launch {
                         gridState.animateScrollToItem(0); tabState.showFilters = true
                     }
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-            ) {
-                MiuixIcon(
-                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                    contentDescription = "回到顶部",
-                    modifier = Modifier.size(28.dp),
-                    tint = MiuixTheme.colorScheme.onPrimary,
-                )
-            }
+                // 悬浮底栏浮在内容之上，回顶按钮要抬到它上方，否则会贴在底栏上重叠
+                extraBottomPadding = contentBottomPadding,
+            )
         }
     }
 }

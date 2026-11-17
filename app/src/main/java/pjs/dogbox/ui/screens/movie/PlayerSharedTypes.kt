@@ -7,7 +7,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.AudioManager
-import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -84,6 +83,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
@@ -101,7 +101,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
 import pjs.dogbox.data.repository.AppRepository
+import pjs.dogbox.services.MediaPlaybackService
 import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.utils.player.DecoderMode
+import pjs.dogbox.utils.player.DecoderModeManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -177,16 +180,18 @@ internal fun formatTime(ms: Long): String {
 }
 
 internal fun getQualityLabel(width: Int, height: Int): String {
-    val h = height
+    // 以视频短边判定清晰度，竖屏视频（如 1080x1920）也应显示 1080P 而不是 2K。
+    val shortSide = listOf(width, height).filter { it > 0 }.minOrNull()
     return when {
-        h >= 4320 -> "8K"
-        h >= 2160 -> "4K"
-        h >= 1440 -> "2K"
-        h >= 1080 -> "1080P"
-        h >= 720 -> "720P"
-        h >= 480 -> "480P"
-        h >= 360 -> "360P"
-        else -> "270P"
+        shortSide == null -> "未知"
+        shortSide >= 4320 -> "8K"
+        shortSide >= 2160 -> "4K"
+        shortSide >= 1440 -> "2K"
+        shortSide >= 1080 -> "1080P"
+        shortSide >= 720 -> "720P"
+        shortSide >= 480 -> "480P"
+        shortSide >= 360 -> "360P"
+        else -> "240P"
     }
 }
 
@@ -205,7 +210,7 @@ internal fun refreshEndedFrame(exoPlayer: Player) {
 internal fun saveScreenshot(view: PlayerView, context: Context) {
     try {
         when (val videoSurface = view.videoSurfaceView) {
-            is SurfaceView if Build.VERSION.SDK_INT >= Build.VERSION_CODES.N -> {
+            is SurfaceView -> {
                 val bitmap = createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1))
                 PixelCopy.request(videoSurface, bitmap, { result: Int ->
                     if (result == PixelCopy.SUCCESS) {
@@ -242,20 +247,16 @@ internal fun saveBitmapToGallery(bitmap: Bitmap, context: Context) {
         put(MediaStore.Images.Media.DISPLAY_NAME, filename)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
         put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/DogBox")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
+        put(MediaStore.Images.Media.IS_PENDING, 1)
     }
     val uri =
         context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
     uri?.let { context.contentResolver.openOutputStream(it) }?.use {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it)
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        contentValues.clear()
-        contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-        uri?.let { context.contentResolver.update(it, contentValues, null, null) }
-    }
+    contentValues.clear()
+    contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+    uri?.let { context.contentResolver.update(it, contentValues, null, null) }
     Toast.makeText(context, "截屏已保存至相册", Toast.LENGTH_SHORT).show()
 }
 
@@ -726,6 +727,9 @@ internal object GlobalPlayerConfig {
     var playbackOrder by mutableStateOf(PlaybackOrder.AUTO_NEXT)
         private set
 
+    var decoderMode by mutableStateOf(DecoderMode.HARDWARE)
+        private set
+
     var backgroundPlayback by mutableStateOf(false)
         private set
 
@@ -740,6 +744,8 @@ internal object GlobalPlayerConfig {
         playbackOrder = PlaybackOrder.entries.getOrElse(
             AppRepository.getPlaybackOrder(context)
         ) { PlaybackOrder.AUTO_NEXT }
+        DecoderModeManager.restore(context)
+        decoderMode = DecoderModeManager.mode
         backgroundPlayback = AppRepository.isBackgroundPlayback(context)
         adsFilter = AppRepository.isAdsFilterEnabled(context)
         longPressSpeed = AppRepository.getLongPressSpeed(context)
@@ -759,6 +765,16 @@ internal object GlobalPlayerConfig {
     fun setPlaybackOrder(context: Context, order: PlaybackOrder) {
         playbackOrder = order
         AppRepository.setPlaybackOrder(context, order.ordinal)
+    }
+
+    fun setDecoderMode(context: Context, mode: DecoderMode) {
+        if (decoderMode == mode) return
+        decoderMode = mode
+        DecoderModeManager.update(mode)
+        AppRepository.setDecoderMode(context, mode.name)
+        // 正在由服务持有的播放器需要立即重建；Compose 页面内的播放器会读取
+        // decoderMode 状态后自行重建。
+        MediaPlaybackService.notifyDecoderModeChanged()
     }
 
     fun setLongPressSpeed(context: Context, speed: Float) {
@@ -782,6 +798,34 @@ private fun PlaybackOrderDropdown(
                 .coerceAtLeast(0),
             onSelectedIndexChange = { index ->
                 onPlaybackOrderChange(PlaybackOrder.entries[index])
+            },
+        )
+    }
+    if (useFixedDarkColors) {
+        val fixedDarkColors = remember {
+            darkColorScheme(
+                onSurface = Color.White,
+                onSurfaceVariantActions = Color.White.copy(alpha = 0.6f),
+            )
+        }
+        MiuixTheme(colors = fixedDarkColors, content = dropdown)
+    } else {
+        dropdown()
+    }
+}
+
+@Composable
+private fun DecoderModeDropdown(useFixedDarkColors: Boolean) {
+    val context = LocalContext.current
+    val dropdown: @Composable () -> Unit = {
+        OverlayDropdownPreference(
+            title = "解码方式",
+            items = DecoderMode.entries.map { it.label },
+            selectedIndex = DecoderMode.entries
+                .indexOf(GlobalPlayerConfig.decoderMode)
+                .coerceAtLeast(0),
+            onSelectedIndexChange = { index ->
+                GlobalPlayerConfig.setDecoderMode(context, DecoderMode.entries[index])
             },
         )
     }
@@ -894,6 +938,8 @@ internal fun MoreSettingsContent(
                         onPlaybackOrderChange = onPlaybackOrderChange,
                         useFixedDarkColors = useFixedDarkColors,
                     )
+                    // 解码方式
+                    DecoderModeDropdown(useFixedDarkColors = useFixedDarkColors)
                     // 后台播放
                     Row(
                         modifier = Modifier
@@ -1086,6 +1132,10 @@ internal fun PlayerCore(
                 }
             },
             update = { playerView ->
+                // 切换解码方式会重建播放器，这里必须把视图重新绑定到新实例。
+                if (playerView.player !== exoPlayer) {
+                    runCatching { playerView.player = exoPlayer }
+                }
                 playerView.resizeMode = currentScaleMode.resizeMode
                 playerView.scaleX = if (flipHorizontal) -1f else 1f
                 playerView.scaleY = if (flipVertical) -1f else 1f
@@ -1619,6 +1669,10 @@ internal fun NonFullscreenPlayer(
                     }.also { onPlayerViewRef(it) }
                 },
                 update = { playerView ->
+                    // 切换解码方式会重建播放器，这里必须把视图重新绑定到新实例。
+                    if (playerView.player !== exoPlayer) {
+                        runCatching { playerView.player = exoPlayer }
+                    }
                     playerView.resizeMode = currentScaleMode.resizeMode
                     playerView.scaleX = if (flipHorizontal) -1f else 1f
                     playerView.scaleY = if (flipVertical) -1f else 1f

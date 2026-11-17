@@ -49,6 +49,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.data.remote.InviteExecutor
+import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.utils.security.CryptUtil
 import top.yukonga.miuix.kmp.basic.Button
@@ -97,9 +98,14 @@ fun InviteMasterScreen(
     }
 
     var inputText by remember { mutableStateOf("") }
-    var minIntervalTime by remember { mutableStateOf("10") }
-    var maxIntervalTime by remember { mutableStateOf("30") }
-    var inviteCount by remember { mutableStateOf("5") }
+    // 最小/最大间隔与邀请数量自动记忆上次填写的内容
+    var minIntervalTime by remember {
+        mutableStateOf(AppRepository.getInviteMinInterval(context))
+    }
+    var maxIntervalTime by remember {
+        mutableStateOf(AppRepository.getInviteMaxInterval(context))
+    }
+    var inviteCount by remember { mutableStateOf(AppRepository.getInviteCount(context)) }
     var isRunning by remember { mutableStateOf(false) }
     var runningJob by remember { mutableStateOf<Job?>(null) }
     var selectedType by remember(configItems) {
@@ -229,6 +235,7 @@ fun InviteMasterScreen(
                                                 if (v > 999) s.take(3) else s
                                             } ?: s
                                         }
+                                    AppRepository.setInviteMinInterval(context, minIntervalTime)
                                 },
                                 label = "最小间隔(秒)",
                                 modifier = Modifier.weight(1f),
@@ -245,6 +252,7 @@ fun InviteMasterScreen(
                                                 if (v > 999) s.take(3) else s
                                             } ?: s
                                         }
+                                    AppRepository.setInviteMaxInterval(context, maxIntervalTime)
                                 },
                                 label = "最大间隔(秒)",
                                 modifier = Modifier.weight(1f),
@@ -264,6 +272,7 @@ fun InviteMasterScreen(
                                             if (v > 99) s.take(2) else s
                                         } ?: s
                                     }
+                                    AppRepository.setInviteCount(context, inviteCount)
                                 },
                                 label = "邀请数量(次)",
                                 modifier = Modifier.weight(1f),

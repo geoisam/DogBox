@@ -104,8 +104,14 @@ fun MoviePlayerScreen(
     var playerCurrentPosition by remember { mutableStateOf(0L) }
     var playerDuration by remember { mutableStateOf(0L) }
     var playerBufferedPercentage by remember { mutableIntStateOf(0) }
-    var playerVideoWidth by remember { mutableIntStateOf(0) }
-    var playerVideoHeight by remember { mutableIntStateOf(0) }
+    // 进入全屏时该 Composable 可能刚被创建，此时 onVideoSizeChanged 不会再次回调，
+    // 需要从播放器当前状态恢复已知的视频尺寸。
+    var playerVideoWidth by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.width)
+    }
+    var playerVideoHeight by remember(exoPlayer) {
+        mutableIntStateOf(exoPlayer.videoSize.height)
+    }
     var currentSpeed by remember { mutableStateOf(1.0f) }
     val longPressSpeed = GlobalPlayerConfig.longPressSpeed
     var isMuted by remember { mutableStateOf(false) }
@@ -322,6 +328,12 @@ fun MoviePlayerScreen(
         playerIsBuffering = exoPlayer.playbackState == Player.STATE_BUFFERING
         playerIsPlaying = exoPlayer.isPlaying
         exoPlayer.addListener(playerListener)
+        // 补一次当前尺寸，避免在订阅监听前就已经上报过视频尺寸。
+        val videoSize = exoPlayer.videoSize
+        if (videoSize.width > 0 && videoSize.height > 0) {
+            playerVideoWidth = videoSize.width
+            playerVideoHeight = videoSize.height
+        }
         onDispose {
             exoPlayer.removeListener(playerListener)
         }

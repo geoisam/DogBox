@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,7 +69,7 @@ import pjs.dogbox.services.MediaDownloadService
 import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.network.HttpUtil
 import pjs.dogbox.utils.security.CryptUtil
-import pjs.dogbox.utils.system.openPermissionManager
+import pjs.dogbox.utils.system.openAllFilesAccessSettings
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -444,31 +443,12 @@ internal fun TextActionButton(
 }
 
 private fun hasFileAccessPermission(context: Context): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        Environment.isExternalStorageManager()
-    } else {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-private fun openFileAccessPermissionPage(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching {
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-            )
-        }.onFailure { openPermissionManager(context) }
-    } else {
-        openPermissionManager(context)
-    }
-}
+    Environment.isExternalStorageManager()
 
 internal fun ensureFileAccess(context: Context): Boolean {
     if (hasFileAccessPermission(context)) return true
     Toast.makeText(context, "需要存储权限", Toast.LENGTH_SHORT).show()
-    openFileAccessPermissionPage(context)
+    openAllFilesAccessSettings(context)
     return false
 }
 

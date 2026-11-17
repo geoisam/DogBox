@@ -5,8 +5,10 @@ import androidx.annotation.DrawableRes
 /**
  * 悬浮底栏的视觉特效。
  *
- * [NONE] 纯色底栏；[FROSTED_GLASS] 毛玻璃（模糊背景 + 半透明表面）；
- * [LIQUID_GLASS] 液态玻璃（色彩增强 + 背景折射 + 高光描边 + 指示器透镜）。
+ * [NONE] 纯色底栏；
+ * [FROSTED_GLASS] 毛玻璃：重度模糊 + 奶白半透明表面，背后内容糊成色块，只有描边高光；
+ * [LIQUID_GLASS] 液态玻璃：轻度模糊 + 高通透表面 + 色彩增强，额外叠加边缘折射、
+ * 内阴影、投影与镜面光泽，能透出背后内容且边缘有"弯曲"的玻璃厚度。
  */
 enum class NavBarEffect {
     NONE,

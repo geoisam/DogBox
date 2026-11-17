@@ -62,14 +62,14 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.fleeksoft.ksoup.Ksoup
-import com.fleeksoft.ksoup.nodes.Document
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -82,21 +82,21 @@ import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.data.repository.ApiSite
 import pjs.dogbox.data.repository.ApiSitesRepository
+import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.components.AppBottomSheet
 import pjs.dogbox.ui.components.CoverImage
 import pjs.dogbox.ui.components.PagerTabFollowEffect
+import pjs.dogbox.ui.components.ScrollToTopFab
 import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.basic.SearchCleanup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.IOException
-import java.net.URLEncoder
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
@@ -107,28 +107,14 @@ internal data class SearchSource(
     val key: String,
     val label: String,
     val host: String,
-    val searchUrl: String,
-    /** 非空表示 CMS JSON 接口片源（assets/json/sites.json），值为接口基址 api */
-    val api: String? = null,
+    /** CMS JSON 接口片源（assets/json/sites.json）的接口基址 api */
+    val api: String,
 ) {
-    val isApi: Boolean get() = api != null
-
     companion object {
-        fun defaults(): List<SearchSource> = listOf(
-            SearchSource(
-                AppConfig.YXXQ_KEY,
-                "映像星球",
-                AppConfig.YXXQ_HOST,
-                AppConfig.YXXQ_SEARCH
-            ),
-            SearchSource(AppConfig.FDZYS_KEY, "饭搭子", AppConfig.FDZYS_HOST, ""),
-        )
-
         fun fromApiSite(site: ApiSite): SearchSource = SearchSource(
             key = site.key,
             label = site.name,
             host = ApiSitesRepository.originOf(site.api),
-            searchUrl = "",
             api = site.api,
         )
     }
@@ -148,72 +134,6 @@ private data class PageInfo(
     val hasNext: Boolean,
     val nextUrl: String?,
 )
-
-private fun checkPageInfo(doc: Document, currentPage: Int): PageInfo {
-    // 已改无限页逻辑：不再解析分页元素，由调用方按 items 是否为空判断 hasNext
-    return PageInfo(hasNext = true, nextUrl = null)
-}
-
-private fun parseSearchResults(
-    html: String,
-    host: String,
-    currentPage: Int = 1,
-): Pair<List<SearchItem>, PageInfo> {
-    val doc = Ksoup.parse(html)
-    val cardElements = doc.select("div.module-card-item").filterNot { it.hasClass("mac-ad-card") }
-    val items = cardElements.mapNotNull { card ->
-        // 映像星球统一取详情页：.module-card-item 第一个 a 的 href
-        val linkEl = card.select("a").firstOrNull()
-            ?: return@mapNotNull null
-        val imgEl = card.select("img[data-original]").firstOrNull()
-            ?: card.select("img[data-src]").firstOrNull()
-            ?: card.select("img").firstOrNull()
-            ?: return@mapNotNull null
-        val titleEl = card.select("div.module-card-item-title").firstOrNull()
-            ?: card.select("a.module-card-item-poster").firstOrNull()
-            ?: return@mapNotNull null
-
-        val linkText = linkEl.attr("href").trim()
-        if (linkText.isBlank()) return@mapNotNull null
-        // 过滤广告跳转
-        if (linkText.contains("/go/ad/")) return@mapNotNull null
-        val link = if (linkText.startsWith("http")) linkText else "$host$linkText"
-        val coverText = imgEl.attr("data-original").ifBlank { imgEl.attr("data-src") }
-            .ifBlank { imgEl.attr("src") }.trim()
-        if (coverText.isBlank() || coverText.startsWith("data:") || coverText.contains("loading.png") || coverText.contains(
-                "load.gif"
-            )
-        ) return@mapNotNull null
-        val cover = when {
-            coverText.startsWith("http") -> coverText
-            coverText.startsWith("//") -> "https:$coverText"
-            else -> "$host$coverText"
-        }
-        val title = titleEl.text().trim().ifBlank { linkEl.attr("title").trim() }
-        if (title.isBlank()) return@mapNotNull null
-        val note = card.select("div.module-item-note").firstOrNull()?.text()?.trim() ?: ""
-
-        val infoText =
-            card.select("div.module-info-item-content:has(span.slash)").firstOrNull()?.text()
-                ?.trim()?.replace(" ", "") ?: ""
-
-        val year = infoText.split("/").firstOrNull()?.trim() ?: ""
-        val subtitle = infoText.split("/").drop(1).joinToString("/").trim().replace(",", "/")
-
-        SearchItem(
-            link = link,
-            cover = cover,
-            title = title,
-            note = note,
-            year = year,
-            subtitle = subtitle,
-            host = host,
-        )
-    }
-    // 无限页：只要本页有数据就认为还有下一页，空页则截止
-    val pageInfo = PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
-    return items to pageInfo
-}
 
 private val vodListJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -239,8 +159,7 @@ private fun parseApiSearchResults(
     source: SearchSource,
     currentPage: Int = 1,
 ): Pair<List<SearchItem>, PageInfo> {
-    val api =
-        source.api ?: return emptyList<SearchItem>() to PageInfo(hasNext = false, nextUrl = null)
+    val api = source.api
     val origin = ApiSitesRepository.originOf(api)
     val root = vodListJson.parseToJsonElement(json).jsonObject
     val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())
@@ -279,21 +198,7 @@ private suspend fun fetchPage(
     keyword: String,
     page: Int,
 ): Result<Pair<List<SearchItem>, PageInfo>> = withContext(Dispatchers.IO) {
-    val encoded = URLEncoder.encode(keyword, "UTF-8").replace("+", "%20")
-    val url = if (source.isApi) {
-        ApiSitesRepository.searchUrl(source.api!!, keyword, page)
-    } else when (source.key) {
-        AppConfig.FDZYS_KEY -> {
-            val base = "${AppConfig.FDZYS_HOST}/yu-${encoded}-xianguan-de-yingpian-shippin-zhibo"
-            if (page <= 1) base else "$base?page=$page"
-        }
-
-        else -> {
-            if (page <= 1) "${source.searchUrl}$encoded"
-            else "${AppConfig.YXXQ_HOST}/search/${encoded}----------${page}---.html"
-        }
-    }
-
+    val url = ApiSitesRepository.searchUrl(source.api, keyword, page)
 
     var lastError: Throwable? = null
     var lastEmpty = false
@@ -313,12 +218,7 @@ private suspend fun fetchPage(
                 connectTimeoutMillis = 5_000,
                 socketTimeoutMillis = 8_000,
             ).getOrThrow()
-            val result = if (source.isApi) {
-                parseApiSearchResults(html, source, page)
-            } else when (source.key) {
-                AppConfig.FDZYS_KEY -> parseFdzysSearchResults(html, source.host, page)
-                else -> parseSearchResults(html, source.host, page)
-            }
+            val result = parseApiSearchResults(html, source, page)
             // 部分站点 CDN 抖动会返回 HTTP 200 但内容为空/残缺 HTML，解析成空列表，
             // 这是最常见的“需要重试”场景，首页空结果也纳入重试
             if (result.first.isEmpty() && retryOnEmpty && attempt < MAX_RETRY_ATTEMPTS - 1) {
@@ -343,59 +243,6 @@ private suspend fun fetchPage(
         lastError ?: if (lastEmpty) IOException("搜索结果为空（已重试）")
         else IOException("未知网络错误")
     )
-}
-
-private fun parseFdzysSearchResults(
-    html: String,
-    host: String,
-    currentPage: Int = 1,
-): Pair<List<SearchItem>, PageInfo> {
-    val doc = Ksoup.parse(html)
-    val cardElements = doc.select("div.myui-vodbox-content")
-    val items = cardElements.mapNotNull { card ->
-        val aEl = card.select("a").firstOrNull() ?: return@mapNotNull null
-        val linkText = aEl.attr("href").trim()
-        if (linkText.isBlank()) return@mapNotNull null
-        val rawLink = if (linkText.startsWith("http")) linkText else "$host$linkText"
-
-        val link = rawLink.trim().removeSuffix("/")
-
-        val imgEl = card.select("img[data-src]").firstOrNull()
-            ?: card.select("img[data-original]").firstOrNull()
-            ?: card.select("img").firstOrNull()
-            ?: return@mapNotNull null
-        var coverText = imgEl.attr("data-src").ifBlank { imgEl.attr("data-original") }
-            .ifBlank { imgEl.attr("src") }
-            .trim()
-        if (coverText.isBlank() || coverText.startsWith("data:")) return@mapNotNull null
-        val cover = when {
-            coverText.startsWith("http") -> coverText
-            coverText.startsWith("//") -> "https:$coverText"
-            else -> "$host$coverText"
-        }
-        val title = card.select(".card-info .title").firstOrNull()?.text()?.trim()
-            ?: card.select(".vod-detail .title").firstOrNull()?.text()?.trim()
-            ?: aEl.attr("title").trim().ifBlank { null }
-            ?: imgEl.attr("alt").trim().ifBlank { null }
-            ?: return@mapNotNull null
-        if (title.isBlank()) return@mapNotNull null
-        val note = card.select(".vod-detail .info-title-box .score").firstOrNull()?.text()?.trim()
-            ?: card.select(".score").firstOrNull()?.text()?.trim() ?: ""
-        val subtitle = card.select(".tag-box .tag").firstOrNull()?.text()?.trim() ?: ""
-        val year = card.select(".vod-detail .info-bottom .right").firstOrNull()?.text()?.trim()
-            ?: card.select(".info-bottom .right").firstOrNull()?.text()?.trim() ?: ""
-        SearchItem(
-            link = link,
-            cover = cover,
-            title = title,
-            note = note,
-            year = year,
-            subtitle = subtitle,
-            host = host,
-        )
-    }
-    // 无限页：只要本页有数据就认为还有下一页
-    return items to PageInfo(hasNext = items.isNotEmpty(), nextUrl = null)
 }
 
 internal class SourceState {
@@ -425,8 +272,7 @@ internal class MovieSearchScreenState(
 ) {
     val searchText = mutableStateOf(initialQuery)
     val activeQuery = mutableStateOf(initialQuery)
-    val sources: List<SearchSource> =
-        SearchSource.defaults() + apiSites.map { SearchSource.fromApiSite(it) }
+    val sources: List<SearchSource> = apiSites.map { SearchSource.fromApiSite(it) }
     val sourceStates = sources.associateWith { SourceState() }
     val orderedSources = mutableStateOf<List<SearchSource>>(sources)
     val retryKey = mutableIntStateOf(0)
@@ -444,6 +290,8 @@ internal fun MovieSearchScreen(
 ) {
     var searchText by state.searchText
     var activeQuery by state.activeQuery
+
+    val context = LocalContext.current
 
     val sources = state.sources
     val sourceStates = state.sourceStates
@@ -502,11 +350,13 @@ internal fun MovieSearchScreen(
         if (activeQuery.isNotEmpty()) {
             sourceStates.values.forEach { it.reset() }
             orderedSources = sources
+            // 按设置里的“搜索线程”限制并发请求数，避免所有片源同时请求导致卡死/网络拥塞
+            val semaphore = Semaphore(AppRepository.getSearchThreads(context))
             val completed = mutableListOf<SearchSource>()
             coroutineScope {
                 sources.forEach { source ->
                     launch {
-                        searchOne(source, activeQuery)
+                        semaphore.withPermit { searchOne(source, activeQuery) }
                         completed += source
                         orderedSources = completed + sources.filterNot { it in completed }
                     }
@@ -521,7 +371,7 @@ internal fun MovieSearchScreen(
                 delay(AUTO_RETRY_DELAY_MS)
                 coroutineScope {
                     failedSources.forEach { source ->
-                        launch { searchOne(source, activeQuery) }
+                        launch { semaphore.withPermit { searchOne(source, activeQuery) } }
                     }
                 }
             }
@@ -952,19 +802,9 @@ private fun SourceTabContent(
         }
 
         if (showFab) {
-            FloatingActionButton(
+            ScrollToTopFab(
                 onClick = { scope.launch { gridState.animateScrollToItem(0) } },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-            ) {
-                MiuixIcon(
-                    painter = painterResource(R.drawable.arrow_upward_outlined),
-                    contentDescription = "回到顶部",
-                    tint = MiuixTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(28.dp),
-                )
-            }
+            )
         }
     }
 }
