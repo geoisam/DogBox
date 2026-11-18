@@ -28,61 +28,10 @@ import pjs.dogbox.R
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-
-@Composable
-fun TipsDialog(
-    isOpen: Boolean,
-    onClose: () -> Unit,
-    title: String,
-    message: String,
-    confirmButtonText: String = "确定",
-    onConfirm: (() -> Unit)? = null,
-    dismissButtonText: String? = "取消",
-    onDismiss: (() -> Unit)? = null,
-    closeIcon: Boolean,
-    onCloseIconClick: (() -> Unit)? = { onClose() }
-) {
-    OverlayDialog(
-        show = isOpen,
-        title = title,
-        summary = message,
-        onDismissRequest = onClose,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            if (closeIcon && dismissButtonText == null) {
-                TextButton(
-                    text = "关闭",
-                    onClick = { onCloseIconClick?.invoke() },
-                )
-            }
-            dismissButtonText?.let {
-                TextButton(
-                    text = it,
-                    onClick = {
-                        onDismiss?.invoke()
-                        onClose()
-                    },
-                )
-            }
-            TextButton(
-                text = confirmButtonText,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-                onClick = {
-                    onConfirm?.invoke()
-                    onClose()
-                },
-            )
-        }
-    }
-}
 
 @Composable
 fun UpdateBottomSheet(

@@ -79,6 +79,7 @@ object AppRepository {
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
     private const val KEY_DYNAMIC_COLOR_STYLE = "dynamic_color_style"
+    private const val KEY_PURE_BLACK_BACKGROUND = "pure_black_background"
     private const val KEY_AUTO_CHECK_UPDATE = "auto_check_update"
     private const val KEY_SCROLL_TEXT_CONFIG = "scroll_text_config"
     private const val KEY_LONG_PRESS_SPEED = "long_press_speed"
@@ -273,6 +274,15 @@ object AppRepository {
 
     fun setDynamicColorStyle(context: Context, style: String) {
         getPrefs(context).edit { putString(KEY_DYNAMIC_COLOR_STYLE, style) }
+    }
+
+    /** 深色模式下使用纯黑背景，仅在开启莫奈取色时生效。 */
+    fun isPureBlackBackground(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_PURE_BLACK_BACKGROUND, false)
+    }
+
+    fun setPureBlackBackground(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_PURE_BLACK_BACKGROUND, enabled) }
     }
 
     // === Auto Check Update ===

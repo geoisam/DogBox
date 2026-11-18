@@ -93,7 +93,7 @@ import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -104,7 +104,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 @Composable
 fun BaseScreen(
-    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit = { _, _, _ -> },
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String, pureBlack: Boolean) -> Unit = { _, _, _, _ -> },
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
@@ -544,7 +544,7 @@ fun BaseScreen(
 @Composable
 private fun MainScaffold(
     homeState: HomeScreenState,
-    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit,
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String, pureBlack: Boolean) -> Unit,
     onSearchMovie: (String) -> Unit,
     onNavigateToDetail: (DiscoverPage) -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -571,27 +571,28 @@ private fun MainScaffold(
     AppRepository.loadNavBarSettings(context)
     val navBarSettings by AppRepository.navBarSettings.collectAsState()
     val isFloating = navBarSettings.floating
-    // 毛玻璃 / 液态玻璃依赖运行时着色器，Android 13 以下自动降级为纯色底栏
+    // 轻透磨砂 / 柔光玻璃依赖运行时着色器，Android 13 以下自动降级为默认材质
     val glassSupported = isRuntimeShaderSupported()
+    val navEffect = if (glassSupported && isFloating) {
+        NavBarEffect.fromIndex(navBarSettings.effect)
+    } else {
+        NavBarEffect.NONE
+    }
     // 背板只记录自身绘制的内容，若页面没画背景就会模糊到透明黑，
     // 所以先铺一层不透明表面色再记录页面内容。
     // 仅悬浮底栏需要背板：悬浮栏浮在内容之上，背板能延伸到它身后；
     // 停靠式默认导航栏下方没有内容（背板被底栏 padding 截断，不延伸到栏后），
     // 玻璃效果取不到栏后画面，会把内容底边糊成一层半透明色膜盖在内容上，
     // 因此停靠栏固定为纯色 + 分割线，不套玻璃。
+    // 默认材质不采样背景，也就不必录制背板。
     val backdropColor = MiuixTheme.colorScheme.surface
-    val backdrop = if (glassSupported && isFloating) {
+    val backdrop = if (isFloating && navEffect != NavBarEffect.NONE) {
         rememberLayerBackdrop {
             drawRect(backdropColor)
             drawContent()
         }
     } else {
         null
-    }
-    val navEffect = if (glassSupported && isFloating) {
-        NavBarEffect.fromIndex(navBarSettings.effect)
-    } else {
-        NavBarEffect.NONE
     }
     val navBarEntries = remember {
         AppDestinations.entries.map { NavBarEntry(it.label, it.icon, it.selectedIcon) }
@@ -625,7 +626,7 @@ private fun MainScaffold(
         bottomBar = {
             if (!isFloating) {
                 // 停靠式默认导航栏固定纯色，分割线可由设置隐藏。
-                // 背板不延伸到停靠栏身后，这里套 glassSurface 的话 blur 录制区外扩
+                // 背板不延伸到停靠栏身后，这里套玻璃的话 blur 录制区外扩
                 // 只能抓到内容底边，绘制时会把内容底部盖上一层模糊的半透明色膜。
                 NavigationBar(
                     color = MiuixTheme.colorScheme.surface,

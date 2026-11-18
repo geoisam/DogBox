@@ -9,7 +9,7 @@ navigationCompose = "2.9.8"
 splashscreen = "1.2.0"
 coreKtx = "1.19.0"
 documentfile = "1.1.0"
-miuix = "0.9.4"
+miuix = "0.9.5-beta01"
 
 kotlinx-coroutines = "1.11.0"
 kotlinx-json = "1.13.0"
@@ -30,8 +30,11 @@ androidx-compose-activity = { module = "androidx.activity:activity-compose", ver
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
+miuix-glass-icons = { module = "top.yukonga.miuix.kmp:miuix-glass-icons-android", version.ref = "miuix" }
+miuix-material = { module = "top.yukonga.miuix.kmp:miuix-material-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-squircle = { module = "top.yukonga.miuix.kmp:miuix-squircle-android", version.ref = "miuix" }
+miuix-glass = { module = "top.yukonga.miuix.kmp:miuix-glass-android", version.ref = "miuix" }
 miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
 
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx"  }

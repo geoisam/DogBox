@@ -51,11 +51,13 @@ import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.utils.system.FestivalItem
 import pjs.dogbox.utils.system.LunarSnapshot
 import pjs.dogbox.utils.system.LunarUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.Calendar
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
@@ -74,6 +76,7 @@ fun MineScreen(
     val scope = rememberCoroutineScope()
     val dateState = remember { mutableStateMapOf<String, String>() }
     var showSheet by remember { mutableStateOf(false) }
+    var showDisclaimerDialog by remember { mutableStateOf(false) }
     val nextFestival = remember { mutableStateOf(emptyList<FestivalItem>()) }
 
     fun applySnapshot(snapshot: LunarSnapshot) {
@@ -327,18 +330,18 @@ fun MineScreen(
         }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    MineListItem(
-                        iconRes = R.drawable.favorite_outlined,
-                        text = "捐赠支持",
-                        onClick = { onNavigateToSponsor() }
-                    )
-                    MineListItem(
-                        iconRes = R.drawable.info_outlined,
-                        text = "关于应用",
-                        onClick = { onNavigateToAboutMe() }
-                    )
-                }
+                ArrowPreference(
+                    title = "免责声明",
+                    onClick = { showDisclaimerDialog = true },
+                )
+                ArrowPreference(
+                    title = "捐赠支持",
+                    onClick = onNavigateToSponsor,
+                )
+                ArrowPreference(
+                    title = "关于应用",
+                    onClick = onNavigateToAboutMe,
+                )
             }
             Spacer(modifier = Modifier.height(18.dp))
         }
@@ -453,6 +456,11 @@ fun MineScreen(
             }
         }
     }
+
+    DisclaimerDialog(
+        isOpen = showDisclaimerDialog,
+        onDismiss = { showDisclaimerDialog = false },
+    )
 }
 
 fun calculateTimeToNextHour(): Long {
@@ -524,44 +532,6 @@ fun MineItem(
                 text = text,
                 style = MiuixTheme.textStyles.body2,
                 textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-fun MineListItem(
-    iconRes: Int,
-    text: String,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.defaultColors(color = Color.Transparent),
-        showIndication = true,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            MiuixIcon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.size(16.dp))
-            MiuixText(
-                text = text,
-                modifier = Modifier.weight(1f),
-                style = MiuixTheme.textStyles.body2,
-            )
-            MiuixIcon(
-                painter = painterResource(R.drawable.keyboard_arrow_right_outlined),
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
             )
         }
     }

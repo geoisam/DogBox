@@ -12,8 +12,8 @@ import pjs.dogbox.data.repository.AppRepository
 
 /** 视频解码方式。软解优先使用软件解码器，失败时自动回退到硬件解码。 */
 enum class DecoderMode(val label: String) {
-    SOFTWARE("软解（兼容）"),
-    HARDWARE("硬解（省电）"),
+    SOFTWARE("软解(兼容)"),
+    HARDWARE("硬解(省电)"),
 }
 
 /**

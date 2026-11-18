@@ -4,10 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,16 +18,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import pjs.dogbox.R
@@ -35,26 +33,23 @@ import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screens.movie.PlaybackOrder
 import pjs.dogbox.ui.screens.movie.SPEED_KEY_POINTS
+import pjs.dogbox.ui.theme.resolveDarkTheme
 import pjs.dogbox.utils.player.DecoderMode
 import pjs.dogbox.utils.system.openPermissionManager
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
 
@@ -78,7 +73,7 @@ private val PaletteStyleOptions = listOf(
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
-    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String) -> Unit = { _, _, _ -> },
+    onThemeChanged: (mode: Int, dynamic: Boolean, dynamicStyle: String, pureBlack: Boolean) -> Unit = { _, _, _, _ -> },
     onNavigateToCacheManage: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -90,12 +85,17 @@ fun SettingsScreen(
     }
     var monetEnable by remember { mutableStateOf(AppRepository.getDynamicColor(context)) }
     var dynamicColorStyle by remember { mutableStateOf(AppRepository.getDynamicColorStyle(context)) }
-    var showSpeedSheet by remember { mutableStateOf(false) }
+    var pureBlackBackground by remember {
+        mutableStateOf(AppRepository.isPureBlackBackground(context))
+    }
     var searchThreads by remember { mutableIntStateOf(AppRepository.getSearchThreads(context)) }
-    var showSearchThreadDialog by remember { mutableStateOf(false) }
+    var longPressSpeed by remember { mutableFloatStateOf(AppRepository.getLongPressSpeed(context)) }
 
-    // 毛玻璃 / 液态玻璃依赖运行时着色器（Android 13+），不支持时只能使用纯色底栏
+    // 轻透磨砂 / 柔光玻璃依赖运行时着色器（Android 13+），不支持时只能使用默认材质
     val supportsNavBarEffect = isRuntimeShaderSupported()
+
+    // 纯黑背景仅在深色外观下提供
+    val isDarkTheme = resolveDarkTheme(themeMode, isSystemInDarkTheme())
 
     var floatingNavBar by remember { mutableStateOf(AppRepository.isFloatingNavBarEnabled(context)) }
     var hideNavBarDivider by remember { mutableStateOf(AppRepository.isNavBarDividerHidden(context)) }
@@ -107,26 +107,25 @@ fun SettingsScreen(
         )
     }
 
-    val FloatingEffectLabels = listOf("无", "毛玻璃", "液态玻璃")
-
-    val navBarEffectLabels = FloatingEffectLabels
+    val navBarEffectLabels = listOf("默认材质", "轻透磨砂", "柔光玻璃")
     val navBarEffectEnabled = supportsNavBarEffect
-    val navBarEffectIndex = navBarEffectLabels.indexOf(
-        FloatingEffectLabels[navBarEffect.coerceIn(0, 2)]
-    ).coerceAtLeast(0)
+    val navBarEffectIndex = navBarEffect.coerceIn(0, navBarEffectLabels.lastIndex)
 
     fun applyTheme(
         mode: Int = themeMode,
         monet: Boolean = monetEnable,
         dStyle: String = dynamicColorStyle,
+        pureBlack: Boolean = pureBlackBackground,
     ) {
         themeMode = mode
         monetEnable = monet
         dynamicColorStyle = dStyle
-        onThemeChanged(mode, monet, dStyle)
+        pureBlackBackground = pureBlack
+        onThemeChanged(mode, monet, dStyle, pureBlack)
         AppRepository.setThemeMode(context, mode)
         AppRepository.setDynamicColor(context, monet)
         AppRepository.setDynamicColorStyle(context, dStyle)
+        AppRepository.setPureBlackBackground(context, pureBlack)
     }
 
     // 配色风格：默认经典色调（TonalSpot，与系统默认一致）
@@ -164,6 +163,7 @@ fun SettingsScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 OverlayDropdownPreference(
                     title = "主题模式",
+                    summary = "浅色、深色或跟随系统",
                     items = ThemeModeLabels,
                     selectedIndex = themeMode,
                     onSelectedIndexChange = { applyTheme(mode = it) },
@@ -171,20 +171,34 @@ fun SettingsScreen(
                 if (supportsDynamicColor) {
                     SwitchPreference(
                         title = "莫奈取色",
+                        summary = "从壁纸中提取主题色",
                         checked = monetEnable,
                         enabled = true,
                         onCheckedChange = { applyTheme(monet = it) },
                     )
-                    OverlayDropdownPreference(
-                        title = "配色风格",
-                        items = paletteStyleLabels,
-                        selectedIndex = paletteStyleIndex,
-                        enabled = monetEnable,
-                        onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
-                    )
+                    // 与悬浮底栏一致：仅开启莫奈取色时显示配色选项；纯黑背景另外只在深色下出现
+                    if (monetEnable) {
+                        OverlayDropdownPreference(
+                            title = "配色风格",
+                            summary = "取色生成的色彩倾向",
+                            items = paletteStyleLabels,
+                            selectedIndex = paletteStyleIndex,
+                            onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
+                        )
+                        if (isDarkTheme) {
+                            SwitchPreference(
+                                title = "纯黑背景",
+                                summary = "深色模式下底色使用纯黑",
+                                checked = pureBlackBackground,
+                                enabled = true,
+                                onCheckedChange = { applyTheme(pureBlack = it) },
+                            )
+                        }
+                    }
                 }
                 SwitchPreference(
                     title = "悬浮底栏",
+                    summary = "底栏以悬浮胶囊样式显示",
                     checked = floatingNavBar,
                     enabled = true,
                     onCheckedChange = { enabled ->
@@ -196,6 +210,7 @@ fun SettingsScreen(
                 if (floatingNavBar) {
                     OverlayDropdownPreference(
                         title = "底栏效果",
+                        summary = "调整底栏的材质与通透感",
                         items = navBarEffectLabels,
                         selectedIndex = navBarEffectIndex,
                         enabled = navBarEffectEnabled,
@@ -207,6 +222,7 @@ fun SettingsScreen(
                 } else {
                     SwitchPreference(
                         title = "隐藏分割线",
+                        summary = "隐藏导航栏顶部的分割线",
                         checked = hideNavBarDivider,
                         enabled = true,
                         onCheckedChange = { enabled ->
@@ -220,39 +236,72 @@ fun SettingsScreen(
             SettingsSectionHeader("通用")
 
             Card(modifier = Modifier.fillMaxWidth()) {
-                ArrowPreference(
-                    title = "搜索线程",
-                    endActions = {
-                        MiuixText(
-                            text = searchThreads.toString(),
-                            modifier = Modifier.fillMaxWidth(),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            textAlign = TextAlign.End,
+                SliderPreference(
+                    value = searchThreads.toFloat(),
+                    onValueChange = {
+                        searchThreads = it.roundToInt().coerceIn(
+                            AppRepository.MIN_SEARCH_THREADS,
+                            AppRepository.MAX_SEARCH_THREADS,
                         )
                     },
-                    onClick = { showSearchThreadDialog = true },
+                    onValueChangeFinished = {
+                        AppRepository.setSearchThreads(context, searchThreads)
+                    },
+                    title = "搜索线程",
+                    summary = "同时搜索的片源数，过高易卡顿",
+                    valueText = searchThreads.toString(),
+                    endActions = {
+                        ResetToDefaultAction(
+                            description = "搜索线程恢复默认",
+                            onClick = {
+                                searchThreads = AppRepository.DEFAULT_SEARCH_THREADS
+                                AppRepository.setSearchThreads(context, searchThreads)
+                            },
+                        )
+                    },
+                    valueRange = AppRepository.MIN_SEARCH_THREADS.toFloat()..
+                            AppRepository.MAX_SEARCH_THREADS.toFloat(),
+                    steps = AppRepository.MAX_SEARCH_THREADS - AppRepository.MIN_SEARCH_THREADS - 1,
+                    showKeyPoints = true,
+                    keyPoints = SearchThreadKeyPoints,
+                    magnetThreshold = 0.4f,
+                    hapticEffect = SliderDefaults.SliderHapticEffect.Step,
                 )
             }
 
             SettingsSectionHeader("播放")
 
             Card(modifier = Modifier.fillMaxWidth()) {
-                ArrowPreference(
+                SliderPreference(
+                    value = longPressSpeed,
+                    onValueChange = {
+                        longPressSpeed = ((it * 4).roundToInt() / 4f).coerceIn(0.25f, 5.0f)
+                    },
+                    onValueChangeFinished = {
+                        GlobalPlayerConfig.setLongPressSpeed(context, longPressSpeed)
+                    },
                     title = "长按倍速",
+                    summary = "长按播放界面时的临时倍速",
+                    valueText = "${"%.2f".format(longPressSpeed)}x",
                     endActions = {
-                        MiuixText(
-                            text = "${"%.2f".format(GlobalPlayerConfig.longPressSpeed)}x",
-                            modifier = Modifier.fillMaxWidth(),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            textAlign = TextAlign.End,
+                        ResetToDefaultAction(
+                            description = "长按倍速恢复默认",
+                            onClick = {
+                                longPressSpeed = 3.0f
+                                GlobalPlayerConfig.setLongPressSpeed(context, longPressSpeed)
+                            },
                         )
                     },
-                    onClick = { showSpeedSheet = true },
+                    valueRange = 0.25f..5.0f,
+                    steps = 18,
+                    showKeyPoints = true,
+                    keyPoints = SPEED_KEY_POINTS,
+                    magnetThreshold = 0.03f,
+                    hapticEffect = SliderDefaults.SliderHapticEffect.Step,
                 )
                 OverlayDropdownPreference(
                     title = "播放顺序",
+                    summary = "剧集播放结束后的续播方式",
                     items = PlaybackOrder.entries.map { it.label },
                     selectedIndex = PlaybackOrder.entries
                         .indexOf(GlobalPlayerConfig.playbackOrder)
@@ -263,6 +312,7 @@ fun SettingsScreen(
                 )
                 OverlayDropdownPreference(
                     title = "解码方式",
+                    summary = "硬解更省电，软解更兼容",
                     items = DecoderMode.entries.map { it.label },
                     selectedIndex = DecoderMode.entries
                         .indexOf(GlobalPlayerConfig.decoderMode)
@@ -273,6 +323,7 @@ fun SettingsScreen(
                 )
                 SwitchPreference(
                     title = "后台播放",
+                    summary = "切到后台后继续播放声音",
                     checked = GlobalPlayerConfig.backgroundPlayback,
                     onCheckedChange = {
                         GlobalPlayerConfig.setBackgroundPlayback(context, it)
@@ -280,6 +331,7 @@ fun SettingsScreen(
                 )
                 SwitchPreference(
                     title = "过滤广告",
+                    summary = "自动过滤播放源中的广告分片",
                     checked = GlobalPlayerConfig.adsFilter,
                     onCheckedChange = {
                         GlobalPlayerConfig.setAdsFilter(context, it)
@@ -292,40 +344,22 @@ fun SettingsScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 ArrowPreference(
                     title = "缓存管理",
+                    summary = "查看占用并清理缓存文件",
                     onClick = onNavigateToCacheManage,
                 )
                 ArrowPreference(
                     title = "通知管理",
+                    summary = "前往系统设置管理应用通知",
                     onClick = { openNotificationSettings(context) },
                 )
                 ArrowPreference(
                     title = "权限管理",
+                    summary = "查看并授予应用所需权限",
                     onClick = { openPermissionManager(context) },
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
-    }
-
-    if (showSpeedSheet) {
-        LongPressSpeedDialog(
-            currentSpeed = GlobalPlayerConfig.longPressSpeed,
-            onSpeedConfirm = { speed ->
-                GlobalPlayerConfig.setLongPressSpeed(context, speed)
-            },
-            onDismiss = { showSpeedSheet = false },
-        )
-    }
-
-    if (showSearchThreadDialog) {
-        SearchThreadDialog(
-            currentThreads = searchThreads,
-            onThreadsConfirm = { threads ->
-                searchThreads = threads
-                AppRepository.setSearchThreads(context, threads)
-            },
-            onDismiss = { showSearchThreadDialog = false },
-        )
     }
 }
 
@@ -360,156 +394,23 @@ private fun SettingsSectionHeader(title: String) {
     )
 }
 
+/** 参数行右侧的“恢复默认”图标按钮。 */
 @Composable
-private fun LongPressSpeedDialog(
-    currentSpeed: Float,
-    onSpeedConfirm: (Float) -> Unit,
-    onDismiss: () -> Unit,
+private fun ResetToDefaultAction(
+    description: String,
+    onClick: () -> Unit,
 ) {
-    var sliderSpeed by remember(currentSpeed) { mutableStateOf(currentSpeed) }
-
-    OverlayDialog(
-        show = true,
-        title = "自定义倍速",
-        insideMargin = DpSize(0.dp, 24.dp),
-        onDismissRequest = onDismiss,
+    MiuixIconButton(
+        onClick = onClick,
+        minWidth = 24.dp,
+        minHeight = 24.dp,
+        cornerRadius = 12.dp,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MiuixText(
-                    text = "长按倍速",
-                    style = MiuixTheme.textStyles.body1,
-                )
-                MiuixText(
-                    text = "${"%.2f".format(sliderSpeed)}x",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Slider(
-                value = sliderSpeed,
-                onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
-                onValueChangeFinished = { onSpeedConfirm(sliderSpeed) },
-                valueRange = 0.25f..5.0f,
-                steps = 18,
-                showKeyPoints = true,
-                keyPoints = SPEED_KEY_POINTS,
-                magnetThreshold = 0.03f,
-                hapticEffect = SliderDefaults.SliderHapticEffect.Step,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    text = "恢复默认",
-                    onClick = {
-                        sliderSpeed = 3.0f
-                        onSpeedConfirm(3.0f)
-                    },
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchThreadDialog(
-    currentThreads: Int,
-    onThreadsConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var sliderThreads by remember(currentThreads) { mutableIntStateOf(currentThreads) }
-
-    OverlayDialog(
-        show = true,
-        title = "搜索线程",
-        insideMargin = DpSize(0.dp, 24.dp),
-        onDismissRequest = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MiuixText(
-                    text = "搜索线程",
-                    style = MiuixTheme.textStyles.body1,
-                )
-                MiuixText(
-                    text = sliderThreads.toString(),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Slider(
-                value = sliderThreads.toFloat(),
-                onValueChange = {
-                    sliderThreads = it.roundToInt().coerceIn(
-                        AppRepository.MIN_SEARCH_THREADS,
-                        AppRepository.MAX_SEARCH_THREADS,
-                    )
-                },
-                onValueChangeFinished = { onThreadsConfirm(sliderThreads) },
-                valueRange = AppRepository.MIN_SEARCH_THREADS.toFloat()..
-                        AppRepository.MAX_SEARCH_THREADS.toFloat(),
-                steps = AppRepository.MAX_SEARCH_THREADS - AppRepository.MIN_SEARCH_THREADS - 1,
-                showKeyPoints = true,
-                keyPoints = SearchThreadKeyPoints,
-                magnetThreshold = 0.4f,
-                hapticEffect = SliderDefaults.SliderHapticEffect.Step,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(12.dp))
-            MiuixText(
-                text = "同时搜索 ${sliderThreads} 个片源，数值过高可能导致卡顿",
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    text = "恢复默认",
-                    onClick = {
-                        sliderThreads = AppRepository.DEFAULT_SEARCH_THREADS
-                        onThreadsConfirm(AppRepository.DEFAULT_SEARCH_THREADS)
-                    },
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+        MiuixIcon(
+            painter = painterResource(R.drawable.autorenew_outlined),
+            contentDescription = description,
+            modifier = Modifier.size(20.dp),
+            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+        )
     }
 }

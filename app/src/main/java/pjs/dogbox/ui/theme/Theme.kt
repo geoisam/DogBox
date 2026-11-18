@@ -23,6 +23,7 @@ fun DogBoxTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     themeMode: Int = -1,
     dynamicColorStyle: String = "TonalSpot",
+    pureBlackBackground: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val resolvedMode = resolveThemeMode(themeMode)
@@ -65,7 +66,19 @@ fun DogBoxTheme(
         )
     }
 
-    MiuixTheme(controller = controller, content = content)
+    // 纯黑背景：仅“深色 + 莫奈取色”时生效，把窗口底色压到 #000000，卡片等容器保持原有层次
+    if (pureBlackBackground && dynamicColor && isDark) {
+        val baseColors = controller.currentColors()
+        val pureBlackColors = remember(baseColors) {
+            baseColors.copy(
+                background = Color.Black,
+                surface = Color.Black,
+            )
+        }
+        MiuixTheme(colors = pureBlackColors, content = content)
+    } else {
+        MiuixTheme(controller = controller, content = content)
+    }
 }
 
 

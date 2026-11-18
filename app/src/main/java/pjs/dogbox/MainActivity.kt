@@ -42,6 +42,9 @@ class MainActivity : ComponentActivity() {
                     )
                 )
             }
+            var pureBlackBackground by remember {
+                mutableStateOf(AppRepository.isPureBlackBackground(context))
+            }
             val isSystemDark = isSystemInDarkTheme()
             var showSplash by remember { mutableStateOf(true) }
 
@@ -61,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isSystemDark,
                 themeMode = themeMode,
                 dynamicColorStyle = dynamicColorStyle,
+                pureBlackBackground = pureBlackBackground,
             ) {
                 // 顶层 MiuixScaffold 仅用于提供 Overlay 弹窗所需的 MiuixPopupHost。
                 // contentWindowInsets 置零，避免外层再消费一次 systemBars inset
@@ -73,10 +77,11 @@ class MainActivity : ComponentActivity() {
                         contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     ) { _ ->
                         BaseScreen(
-                            onThemeChanged = { mode, dynamic, dStyle ->
+                            onThemeChanged = { mode, dynamic, dStyle, pureBlack ->
                                 themeMode = mode
                                 dynamicColor = dynamic
                                 dynamicColorStyle = dStyle
+                                pureBlackBackground = pureBlack
                             }
                         )
                     }

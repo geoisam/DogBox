@@ -9,7 +9,9 @@ plugins {
 android {
     namespace = "pjs.dogbox"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 2
+        }
     }
 
     defaultConfig {
@@ -89,9 +91,12 @@ dependencies {
     implementation(libs.miuix.ui)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.icons)
-    implementation(libs.miuix.squircle)
-    implementation(libs.miuix.nav)
+    implementation(libs.miuix.glass.icons)
+    implementation(libs.miuix.material)
     implementation(libs.miuix.blur)
+    implementation(libs.miuix.squircle)
+    implementation(libs.miuix.glass)
+    implementation(libs.miuix.nav)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

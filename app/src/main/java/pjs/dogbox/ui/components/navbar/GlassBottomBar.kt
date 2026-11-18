@@ -1,85 +1,35 @@
 package pjs.dogbox.ui.components.navbar
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
-import pjs.dogbox.ui.components.navbar.liquid.InnerShadow
-import pjs.dogbox.ui.components.navbar.liquid.InteractiveHighlight
-import pjs.dogbox.ui.components.navbar.liquid.innerShadow
-import pjs.dogbox.ui.components.navbar.liquid.lens
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassStyles
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-
-/** 底栏整体高度（含 4dp 内边距）。 */
-private val BarHeight = 64.dp
 
 /** 底栏内部可交互区域高度。 */
-private val BarItemHeight = 56.dp
-
-/** 底栏内边距。 */
-private val BarInnerPadding = 4.dp
+private val BarHeight = 60.dp
 
 /** 单个入口的宽度。 */
 private val BarItemWidth = 76.dp
+
+/** 底栏内边距。 */
+private val BarInnerPadding = 4.dp
 
 /** 底栏距离屏幕底部的间距（不含系统栏）。 */
 private val BarBottomMargin = 16.dp
@@ -87,18 +37,19 @@ private val BarBottomMargin = 16.dp
 /** 悬浮底栏占用的总高度，页面内容需要预留同等滚动空间。 */
 internal val FloatingBarContentHeight = BarBottomMargin + BarHeight
 
-private val BarIconSize = 24.dp
-
-private val BarLabelSize = 11.sp
-
 /**
- * 悬浮底栏。
+ * 悬浮底栏，基于 miuix-glass 的 [GlassNavigationBar]。
  *
- * - [NavBarEffect.NONE]：纯色底栏 + 主色指示器。
- * - [NavBarEffect.FROSTED_GLASS]：毛玻璃，模糊身后的内容并叠加半透明表面。
- * - [NavBarEffect.LIQUID_GLASS]：液态玻璃，额外的色彩增强、边缘折射与随陀螺仪变化的高光。
+ * - [NavBarEffect.NONE]：默认材质，原生图标 + 文字的纯色胶囊，不采样背景。
+ * - [NavBarEffect.FROSTED_GLASS]：轻透磨砂，miuix-glass 的 Pured Thin Glass：
+ *   轻度模糊 + 薄薄的柔光层，透出背后内容。
+ * - [NavBarEffect.LIQUID_GLASS]：柔光玻璃，iOS 风格：更重的模糊与柔光层，
+ *   配合 Bionic 玻璃样式与更亮的描边。
  *
- * 支持在底栏上左右拖动切换入口，指示器跟随手指并带阻尼回弹。
+ * 指示器跟随手指拖动、回弹与按压反馈均由库实现；此处只负责图标、配色与触感反馈。
+ * 设备不支持运行时着色器或没有背板时，玻璃效果会自动降级为默认材质。
+ *
+ * @param backdrop 页面内容的背板，`null` 时使用纯色底栏。
  */
 @Composable
 fun GlassBottomBar(
@@ -106,358 +57,76 @@ fun GlassBottomBar(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     effect: NavBarEffect,
-    backdrop: LayerBackdrop?,
+    backdrop: Backdrop?,
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty()) return
 
-    val density = LocalDensity.current
-    val densityScale = density.density
     val colors = MiuixTheme.colorScheme
     val isDark = colors.surface.luminance() < 0.5f
-    val accent = colors.primary
-    val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    val itemCount = entries.size
-    val safeIndex = selectedIndex.coerceIn(0, itemCount - 1)
-    val barShape: Shape = RoundedCornerShape(percent = 50)
-    val indicatorShape: Shape = RoundedCornerShape(percent = 50)
-    val barWidth = BarItemWidth * itemCount + BarInnerPadding * 2
-    val tabWidthPx = with(density) { BarItemWidth.toPx() }
-
-    // 运行时着色器需要 Android 13+，否则降级为纯色底栏。
+    val safeIndex = selectedIndex.coerceIn(0, entries.lastIndex)
     val glassAvailable = backdrop != null && isRuntimeShaderSupported()
+    val resolvedEffect = if (glassAvailable) effect else NavBarEffect.NONE
 
-    val indicator = remember { Animatable(safeIndex.toFloat()) }
-    val press = remember { Animatable(0f) }
-    var dragValue by remember { mutableFloatStateOf(safeIndex.toFloat()) }
-    var dragging by remember { mutableStateOf(false) }
-
-    val currentIndex by rememberUpdatedState(safeIndex)
-    val currentOnSelect by rememberUpdatedState(onSelect)
-    val currentDragging by rememberUpdatedState(dragging)
-
-    LaunchedEffect(safeIndex) {
-        if (!currentDragging) indicator.animateTo(safeIndex.toFloat(), spring(1f, 420f))
-    }
-
-    val frostedHighlight = if (isDark) {
-        Highlight.GlassStrokeMiddleDark
-    } else {
-        Highlight.GlassStrokeMiddleLight
-    }
-    val liquidHighlight = rememberTiltHighlight(LiquidHighlight, -45f)
-    val pillHighlight = rememberTiltHighlight(LiquidHighlight, 90f)
-    // 按下时跟随手指的高光反馈
-    val interactiveHighlight = remember(scope) { InteractiveHighlight(scope) }
-
-    val isLiquid = effect == NavBarEffect.LIQUID_GLASS && glassAvailable
-    val isFrosted = effect == NavBarEffect.FROSTED_GLASS && glassAvailable
-
-    // 底板：毛玻璃用重度模糊 + 奶白表面，液态玻璃用轻度模糊 + 高通透表面 + 边缘折射
-    val surfaceModifier: Modifier = when {
-        isLiquid -> Modifier.glassSurface(
-            effect = effect,
-            backdrop = backdrop,
-            shape = barShape,
-            surfaceColor = colors.surfaceContainer,
-            isDark = isDark,
-            highlight = liquidHighlight,
-        )
-
-        isFrosted -> Modifier.glassSurface(
-            effect = effect,
-            backdrop = backdrop,
-            shape = barShape,
-            surfaceColor = colors.surface,
-            isDark = isDark,
-            highlight = frostedHighlight,
-        )
-
-        else -> Modifier.background(colors.surfaceContainer, barShape)
-    }
-
-    // 指示器：毛玻璃用主色药丸（磨砂板上的实心高亮），
-    // 液态玻璃用近乎中性的玻璃药丸，靠折射与内阴影表现"凸起的玻璃"。
-    val indicatorModifier: Modifier = when {
-        isLiquid -> Modifier
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { indicatorShape },
-                effects = {
-                    // 和底板走同一套玻璃效果，避免高透明底板上出现一块没做玻璃的清晰区域
-                    liquidGlassBase()
-                    val progress = press.value
-                    lens(
-                        refractionHeight = 12f * densityScale * progress,
-                        refractionAmount = 16f * densityScale * progress,
-                        depthEffect = true,
-                        chromaticAberration = 0.5f,
-                    )
-                },
-                highlight = { pillHighlight.copy(alpha = 0.35f + press.value * 0.65f) },
-                layerBlock = {
-                    val scale = 1f + 0.06f * press.value
-                    scaleX = scale
-                    scaleY = scale
-                },
-                onDrawSurface = {
-                    // 药丸比底板略浓一点，才有"玻璃浮起来"的层次
-                    drawRect(colors.surfaceContainer.copy(alpha = liquidSurfaceAlpha(isDark) + 0.08f))
-                    drawRect(
-                        if (isDark) {
-                            Color.White.copy(alpha = 0.06f + 0.05f * press.value)
-                        } else {
-                            Color.Black.copy(alpha = 0.05f + 0.05f * press.value)
-                        }
-                    )
-                },
-            )
-            .innerShadow(indicatorShape) {
-                InnerShadow(
-                    radius = 6.dp + 6.dp * press.value,
-                    offset = DpOffset(0.dp, 1.dp),
-                    color = Color.Black.copy(alpha = 0.20f),
-                    alpha = 0.45f + 0.45f * press.value,
-                )
-            }
-
-        isFrosted -> Modifier
-            .background(accent.copy(alpha = 0.20f), indicatorShape)
-            .border(1.dp, Color.White.copy(alpha = 0.12f), indicatorShape)
-
-        else -> Modifier.background(accent.copy(alpha = 0.14f), indicatorShape)
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(bottom = BarBottomMargin),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(barWidth)
-                .height(BarHeight)
-                .then(if (effect != NavBarEffect.NONE && glassAvailable) interactiveHighlight.gestureModifier else Modifier)
-                .pointerInput(itemCount, tabWidthPx) {
-                    var dragStart = 0f
-                    detectBarDrag(
-                        onPress = {
-                            scope.launch { press.animateTo(1f, spring(0.6f, 700f)) }
-                        },
-                        onRelease = {
-                            scope.launch { press.animateTo(0f, spring(0.6f, 700f)) }
-                        },
-                        onDragStart = {
-                            dragging = true
-                            dragStart = indicator.value
-                        },
-                        onDrag = { delta ->
-                            val raw = dragStart + delta / tabWidthPx
-                            val clamped = raw.coerceIn(0f, (itemCount - 1).toFloat())
-                            dragValue = clamped
-                            scope.launch { indicator.snapTo(clamped) }
-                        },
-                        onDragEnd = { moved ->
-                            dragging = false
-                            if (moved) {
-                                val target = dragValue.roundToInt().coerceIn(0, itemCount - 1)
-                                scope.launch {
-                                    indicator.animateTo(
-                                        target.toFloat(),
-                                        spring(1f, 320f)
-                                    )
-                                }
-                                if (target != currentIndex) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    currentOnSelect(target)
-                                }
-                            }
-                        },
-                    )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            // 底板：毛玻璃 / 液态玻璃 / 纯色
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        // 液态玻璃靠投影把自己从内容上"抬起来"，毛玻璃则平贴在表面
-                        if (isLiquid) {
-                            Modifier.dropShadow(
-                                shape = barShape,
-                                shadow = Shadow(
-                                    radius = 12.dp,
-                                    color = Color.Black,
-                                    alpha = if (isDark) 0.34f else 0.16f,
-                                ),
-                            )
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .then(surfaceModifier)
-                    .then(
-                        // 液态玻璃的厚度感：内阴影压住上边缘，镜面光泽扫过表面
-                        if (isLiquid) {
-                            Modifier
-                                .innerShadow(barShape) {
-                                    InnerShadow(
-                                        radius = 10.dp,
-                                        offset = DpOffset(0.dp, 2.dp),
-                                        color = Color.Black.copy(alpha = 0.22f),
-                                        alpha = 0.55f,
-                                    )
-                                }
-                                .liquidSheen(isDark, barShape)
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .then(if (effect != NavBarEffect.NONE && glassAvailable) interactiveHighlight.modifier else Modifier),
-            )
-
-            // 指示器：跟随选中项，可拖动
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(BarInnerPadding),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(BarItemWidth)
-                        .height(BarItemHeight)
-                        .graphicsLayer { translationX = indicator.value * tabWidthPx }
-                        .then(indicatorModifier),
-                )
-            }
-
-            // 图标与文字
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(BarInnerPadding),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                entries.forEachIndexed { index, entry ->
-                    GlassBottomBarItem(
-                        selected = index == safeIndex,
-                        label = entry.label,
-                        icon = entry.icon,
-                        selectedIcon = entry.selectedIcon,
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSelect(index)
-                        },
-                        modifier = Modifier.width(BarItemWidth),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** 底栏入口：图标 + 文字，选中时使用主色与填充图标。 */
-@Composable
-private fun GlassBottomBarItem(
-    selected: Boolean,
-    label: String,
-    icon: Int,
-    selectedIcon: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = MiuixTheme.colorScheme
-    val tint = if (selected) colors.primary else colors.onSurface.copy(alpha = 0.55f)
-    val interactionSource = remember { MutableInteractionSource() }
-
-    Column(
-        modifier = modifier
-            .height(BarItemHeight)
-            .clip(RoundedCornerShape(percent = 50))
-            .clickable(
-                interactionSource = interactionSource,
-                role = Role.Tab,
-                onClick = onClick,
+    val items = entries.mapIndexed { index, entry ->
+        GlassNavigationItem(
+            icon = ImageVector.vectorResource(
+                if (index == safeIndex) entry.selectedIcon else entry.icon
             ),
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Image(
-            painter = painterResource(if (selected) selectedIcon else icon),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(tint),
-            modifier = Modifier.size(BarIconSize),
-        )
-        MiuixText(
-            text = label,
-            color = tint,
-            fontSize = BarLabelSize,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            maxLines = 1,
+            label = entry.label,
+            contentDescription = entry.label,
         )
     }
-}
 
-/**
- * 液态玻璃的镜面光泽：上边缘一道白光、下边缘一道暗边，模拟玻璃的厚度与曲率。
- *
- * 毛玻璃不加这一层，两者在纯色内容前也能一眼区分开。
- */
-private fun Modifier.liquidSheen(isDark: Boolean, shape: Shape): Modifier = this
-    .clip(shape)
-    .background(
-        Brush.verticalGradient(
-            0f to Color.White.copy(alpha = if (isDark) 0.16f else 0.24f),
-            0.38f to Color.White.copy(alpha = if (isDark) 0.04f else 0.07f),
-            1f to Color.Transparent,
-        )
-    )
-    .background(
-        Brush.verticalGradient(
-            0.55f to Color.Transparent,
-            1f to Color.Black.copy(alpha = if (isDark) 0.20f else 0.07f),
-        )
-    )
+    val labelAlpha = if (isDark) 0.62f else 0.55f
+    val indicatorAlpha = if (isDark) 0.22f else 0.14f
+    val indicatorPressedAlpha = if (isDark) 0.34f else 0.22f
 
-/**
- * 在 Initial 阶段消费拖动事件，这样子节点的点击手势会随之取消，
- * 避免拖动结束时误触发点击。
- */
-private suspend fun PointerInputScope.detectBarDrag(
-    onPress: () -> Unit,
-    onRelease: () -> Unit,
-    onDragStart: () -> Unit,
-    onDrag: (deltaX: Float) -> Unit,
-    onDragEnd: (moved: Boolean) -> Unit,
-) {
-    val slop = viewConfiguration.touchSlop
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-        onPress()
-        var total = 0f
-        var moved = false
-        while (true) {
-            val event = awaitPointerEvent(PointerEventPass.Initial)
-            val change: PointerInputChange = event.changes.firstOrNull { it.id == down.id } ?: break
-            if (change.changedToUpIgnoreConsumed() || !change.pressed) break
-            val delta = change.positionChange().x
-            if (delta != 0f) total += delta
-            if (!moved && abs(total) > slop) {
-                moved = true
-                onDragStart()
+    GlassNavigationBar(
+        items = items,
+        selectedIndex = safeIndex,
+        onSelect = { index ->
+            if (index != safeIndex) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             }
-            if (moved) {
-                change.consume()
-                onDrag(total)
-            }
-        }
-        onDragEnd(moved)
-        onRelease()
-    }
+            onSelect(index)
+        },
+        backdrop = if (glassAvailable) backdrop else null,
+        modifier = modifier
+            .padding(bottom = BarBottomMargin)
+            .width(BarItemWidth * entries.size + BarInnerPadding * 2),
+        // 底栏位于 Scaffold 内容区内，系统栏间距与底部留白已由外部处理。
+        defaultWindowInsetsPadding = false,
+        style = when (resolvedEffect) {
+            // 轻透磨砂：Common glass，低饱和 + 轻柔模糊。
+            NavBarEffect.FROSTED_GLASS -> GlassDefaults.style(isDark)
+            // 柔光玻璃：Bionic glass，iOS 风格的高饱和、强折射。
+            NavBarEffect.LIQUID_GLASS -> GlassStyles.BionicMediumNormal
+            NavBarEffect.NONE -> GlassDefaults.Style
+        },
+        // 默认材质不加玻璃描边，避免纯色底栏出现"特殊效果"。
+        stroke = when (resolvedEffect) {
+            NavBarEffect.NONE -> null
+            NavBarEffect.FROSTED_GLASS -> GlassNavigationBarDefaults.stroke()
+            // 柔光玻璃用更亮的描边强调玻璃边缘。
+            NavBarEffect.LIQUID_GLASS -> GlassEdgeStrokes.forTheme(
+                isDark = isDark,
+                light = GlassEdgeStrokes.BigLight,
+                dark = GlassEdgeStrokes.BigDark,
+            )
+        },
+        shadow = GlassShadows.Float,
+        height = BarHeight,
+        // 磨砂用薄玻璃，柔光玻璃用更厚、更亮的玻璃材质。
+        material = when (resolvedEffect) {
+            NavBarEffect.LIQUID_GLASS -> GlassMaterials.popupViewGlass(isDark)
+            else -> GlassMaterials.puredThinGlass(isDark)
+        },
+        indicatorColor = colors.primary.copy(alpha = indicatorAlpha),
+        indicatorPressedColor = colors.primary.copy(alpha = indicatorPressedAlpha),
+        selectedColor = colors.primary,
+        unselectedColor = colors.onSurface.copy(alpha = labelAlpha),
+    )
 }

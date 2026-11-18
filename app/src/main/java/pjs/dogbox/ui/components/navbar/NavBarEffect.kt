@@ -5,10 +5,9 @@ import androidx.annotation.DrawableRes
 /**
  * 悬浮底栏的视觉特效。
  *
- * [NONE] 纯色底栏；
- * [FROSTED_GLASS] 毛玻璃：重度模糊 + 奶白半透明表面，背后内容糊成色块，只有描边高光；
- * [LIQUID_GLASS] 液态玻璃：轻度模糊 + 高通透表面 + 色彩增强，额外叠加边缘折射、
- * 内阴影、投影与镜面光泽，能透出背后内容且边缘有"弯曲"的玻璃厚度。
+ * [NONE] 默认材质：原生图标 + 文字的纯色胶囊，不采样背景；
+ * [FROSTED_GLASS] 轻透磨砂：miuix-glass 的 Common glass，模糊身后内容并叠加柔和高光；
+ * [LIQUID_GLASS] 柔光玻璃：miuix-glass 的 Bionic glass，即 iOS 风格的高饱和、强折射玻璃。
  */
 enum class NavBarEffect {
     NONE,
