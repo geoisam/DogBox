@@ -1,14 +1,20 @@
 package pjs.dogbox.ui.navigation
 
-import androidx.annotation.DrawableRes
-import pjs.dogbox.R
+import androidx.compose.ui.graphics.vector.ImageVector
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.BookFill
+import top.yukonga.miuix.kmp.icon.glass.BookOutline
+import top.yukonga.miuix.kmp.icon.glass.ContactsBook
+import top.yukonga.miuix.kmp.icon.glass.ContactsCircle
+import top.yukonga.miuix.kmp.icon.glass.HomeFill
+import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 
 enum class AppDestinations(
     val label: String,
-    @DrawableRes val icon: Int,
-    @DrawableRes val selectedIcon: Int,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
 ) {
-    HOME("首页", R.drawable.home_app_logo_outlined, R.drawable.home_app_logo_filled),
-    DISCOVER("发现", R.drawable.explore_outlined, R.drawable.explore_filled),
-    MINE("我的", R.drawable.person_outlined, R.drawable.person_filled),
+    HOME("首页", MiuixIcons.Glass.HomeOutline, MiuixIcons.Glass.HomeFill),
+    DISCOVER("发现", MiuixIcons.Glass.BookOutline, MiuixIcons.Glass.BookFill),
+    MINE("我的", MiuixIcons.Glass.ContactsBook, MiuixIcons.Glass.ContactsCircle),
 }

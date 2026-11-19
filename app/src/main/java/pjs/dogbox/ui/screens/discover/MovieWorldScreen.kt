@@ -153,6 +153,7 @@ internal fun MovieWorldScreen(
         ) {
             MiuixPullToRefresh(
                 isRefreshing = isRefreshing,
+                refreshTexts = listOf("下拉刷新", "释放刷新", "正在刷新...", "刷新成功"),
                 onRefresh = { refreshKey++ },
                 modifier = Modifier.fillMaxSize(),
             ) {

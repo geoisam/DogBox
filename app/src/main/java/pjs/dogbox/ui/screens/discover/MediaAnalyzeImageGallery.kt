@@ -86,6 +86,8 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
 import java.util.Locale
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -448,7 +450,7 @@ fun MediaAnalyzeImageGallery(
             ) {
                 MiuixIconButton(onClick = onBack) {
                     MiuixIcon(
-                        painter = painterResource(R.drawable.arrow_back_outlined),
+                        imageVector = MiuixIcons.Glass.ChevronBackward,
                         contentDescription = "返回",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),

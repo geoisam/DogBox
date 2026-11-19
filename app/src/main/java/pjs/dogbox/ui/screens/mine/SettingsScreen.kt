@@ -1,10 +1,11 @@
 package pjs.dogbox.ui.screens.mine
 
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.glass.GlassIconButton
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,8 +25,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import pjs.dogbox.R
@@ -33,13 +34,13 @@ import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screens.movie.PlaybackOrder
 import pjs.dogbox.ui.screens.movie.SPEED_KEY_POINTS
-import pjs.dogbox.ui.theme.resolveDarkTheme
 import pjs.dogbox.utils.player.DecoderMode
 import pjs.dogbox.utils.system.openPermissionManager
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -47,8 +48,9 @@ import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
@@ -91,11 +93,8 @@ fun SettingsScreen(
     var searchThreads by remember { mutableIntStateOf(AppRepository.getSearchThreads(context)) }
     var longPressSpeed by remember { mutableFloatStateOf(AppRepository.getLongPressSpeed(context)) }
 
-    // 轻透磨砂 / 柔光玻璃依赖运行时着色器（Android 13+），不支持时只能使用默认材质
+    // 轻透磨砂 / 柔光玻璃依赖运行时着色器（Android 13+），不支持时只能使用标准材质
     val supportsNavBarEffect = isRuntimeShaderSupported()
-
-    // 纯黑背景仅在深色外观下提供
-    val isDarkTheme = resolveDarkTheme(themeMode, isSystemInDarkTheme())
 
     var floatingNavBar by remember { mutableStateOf(AppRepository.isFloatingNavBarEnabled(context)) }
     var hideNavBarDivider by remember { mutableStateOf(AppRepository.isNavBarDividerHidden(context)) }
@@ -106,8 +105,10 @@ fun SettingsScreen(
             ) else 0
         )
     }
+    // 顶栏高级材质：Android 13 以下依赖的运行时着色器不可用，固定关闭
+    var advancedMaterial by remember { mutableStateOf(AppRepository.getAdvancedMaterial(context)) }
 
-    val navBarEffectLabels = listOf("默认材质", "轻透磨砂", "柔光玻璃")
+    val navBarEffectLabels = listOf("标准材质", "轻透磨砂", "柔光玻璃")
     val navBarEffectEnabled = supportsNavBarEffect
     val navBarEffectIndex = navBarEffect.coerceIn(0, navBarEffectLabels.lastIndex)
 
@@ -136,12 +137,21 @@ fun SettingsScreen(
 
     MiuixScaffold(
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (advancedMaterial) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (advancedMaterial) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = "设置",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
@@ -168,15 +178,16 @@ fun SettingsScreen(
                     selectedIndex = themeMode,
                     onSelectedIndexChange = { applyTheme(mode = it) },
                 )
+                // 莫奈取色依赖系统动态取色（Android 12+），更低版本不可选且保持关闭
+                SwitchPreference(
+                    title = "莫奈取色",
+                    summary = "从壁纸中提取主题色",
+                    checked = monetEnable,
+                    enabled = supportsDynamicColor,
+                    onCheckedChange = { applyTheme(monet = it) },
+                )
                 if (supportsDynamicColor) {
-                    SwitchPreference(
-                        title = "莫奈取色",
-                        summary = "从壁纸中提取主题色",
-                        checked = monetEnable,
-                        enabled = true,
-                        onCheckedChange = { applyTheme(monet = it) },
-                    )
-                    // 与悬浮底栏一致：仅开启莫奈取色时显示配色选项；纯黑背景另外只在深色下出现
+                    // 仅在开启莫奈取色时提供配色选项
                     if (monetEnable) {
                         OverlayDropdownPreference(
                             title = "配色风格",
@@ -185,15 +196,14 @@ fun SettingsScreen(
                             selectedIndex = paletteStyleIndex,
                             onSelectedIndexChange = { applyTheme(dStyle = paletteStyleIds[it]) },
                         )
-                        if (isDarkTheme) {
-                            SwitchPreference(
-                                title = "纯黑背景",
-                                summary = "深色模式下底色使用纯黑",
-                                checked = pureBlackBackground,
-                                enabled = true,
-                                onCheckedChange = { applyTheme(pureBlack = it) },
-                            )
-                        }
+                        // 浅色外观下也可以开关，设置会保留到深色模式生效
+                        SwitchPreference(
+                            title = "纯黑背景",
+                            summary = "仅在深色模式下生效",
+                            checked = pureBlackBackground,
+                            enabled = true,
+                            onCheckedChange = { applyTheme(pureBlack = it) },
+                        )
                     }
                 }
                 SwitchPreference(
@@ -231,6 +241,17 @@ fun SettingsScreen(
                         },
                     )
                 }
+                // 高级材质依赖运行时着色器（Android 13+），更低版本固定关闭且不可选
+                SwitchPreference(
+                    title = "高级材质",
+                    summary = "顶栏使用玻璃质感，关闭后为纯色",
+                    checked = advancedMaterial,
+                    enabled = supportsNavBarEffect,
+                    onCheckedChange = { enabled ->
+                        advancedMaterial = enabled
+                        AppRepository.setAdvancedMaterial(context, enabled)
+                    },
+                )
             }
 
             SettingsSectionHeader("通用")
@@ -250,15 +271,7 @@ fun SettingsScreen(
                     title = "搜索线程",
                     summary = "同时搜索的片源数，过高易卡顿",
                     valueText = searchThreads.toString(),
-                    endActions = {
-                        ResetToDefaultAction(
-                            description = "搜索线程恢复默认",
-                            onClick = {
-                                searchThreads = AppRepository.DEFAULT_SEARCH_THREADS
-                                AppRepository.setSearchThreads(context, searchThreads)
-                            },
-                        )
-                    },
+                    onClick = {},
                     valueRange = AppRepository.MIN_SEARCH_THREADS.toFloat()..
                             AppRepository.MAX_SEARCH_THREADS.toFloat(),
                     steps = AppRepository.MAX_SEARCH_THREADS - AppRepository.MIN_SEARCH_THREADS - 1,
@@ -283,15 +296,7 @@ fun SettingsScreen(
                     title = "长按倍速",
                     summary = "长按播放界面时的临时倍速",
                     valueText = "${"%.2f".format(longPressSpeed)}x",
-                    endActions = {
-                        ResetToDefaultAction(
-                            description = "长按倍速恢复默认",
-                            onClick = {
-                                longPressSpeed = 3.0f
-                                GlobalPlayerConfig.setLongPressSpeed(context, longPressSpeed)
-                            },
-                        )
-                    },
+                    onClick = {},
                     valueRange = 0.25f..5.0f,
                     steps = 18,
                     showKeyPoints = true,
@@ -394,23 +399,3 @@ private fun SettingsSectionHeader(title: String) {
     )
 }
 
-/** 参数行右侧的“恢复默认”图标按钮。 */
-@Composable
-private fun ResetToDefaultAction(
-    description: String,
-    onClick: () -> Unit,
-) {
-    MiuixIconButton(
-        onClick = onClick,
-        minWidth = 24.dp,
-        minHeight = 24.dp,
-        cornerRadius = 12.dp,
-    ) {
-        MiuixIcon(
-            painter = painterResource(R.drawable.autorenew_outlined),
-            contentDescription = description,
-            modifier = Modifier.size(20.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-        )
-    }
-}

@@ -1,10 +1,7 @@
 package pjs.dogbox.ui.screens.movie
 
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -48,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -97,6 +95,13 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.icon.glass.Download
+import top.yukonga.miuix.kmp.icon.glass.MoreCircle
+import top.yukonga.miuix.kmp.icon.glass.PlaybackSpeed
+import top.yukonga.miuix.kmp.icon.glass.ScreenSize
+import top.yukonga.miuix.kmp.icon.glass.StarOutline
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
@@ -136,13 +141,6 @@ internal class MovieDetailScreenState(
     val selectedRouteIndex = mutableIntStateOf(0)
     val selectedEpisodeIndex = mutableIntStateOf(0)
     val currentM3u8Url = mutableStateOf("")
-    /**
-     * 广告过滤前的真实播放地址。
-     *
-     * [currentM3u8Url] 在开启过滤时可能指向本地过滤后的 m3u8 缓存文件，
-     * 而"复制播放链接 / 浏览器打开"必须给用户原始网络地址，所以单独记一份。
-     */
-    val currentRawM3u8Url = mutableStateOf("")
     val currentEpisodeUrl = mutableStateOf(videoUrl)
     val targetPosition = mutableStateOf(0L)
     val errorMsg = mutableStateOf<String?>(null)
@@ -445,7 +443,6 @@ internal fun MovieDetailScreen(
     var selectedRouteIndex by state.selectedRouteIndex
     var selectedEpisodeIndex by state.selectedEpisodeIndex
     var currentM3u8Url by state.currentM3u8Url
-    var currentRawM3u8Url by state.currentRawM3u8Url
     var currentEpisodeUrl by state.currentEpisodeUrl
     var targetPosition by state.targetPosition
     var errorMsg by state.errorMsg
@@ -463,7 +460,9 @@ internal fun MovieDetailScreen(
     var showRouteSheet by state.showRouteSheet
     var showEpisodeSheet by state.showEpisodeSheet
     var isFullscreen by state.isFullscreen
-    var showCopySheet by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
+    var flipHorizontal by remember { mutableStateOf(false) }
+    var flipVertical by remember { mutableStateOf(false) }
 
     var currentSpeed by state.currentSpeed
     var currentScaleModeIndex by state.currentScaleModeIndex
@@ -547,25 +546,6 @@ internal fun MovieDetailScreen(
 
     val saveCurrentToHistory = { state.saveCurrentToHistory() }
 
-    fun copyToClipboard(text: String) {
-        val clipper = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipper.setPrimaryClip(ClipData.newPlainText("链接", text))
-        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
-    }
-
-    fun openInBrowser(url: String) {
-        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
-            .onFailure { Toast.makeText(context, "无法打开浏览器", Toast.LENGTH_SHORT).show() }
-    }
-
-    /**
-     * 对外分享用的播放地址。
-     *
-     * 开启广告过滤后 [currentM3u8Url] 指向本地过滤后的 m3u8 缓存文件，
-     * 复制/分享给别人或丢进浏览器都是无效的，所以优先用过滤前的网络地址。
-     */
-    val shareablePlayUrl = currentRawM3u8Url.ifEmpty { currentM3u8Url }
-
     DisposableEffect(exoPlayer) {
         onDispose {
             state.wasPlayingBeforePause.value = exoPlayer.playWhenReady
@@ -645,7 +625,6 @@ internal fun MovieDetailScreen(
         val prevEpIdx = selectedEpisodeIndex
         val prevEpisodeUrl = currentEpisodeUrl
         val prevM3u8Url = currentM3u8Url
-        val prevRawM3u8Url = currentRawM3u8Url
         val prevPosition = runCatching { exoPlayer.currentPosition }.getOrDefault(0L)
         fetchJob?.cancel()
         saveCurrentToHistory()
@@ -657,7 +636,6 @@ internal fun MovieDetailScreen(
         isPlayLoading = true
         playErrorMsg = null
         currentM3u8Url = ""
-        currentRawM3u8Url = ""
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         pendingSwitchTarget = routeIdx to epIdx
@@ -666,7 +644,6 @@ internal fun MovieDetailScreen(
             selectedEpisodeIndex = prevEpIdx
             currentEpisodeUrl = prevEpisodeUrl
             currentM3u8Url = prevM3u8Url
-            currentRawM3u8Url = prevRawM3u8Url
             isSwitchingEpisode = false
             isPlayLoading = false
             if (prevM3u8Url.isNotEmpty()) {
@@ -701,7 +678,6 @@ internal fun MovieDetailScreen(
                 if (m3u8.isNotEmpty()) {
                     playErrorMsg = null
                     currentM3u8Url = m3u8
-                    currentRawM3u8Url = m3u8Raw
                     pendingSwitchBack = null
                     pendingSwitchTarget = null
                     exoPlayer.apply {
@@ -776,7 +752,6 @@ internal fun MovieDetailScreen(
             isPlayLoading = true
             playErrorMsg = null
             currentM3u8Url = ""
-            currentRawM3u8Url = ""
 
             scope.launch {
                 try {
@@ -785,7 +760,6 @@ internal fun MovieDetailScreen(
                     if (m3u8.isNotEmpty()) {
                         playErrorMsg = null
                         currentM3u8Url = m3u8
-                        currentRawM3u8Url = m3u8Raw
                         try {
                             exoPlayer.apply {
                                 setMediaItem(
@@ -809,13 +783,11 @@ internal fun MovieDetailScreen(
                     } else {
                         playErrorMsg = "无法加载播放地址"
                         currentM3u8Url = ""
-                        currentRawM3u8Url = ""
                         Toast.makeText(context, "无法加载播放地址", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     playErrorMsg = e.message ?: "无法加载播放地址"
                     currentM3u8Url = ""
-                    currentRawM3u8Url = ""
                     Toast.makeText(context, playErrorMsg, Toast.LENGTH_SHORT).show()
                 } finally {
                     isPlayLoading = false
@@ -836,7 +808,6 @@ internal fun MovieDetailScreen(
         isPlayLoading = true
         playErrorMsg = null
         currentM3u8Url = ""
-        currentRawM3u8Url = ""
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         try {
@@ -845,7 +816,6 @@ internal fun MovieDetailScreen(
             if (m3u8.isNotEmpty()) {
                 playErrorMsg = null
                 currentM3u8Url = m3u8
-                currentRawM3u8Url = m3u8Raw
                 // 广告过滤开关切换触发的重载：在新流上恢复切换时刻的播放位置
                 if (pendingResumePosition > 0L) {
                     targetPosition = pendingResumePosition
@@ -1126,13 +1096,13 @@ internal fun MovieDetailScreen(
                         ) {
                             Card(
                                 modifier = Modifier.weight(1f),
-                                onClick = { showCopySheet = true },
+                                onClick = { },
                                 showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.link_outlined,
-                                    label = "链接工具",
+                                    icon = MiuixIcons.Glass.StarOutline,
+                                    label = "收藏",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -1143,20 +1113,8 @@ internal fun MovieDetailScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.kid_star_outlined,
-                                    label = "收藏视频",
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                onClick = { },
-                                showIndication = true,
-                                insideMargin = PaddingValues(vertical = 8.dp),
-                            ) {
-                                ActionIconItem(
-                                    icon = R.drawable.cloud_download_outlined,
-                                    label = "缓存视频",
+                                    icon = MiuixIcons.Glass.Download,
+                                    label = "缓存",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -1167,8 +1125,8 @@ internal fun MovieDetailScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.speed_outlined,
-                                    label = "播放倍速",
+                                    icon = MiuixIcons.Glass.PlaybackSpeed,
+                                    label = "倍速",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -1179,8 +1137,20 @@ internal fun MovieDetailScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.aspect_ratio_outlined,
-                                    label = "视频画幅",
+                                    icon = MiuixIcons.Glass.ScreenSize,
+                                    label = "画幅",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                onClick = { showMoreSheet = true },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = MiuixIcons.Glass.MoreCircle,
+                                    label = "更多",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -1301,93 +1271,38 @@ internal fun MovieDetailScreen(
         }
     }
 
-    AppBottomSheet(
-        show = showCopySheet,
-        onDismissRequest = { showCopySheet = false },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sheetMaxHeight)
-                .padding(bottom = 24.dp),
+    if (showMoreSheet) {
+        AppBottomSheet(
+            show = showMoreSheet,
+            onDismissRequest = { showMoreSheet = false },
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(sheetMaxHeight)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                MiuixText(
-                    text = pageData?.title ?: "",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                MiuixText(
-                    text = AppConfig.sourceName(AppConfig.sourceKey(extractHost(videoUrl))),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                MoreSettingsContent(
+                    flipHorizontal = flipHorizontal,
+                    flipVertical = flipVertical,
+                    backgroundPlayback = GlobalPlayerConfig.backgroundPlayback,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
+                    playbackOrder = GlobalPlayerConfig.playbackOrder,
+                    longPressSpeed = GlobalPlayerConfig.longPressSpeed,
+                    onFlipHorizontalChange = { flipHorizontal = it },
+                    onFlipVerticalChange = { flipVertical = it },
+                    onBackgroundPlaybackChange = {
+                        GlobalPlayerConfig.setBackgroundPlayback(context, it)
+                    },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
+                    onDismiss = { showMoreSheet = false },
+                    useFixedDarkColors = false,
+                    showTitle = false,
+                    scrollable = false,
                 )
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(MiuixTheme.colorScheme.dividerLine),
-            )
-            SheetActionItem(
-                icon = R.drawable.link_outlined,
-                label = "复制播放链接",
-                onClick = {
-                    showCopySheet = false
-                    copyToClipboard(shareablePlayUrl)
-                },
-            )
-            SheetActionItem(
-                icon = R.drawable.link_outlined,
-                label = "复制详情页地址",
-                onClick = {
-                    showCopySheet = false
-                    copyToClipboard(videoUrl)
-                },
-            )
-            SheetActionItem(
-                icon = R.drawable.link_outlined,
-                label = "复制播放网页地址",
-                onClick = {
-                    showCopySheet = false
-                    copyToClipboard(currentEpisodeUrl)
-                },
-            )
-            SheetActionItem(
-                icon = R.drawable.open_in_browser_outlined,
-                label = "浏览器打开播放链接",
-                onClick = {
-                    showCopySheet = false
-                    openInBrowser(shareablePlayUrl)
-                },
-            )
-            SheetActionItem(
-                icon = R.drawable.open_in_browser_outlined,
-                label = "浏览器打开详情页地址",
-                onClick = {
-                    showCopySheet = false
-                    openInBrowser(videoUrl)
-                },
-            )
-            SheetActionItem(
-                icon = R.drawable.open_in_browser_outlined,
-                label = "浏览器打开播放网页地址",
-                onClick = {
-                    showCopySheet = false
-                    openInBrowser(currentEpisodeUrl)
-                },
-            )
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 
@@ -1473,7 +1388,7 @@ private fun PlayerPlaceholder(
                 .padding(start = 4.dp, top = 2.dp),
         ) {
             MiuixIcon(
-                painter = painterResource(R.drawable.arrow_back_outlined),
+                imageVector = MiuixIcons.Glass.ChevronBackward,
                 contentDescription = "返回",
                 tint = Color.White,
                 modifier = Modifier.size(24.dp),
@@ -1583,7 +1498,7 @@ private fun ChipScrollRow(
 
 @Composable
 private fun ActionIconItem(
-    icon: Int,
+    icon: ImageVector,
     label: String,
     modifier: Modifier = Modifier
 ) {
@@ -1592,7 +1507,7 @@ private fun ActionIconItem(
         modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         MiuixIcon(
-            painter = painterResource(icon),
+            imageVector = icon,
             contentDescription = label,
             tint = MiuixTheme.colorScheme.onSurfaceSecondary,
             modifier = Modifier.size(24.dp),
@@ -1602,35 +1517,6 @@ private fun ActionIconItem(
             label,
             style = MiuixTheme.textStyles.footnote2,
             color = MiuixTheme.colorScheme.onSurfaceSecondary,
-        )
-    }
-}
-
-@Composable
-private fun SheetActionItem(
-    icon: Int,
-    label: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MiuixIcon(
-            painter = painterResource(icon),
-            contentDescription = label,
-            tint = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        MiuixText(
-            text = label,
-            style = MiuixTheme.textStyles.body1,
-            fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurface,
         )
     }
 }

@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 // 顶层 MiuixScaffold 仅用于提供 Overlay 弹窗所需的 MiuixPopupHost。
                 // contentWindowInsets 置零，避免外层再消费一次 systemBars inset
-                //（否则内层 SmallTopAppBar 会重复叠加状态栏高度，出现双重 inset）。
+                //（否则内层顶栏会重复叠加状态栏高度，出现双重 inset）。
                 if (showSplash) {
                     SplashScreen(onTimeout = { showSplash = false })
                 } else {

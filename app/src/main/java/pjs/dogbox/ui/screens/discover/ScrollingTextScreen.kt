@@ -1,5 +1,8 @@
 package pjs.dogbox.ui.screens.discover
 
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.SolidColor
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
@@ -54,7 +57,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +72,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import pjs.dogbox.R
 import pjs.dogbox.data.repository.AppRepository
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -78,15 +79,16 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ColorPalette
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -706,12 +708,21 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = "滚动字幕",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )

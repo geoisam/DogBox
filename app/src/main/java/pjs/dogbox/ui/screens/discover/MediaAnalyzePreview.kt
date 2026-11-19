@@ -94,6 +94,8 @@ import pjs.dogbox.ui.screens.movie.getScaleModes
 import pjs.dogbox.ui.screens.movie.refreshEndedFrame
 import pjs.dogbox.utils.player.DecoderModeManager
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -541,7 +543,7 @@ fun MediaAnalyzePreview(
             ) {
                 MiuixIconButton(onClick = onBack) {
                     MiuixIcon(
-                        painter = painterResource(R.drawable.arrow_back_outlined),
+                        imageVector = MiuixIcons.Glass.ChevronBackward,
                         contentDescription = "返回",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),

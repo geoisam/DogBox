@@ -18,7 +18,7 @@ android {
         applicationId = "pjs.dogbox"
         minSdk = 30
         targetSdk = 37
-        versionCode = 26101500
+        versionCode = 26111100
         versionName = "0.4.0"
 
         ndk {

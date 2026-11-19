@@ -85,7 +85,7 @@ fun LicenseScreen(
         }
     }
 
-    MiuixSubScreen(title = "开源许可", onBack = onBack) { padding ->
+    MiuixSubScreen(title = "开源组件许可", onBack = onBack) { padding ->
         when (loadState) {
             STATE_LOADING -> MiuixLoading(modifier = Modifier.padding(padding))
             STATE_ERROR -> MiuixEmptyText(modifier = Modifier.padding(padding))

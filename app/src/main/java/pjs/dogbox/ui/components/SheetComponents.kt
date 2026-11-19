@@ -1,5 +1,11 @@
 package pjs.dogbox.ui.components
 
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import pjs.dogbox.data.repository.AppRepository
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,15 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import pjs.dogbox.R
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -62,12 +67,21 @@ fun MiuixSubScreen(
 ) {
     MiuixScaffold(
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = title,
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
@@ -75,7 +89,14 @@ fun MiuixSubScreen(
                 },
             )
         },
-    ) { padding -> content(padding) }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            content(padding)
+        }
+    }
 }
 
 /** Miuix 全屏加载中占位 */

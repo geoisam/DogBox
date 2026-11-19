@@ -75,6 +75,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -503,7 +505,7 @@ fun VideoPlayerScreen(
                                     onFullscreenChange(false)
                                 }) {
                                     MiuixIcon(
-                                        painter = painterResource(R.drawable.arrow_back_outlined),
+                                        imageVector = MiuixIcons.Glass.ChevronBackward,
                                         contentDescription = "退出全屏",
                                         tint = Color.White,
                                         modifier = Modifier.size(24.dp),

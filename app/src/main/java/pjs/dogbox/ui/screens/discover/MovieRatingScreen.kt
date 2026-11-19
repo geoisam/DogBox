@@ -473,6 +473,7 @@ private fun MovieCategoryContent(
         Box(modifier = Modifier.fillMaxSize()) {
             MiuixPullToRefresh(
                 isRefreshing = tabState.isRefreshing,
+                refreshTexts = listOf("下拉刷新", "释放刷新", "正在刷新...", "刷新成功"),
                 onRefresh = {
                     tabState.currentPage = 0
                     tabState.refreshKey++

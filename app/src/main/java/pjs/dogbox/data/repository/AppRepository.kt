@@ -92,6 +92,7 @@ object AppRepository {
 
     private const val KEY_FLOATING_NAV_BAR = "floating_nav_bar"
     private const val KEY_NAV_BAR_EFFECT = "nav_bar_effect"
+    private const val KEY_ADVANCED_MATERIAL = "advanced_material"
     private const val KEY_HIDE_NAV_BAR_DIVIDER = "hide_nav_bar_divider"
 
     private const val KEY_PLAYBACK_ORDER = "playback_order"
@@ -260,8 +261,10 @@ object AppRepository {
         getPrefs(context).edit { putInt(KEY_THEME_MODE, mode) }
     }
 
+    /** 莫奈取色依赖系统的动态取色（Android 12+），更低版本默认关闭。 */
     fun getDynamicColor(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_DYNAMIC_COLOR, true)
+        val default = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+        return getPrefs(context).getBoolean(KEY_DYNAMIC_COLOR, default)
     }
 
     fun setDynamicColor(context: Context, enabled: Boolean) {
@@ -421,6 +424,19 @@ object AppRepository {
     fun setNavBarEffect(context: Context, effect: Int) {
         getPrefs(context).edit { putInt(KEY_NAV_BAR_EFFECT, effect) }
         _navBarSettings.value = _navBarSettings.value.copy(effect = effect)
+    }
+
+    /**
+     * 顶栏高级材质（玻璃质感）。模糊依赖运行时着色器（Android 13+），
+     * 更低版本固定关闭且不可选。
+     */
+    fun getAdvancedMaterial(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return false
+        return getPrefs(context).getBoolean(KEY_ADVANCED_MATERIAL, true)
+    }
+
+    fun setAdvancedMaterial(context: Context, enabled: Boolean) {
+        getPrefs(context).edit { putBoolean(KEY_ADVANCED_MATERIAL, enabled) }
     }
 
     /** 停靠式默认导航栏是否隐藏顶部分割线（仅悬浮底栏关闭时可见的设置项）。 */

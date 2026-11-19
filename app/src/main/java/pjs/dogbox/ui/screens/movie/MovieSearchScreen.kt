@@ -13,12 +13,17 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -30,8 +35,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -45,17 +48,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.network.NetworkHeaders
@@ -91,17 +90,16 @@ import pjs.dogbox.utils.network.HttpUtil
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.Search
-import top.yukonga.miuix.kmp.icon.basic.SearchCleanup
+import top.yukonga.miuix.kmp.icon.glass.Tune
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.IOException
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
 
 internal data class SearchSource(
     val key: String,
@@ -301,17 +299,10 @@ internal fun MovieSearchScreen(
     var showSourceSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusRequester = remember { FocusRequester() }
+    var searchExpanded by remember { mutableStateOf(false) }
 
     var retryKey by state.retryKey
     var lastSearchKey by state.lastSearchKey
-
-    LaunchedEffect(Unit) {
-        delay(100)
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
 
     suspend fun searchOne(source: SearchSource, query: String) {
         val s = sourceStates.getValue(source)
@@ -417,18 +408,43 @@ internal fun MovieSearchScreen(
     MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            SmallTopAppBar(
-                title = "影片搜索",
-                navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiuixIconButton(onClick = onBack) {
+                    MiuixIcon(
+                        imageVector = MiuixIcons.Glass.ChevronBackward,
+                        contentDescription = "返回",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                InputField(
+                    query = searchText,
+                    onQueryChange = { searchText = it },
+                    onSearch = { triggerSearch(it) },
+                    expanded = searchExpanded,
+                    onExpandedChange = { searchExpanded = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp),
+                    label = "输入关键词搜索",
+                )
+                MiuixIconButton(onClick = { /* TODO: 排序 / 筛选 */ }) {
+                    MiuixIcon(
+                        imageVector = MiuixIcons.Glass.Tune,
+                        contentDescription = "筛选",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
         },
     ) { paddingValues ->
         Column(
@@ -436,40 +452,6 @@ internal fun MovieSearchScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
-            MiuixTextField(
-                value = searchText,
-                onValueChange = { searchText = it },
-                label = "输入关键词搜索",
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { triggerSearch(searchText) }),
-                leadingIcon = {
-                    MiuixIcon(
-                        imageVector = MiuixIcons.Basic.Search,
-                        contentDescription = "搜索",
-                        tint = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        modifier = Modifier
-                            .padding(start = 16.dp, end = 8.dp)
-                            .size(20.dp),
-                    )
-                },
-                trailingIcon = {
-                    if (searchText.isNotEmpty()) {
-                        MiuixIconButton(onClick = { searchText = "" }) {
-                            MiuixIcon(
-                                imageVector = MiuixIcons.Basic.SearchCleanup,
-                                contentDescription = "清空",
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .focusRequester(focusRequester),
-            )
             PagerTabFollowEffect(pagerState = pagerState, tabScrollState = tabScrollState)
             Row(
                 modifier = Modifier

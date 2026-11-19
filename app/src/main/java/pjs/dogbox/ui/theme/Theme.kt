@@ -67,17 +67,22 @@ fun DogBoxTheme(
     }
 
     // 纯黑背景：仅“深色 + 莫奈取色”时生效，把窗口底色压到 #000000，卡片等容器保持原有层次
-    if (pureBlackBackground && dynamicColor && isDark) {
-        val baseColors = controller.currentColors()
-        val pureBlackColors = remember(baseColors) {
-            baseColors.copy(
-                background = Color.Black,
-                surface = Color.Black,
-            )
-        }
-        MiuixTheme(colors = pureBlackColors, content = content)
+    val baseColors = controller.currentColors()
+    val themeColors = if (pureBlackBackground && dynamicColor && isDark) {
+        baseColors.copy(
+            background = Color.Black,
+            surface = Color.Black,
+        )
     } else {
-        MiuixTheme(controller = controller, content = content)
+        baseColors
+    }
+    // colors 重载只提供配色，不提供 LocalContentColor / LocalColorSchemeMode；
+    // 图标默认用 LocalContentColor 作 tint（默认黑色），若直接套用会让顶栏图标在全黑底上“消失”。
+    // 这里始终先套 controller 版本补全这些 CompositionLocal，再在其内部覆盖配色。
+    // 注意：不要根据纯黑开关切换组合层级，否则开关时整棵界面会被重建，
+    // NavHost 会回到首页。始终保留相同的两层 MiuixTheme 结构。
+    MiuixTheme(controller = controller) {
+        MiuixTheme(colors = themeColors, content = content)
     }
 }
 

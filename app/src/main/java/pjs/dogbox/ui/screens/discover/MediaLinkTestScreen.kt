@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -55,6 +56,8 @@ import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pjs.dogbox.R
+import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.screens.movie.MoreSettingsContent
 import pjs.dogbox.ui.screens.movie.PauseOnBackground
 import pjs.dogbox.ui.screens.movie.ScaleBottomSheet
 import pjs.dogbox.ui.screens.movie.SpeedBottomSheet
@@ -68,6 +71,13 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.icon.glass.Download
+import top.yukonga.miuix.kmp.icon.glass.MoreCircle
+import top.yukonga.miuix.kmp.icon.glass.PlaybackSpeed
+import top.yukonga.miuix.kmp.icon.glass.ScreenSize
+import top.yukonga.miuix.kmp.icon.glass.StarOutline
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -95,6 +105,9 @@ fun MediaLinkTestScreen(
     var currentScaleModeIndex by remember { mutableIntStateOf(0) }
     var showSpeedSheet by remember { mutableStateOf(false) }
     var showScaleSheet by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
+    var flipHorizontal by remember { mutableStateOf(false) }
+    var flipVertical by remember { mutableStateOf(false) }
 
     val activity = context as? Activity
 
@@ -310,7 +323,7 @@ fun MediaLinkTestScreen(
                                 .padding(start = 4.dp, top = 2.dp),
                         ) {
                             MiuixIcon(
-                                painter = painterResource(R.drawable.arrow_back_outlined),
+                                imageVector = MiuixIcons.Glass.ChevronBackward,
                                 contentDescription = "返回",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp),
@@ -409,23 +422,13 @@ fun MediaLinkTestScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     focusManager.clearFocus()
-                                    val link = extractShareUrl(url)
-                                    if (link != null) {
-                                        url = link
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "未识别到链接",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
                                 },
                                 showIndication = true,
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.link_outlined,
-                                    label = "过滤链接",
+                                    icon = MiuixIcons.Glass.StarOutline,
+                                    label = "收藏",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -438,22 +441,8 @@ fun MediaLinkTestScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.kid_star_outlined,
-                                    label = "收藏视频",
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    focusManager.clearFocus()
-                                },
-                                showIndication = true,
-                                insideMargin = PaddingValues(vertical = 8.dp),
-                            ) {
-                                ActionIconItem(
-                                    icon = R.drawable.cloud_download_outlined,
-                                    label = "缓存视频",
+                                    icon = MiuixIcons.Glass.Download,
+                                    label = "缓存",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -467,8 +456,8 @@ fun MediaLinkTestScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.speed_outlined,
-                                    label = "播放倍速",
+                                    icon = MiuixIcons.Glass.PlaybackSpeed,
+                                    label = "倍速",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -482,8 +471,23 @@ fun MediaLinkTestScreen(
                                 insideMargin = PaddingValues(vertical = 8.dp),
                             ) {
                                 ActionIconItem(
-                                    icon = R.drawable.aspect_ratio_outlined,
-                                    label = "视频画幅",
+                                    icon = MiuixIcons.Glass.ScreenSize,
+                                    label = "画幅",
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    showMoreSheet = true
+                                },
+                                showIndication = true,
+                                insideMargin = PaddingValues(vertical = 8.dp),
+                            ) {
+                                ActionIconItem(
+                                    icon = MiuixIcons.Glass.MoreCircle,
+                                    label = "更多",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -533,11 +537,45 @@ fun MediaLinkTestScreen(
             onDismiss = { showScaleSheet = false },
         )
     }
+
+    if (showMoreSheet) {
+        AppBottomSheet(
+            show = showMoreSheet,
+            onDismissRequest = { showMoreSheet = false },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                MoreSettingsContent(
+                    flipHorizontal = flipHorizontal,
+                    flipVertical = flipVertical,
+                    backgroundPlayback = GlobalPlayerConfig.backgroundPlayback,
+                    adsFilter = GlobalPlayerConfig.adsFilter,
+                    playbackOrder = GlobalPlayerConfig.playbackOrder,
+                    longPressSpeed = GlobalPlayerConfig.longPressSpeed,
+                    onFlipHorizontalChange = { flipHorizontal = it },
+                    onFlipVerticalChange = { flipVertical = it },
+                    onBackgroundPlaybackChange = {
+                        GlobalPlayerConfig.setBackgroundPlayback(context, it)
+                    },
+                    onAdsFilterChange = { GlobalPlayerConfig.setAdsFilter(context, it) },
+                    onPlaybackOrderChange = { GlobalPlayerConfig.setPlaybackOrder(context, it) },
+                    onLongPressSpeedChange = { GlobalPlayerConfig.setLongPressSpeed(context, it) },
+                    onDismiss = { showMoreSheet = false },
+                    useFixedDarkColors = false,
+                    showTitle = false,
+                    scrollable = false,
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun ActionIconItem(
-    icon: Int,
+    icon: ImageVector,
     label: String,
     modifier: Modifier = Modifier
 ) {
@@ -546,7 +584,7 @@ private fun ActionIconItem(
         modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         MiuixIcon(
-            painter = painterResource(icon),
+            imageVector = icon,
             contentDescription = label,
             tint = MiuixTheme.colorScheme.onSurfaceSecondary,
             modifier = Modifier.size(24.dp),

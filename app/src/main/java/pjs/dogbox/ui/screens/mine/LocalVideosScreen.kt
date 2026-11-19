@@ -1,5 +1,9 @@
 package pjs.dogbox.ui.screens.mine
 
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import pjs.dogbox.data.repository.AppRepository
+import androidx.compose.ui.graphics.SolidColor
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
@@ -76,14 +80,15 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.File
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -168,12 +173,21 @@ fun LocalVideosScreen(
 
     MiuixScaffold(
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = "本地视频",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
@@ -181,7 +195,7 @@ fun LocalVideosScreen(
                 },
                 actions = {
                     if (videos.isNotEmpty()) {
-                        MiuixIconButton(
+                        GlassIconButton(
                             onClick = {
                                 if (isSelectMode) {
                                     isSelectMode = false
@@ -267,7 +281,7 @@ fun LocalVideosScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
         ) {
             when {
                 !hasPermission -> {

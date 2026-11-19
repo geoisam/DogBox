@@ -110,11 +110,14 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import kotlin.math.abs
+import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -374,7 +377,7 @@ internal fun SpeedResetButton(
     }
 }
 
-internal val SPEED_PRESETS = listOf(0.50f, 0.75f, 1.25f, 1.50f, 2.00f, 3.00f)
+internal val SPEED_PRESETS = listOf(0.25f, 0.50f, 1.00f, 1.25f, 1.50f, 2.00f, 3.00f, 5.00f)
 
 internal val SPEED_KEY_POINTS = List(20) { (it + 1) * 0.25f }
 
@@ -483,7 +486,7 @@ internal fun SpeedPanelContent(
                 Spacer(Modifier.height(8.dp))
                 Slider(
                     value = sliderSpeed,
-                    onValueChange = { sliderSpeed = (it * 4).toInt() / 4f },
+                    onValueChange = { sliderSpeed = (it * 4).roundToInt() / 4f },
                     onValueChangeFinished = { onSpeedSelect(sliderSpeed) },
                     valueRange = 0.25f..5.0f,
                     steps = 18,
@@ -784,6 +787,33 @@ internal object GlobalPlayerConfig {
 }
 
 @Composable
+private fun PlayerSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    useFixedDarkColors: Boolean,
+) {
+    val row: @Composable () -> Unit = {
+        SwitchPreference(
+            title = title,
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+    if (useFixedDarkColors) {
+        val fixedDarkColors = remember {
+            darkColorScheme(
+                onSurface = Color.White,
+                onSurfaceVariantActions = Color.White.copy(alpha = 0.6f),
+            )
+        }
+        MiuixTheme(colors = fixedDarkColors, content = row)
+    } else {
+        row()
+    }
+}
+
+@Composable
 private fun PlaybackOrderDropdown(
     playbackOrder: PlaybackOrder,
     onPlaybackOrderChange: (PlaybackOrder) -> Unit,
@@ -941,41 +971,19 @@ internal fun MoreSettingsContent(
                     // 解码方式
                     DecoderModeDropdown(useFixedDarkColors = useFixedDarkColors)
                     // 后台播放
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MiuixText(
-                            text = "后台播放",
-                            modifier = Modifier.weight(1f),
-                            style = MiuixTheme.textStyles.body1,
-                            color = titleColor,
-                        )
-                        Switch(
-                            checked = backgroundPlayback,
-                            onCheckedChange = onBackgroundPlaybackChange,
-                        )
-                    }
+                    PlayerSwitchRow(
+                        title = "后台播放",
+                        checked = backgroundPlayback,
+                        onCheckedChange = onBackgroundPlaybackChange,
+                        useFixedDarkColors = useFixedDarkColors,
+                    )
                     // 广告过滤
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MiuixText(
-                            text = "广告过滤",
-                            modifier = Modifier.weight(1f),
-                            style = MiuixTheme.textStyles.body1,
-                            color = titleColor,
-                        )
-                        Switch(
-                            checked = adsFilter,
-                            onCheckedChange = onAdsFilterChange,
-                        )
-                    }
+                    PlayerSwitchRow(
+                        title = "广告过滤",
+                        checked = adsFilter,
+                        onCheckedChange = onAdsFilterChange,
+                        useFixedDarkColors = useFixedDarkColors,
+                    )
                     // 定时关闭
                     Row(
                         modifier = Modifier
@@ -1038,7 +1046,7 @@ internal fun MoreSettingsContent(
                     Spacer(Modifier.height(8.dp))
                     Slider(
                         value = longPressSpeed,
-                        onValueChange = { onLongPressSpeedChange((it * 4).toInt() / 4f) },
+                        onValueChange = { onLongPressSpeedChange((it * 4).roundToInt() / 4f) },
                         valueRange = 0.25f..5.0f,
                         steps = 18,
                         showKeyPoints = true,
@@ -1756,7 +1764,7 @@ internal fun NonFullscreenPlayer(
                     if (onBack != null) {
                         MiuixIconButton(onClick = onBack) {
                             MiuixIcon(
-                                painter = painterResource(R.drawable.arrow_back_outlined),
+                                imageVector = MiuixIcons.Glass.ChevronBackward,
                                 contentDescription = "返回",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp),

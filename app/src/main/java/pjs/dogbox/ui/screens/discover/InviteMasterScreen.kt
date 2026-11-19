@@ -1,5 +1,9 @@
 package pjs.dogbox.ui.screens.discover
 
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.SolidColor
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,14 +61,15 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -130,19 +135,28 @@ fun InviteMasterScreen(
     MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = "邀请达人",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
                     }
                 },
                 actions = {
-                    MiuixIconButton(
+                    GlassIconButton(
                         onClick = {
                             focusManager.clearFocus()
                             showLogSheet = true

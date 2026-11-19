@@ -1,6 +1,6 @@
 package pjs.dogbox.ui.components.navbar
 
-import androidx.annotation.DrawableRes
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * 悬浮底栏的视觉特效。
@@ -23,6 +23,6 @@ enum class NavBarEffect {
 /** 悬浮底栏的单个入口。 */
 data class NavBarEntry(
     val label: String,
-    @DrawableRes val icon: Int,
-    @DrawableRes val selectedIcon: Int,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
 )

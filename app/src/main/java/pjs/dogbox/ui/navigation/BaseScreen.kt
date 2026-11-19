@@ -1,5 +1,9 @@
 package pjs.dogbox.ui.navigation
 
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
@@ -24,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -51,8 +54,6 @@ import pjs.dogbox.ui.screens.HomeScreen
 import pjs.dogbox.ui.screens.HomeScreenState
 import pjs.dogbox.ui.screens.ImageViewerScreen
 import pjs.dogbox.ui.screens.MineScreen
-import pjs.dogbox.ui.screens.about.ChangeLogScreen
-import pjs.dogbox.ui.screens.about.ContributorScreen
 import pjs.dogbox.ui.screens.about.LicenseScreen
 import pjs.dogbox.ui.screens.discover.AnimeRankScreen
 import pjs.dogbox.ui.screens.discover.AnimeRankScreenState
@@ -90,15 +91,15 @@ import pjs.dogbox.ui.screens.movie.extractPath
 import pjs.dogbox.ui.screens.movie.extractPathWithQuery
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.icon.glass.Search
+import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 
@@ -463,9 +464,7 @@ fun BaseScreen(
         composable(AppRoutes.ABOUT_ME) {
             AboutMeScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToContributor = { navController.navigate(AppRoutes.CONTRIBUTOR) },
                 onNavigateToLicense = { navController.navigate(AppRoutes.LICENSE) },
-                onNavigateToChangeLog = { navController.navigate(AppRoutes.CHANGE_LOG) },
             )
         }
 
@@ -478,16 +477,8 @@ fun BaseScreen(
             )
         }
 
-        composable(AppRoutes.CONTRIBUTOR) {
-            ContributorScreen(onBack = { navController.popBackStack() })
-        }
-
         composable(AppRoutes.LICENSE) {
             LicenseScreen(onBack = { navController.popBackStack() })
-        }
-
-        composable(AppRoutes.CHANGE_LOG) {
-            ChangeLogScreen(onBack = { navController.popBackStack() })
         }
 
         composable(AppRoutes.SETTINGS) {
@@ -603,19 +594,28 @@ private fun MainScaffold(
     MiuixScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = currentDestination.label,
                 actions = {
-                    MiuixIconButton(onClick = { onSearchMovie("") }) {
+                    GlassIconButton(onClick = { onSearchMovie("") }) {
                         MiuixIcon(
-                            imageVector = MiuixIcons.Basic.Search,
+                            imageVector = MiuixIcons.Glass.Search,
                             contentDescription = "搜索",
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    MiuixIconButton(onClick = { onNavigateToSettings() }) {
+                    GlassIconButton(onClick = { onNavigateToSettings() }) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.settings_outlined),
+                            imageVector = MiuixIcons.Glass.SettingsOutline,
                             contentDescription = "设置",
                             modifier = Modifier.size(24.dp),
                         )
@@ -636,9 +636,7 @@ private fun MainScaffold(
                         NavigationBarItem(
                             selected = dest == currentDestination,
                             onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            icon = ImageVector.vectorResource(
-                                if (dest == currentDestination) dest.selectedIcon else dest.icon
-                            ),
+                            icon = if (dest == currentDestination) dest.selectedIcon else dest.icon,
                             label = dest.label,
                         )
                     }

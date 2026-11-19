@@ -1,5 +1,9 @@
 package pjs.dogbox.ui.screens.mine
 
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.SolidColor
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
@@ -52,17 +56,18 @@ import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.data.remote.fetchRemoteConfig
 import pjs.dogbox.data.remote.parseUpdateInfo
 import pjs.dogbox.data.repository.AppRepository
-import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.ui.components.UpdateBottomSheet
-import pjs.dogbox.utils.system.openPermissionManager
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.icon.glass.Refresh
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -73,9 +78,7 @@ private enum class UpdateCheckState {
 @Composable
 fun AboutMeScreen(
     onBack: () -> Unit = {},
-    onNavigateToContributor: () -> Unit = {},
     onNavigateToLicense: () -> Unit = {},
-    onNavigateToChangeLog: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scienceGothic = FontFamily(Font(R.font.science_gothic))
@@ -99,23 +102,31 @@ fun AboutMeScreen(
     var updateNote by remember { mutableStateOf(cachedInfo?.note ?: "") }
     var updateDown by remember { mutableStateOf(cachedInfo?.downloadUrl ?: AppConfig.GITHUB_PAGE) }
     var showUpdateDialog by remember { mutableStateOf(false) }
-    var showDisclaimerDialog by remember { mutableStateOf(false) }
 
     MiuixScaffold(
         topBar = {
-            SmallTopAppBar(
-                title = "关于应用",
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
+                title = "关于我们",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
                     }
                 },
                 actions = {
-                    MiuixIconButton(
+                    GlassIconButton(
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
@@ -205,74 +216,66 @@ fun AboutMeScreen(
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !checking) {
-                                val cached = AppRepository.getCachedUpdateInfo()
-                                if (cached != null) {
-                                    latestVersion = cached.versionName
-                                    updateNote = cached.note
-                                    updateDown = cached.downloadUrl
-                                    showUpdateDialog = true
-                                } else {
-                                    scope.launch {
-                                        manualOverride = UpdateCheckState.CHECKING
-                                        val configJson = fetchRemoteConfig()
-                                        val updateInfo = parseUpdateInfo(configJson)
-                                        if (updateInfo != null && updateInfo.code > BuildConfig.VERSION_CODE) {
-                                            latestVersion = updateInfo.ver
-                                            updateNote = updateInfo.note
-                                            updateDown = updateInfo.down
-                                            AppRepository.setCachedUpdateInfo(
-                                                AppRepository.CachedUpdateInfo(
-                                                    versionCode = updateInfo.code,
-                                                    versionName = updateInfo.ver,
-                                                    note = updateInfo.note,
-                                                    downloadUrl = updateInfo.down,
-                                                )
+                    BasicComponent(
+                        title = "版本更新",
+                        enabled = !checking,
+                        onClick = {
+                            val cached = AppRepository.getCachedUpdateInfo()
+                            if (cached != null) {
+                                latestVersion = cached.versionName
+                                updateNote = cached.note
+                                updateDown = cached.downloadUrl
+                                showUpdateDialog = true
+                            } else {
+                                scope.launch {
+                                    manualOverride = UpdateCheckState.CHECKING
+                                    val configJson = fetchRemoteConfig()
+                                    val updateInfo = parseUpdateInfo(configJson)
+                                    if (updateInfo != null && updateInfo.code > BuildConfig.VERSION_CODE) {
+                                        latestVersion = updateInfo.ver
+                                        updateNote = updateInfo.note
+                                        updateDown = updateInfo.down
+                                        AppRepository.setCachedUpdateInfo(
+                                            AppRepository.CachedUpdateInfo(
+                                                versionCode = updateInfo.code,
+                                                versionName = updateInfo.ver,
+                                                note = updateInfo.note,
+                                                downloadUrl = updateInfo.down,
                                             )
-                                            AppRepository.setCachedUpToDate(false)
-                                            AppRepository.setCachedCheckFailed(false)
-                                            manualOverride = null
-                                            showUpdateDialog = true
-                                        } else if (updateInfo != null && updateInfo.code <= BuildConfig.VERSION_CODE) {
-                                            AppRepository.setCachedUpdateInfo(null)
-                                            AppRepository.setCachedUpToDate(true)
-                                            AppRepository.setCachedCheckFailed(false)
-                                            manualOverride = null
-                                            Toast.makeText(
-                                                context,
-                                                "已是最新版本",
-                                                Toast.LENGTH_SHORT
-                                            )
-                                                .show()
-                                        } else {
-                                            AppRepository.setCachedUpdateInfo(null)
-                                            AppRepository.setCachedUpToDate(false)
-                                            AppRepository.setCachedCheckFailed(true)
-                                            manualOverride = null
-                                            Toast.makeText(
-                                                context,
-                                                "更新检测失败",
-                                                Toast.LENGTH_SHORT
-                                            )
-                                                .show()
-                                        }
+                                        )
+                                        AppRepository.setCachedUpToDate(false)
+                                        AppRepository.setCachedCheckFailed(false)
+                                        manualOverride = null
+                                        showUpdateDialog = true
+                                    } else if (updateInfo != null && updateInfo.code <= BuildConfig.VERSION_CODE) {
+                                        AppRepository.setCachedUpdateInfo(null)
+                                        AppRepository.setCachedUpToDate(true)
+                                        AppRepository.setCachedCheckFailed(false)
+                                        manualOverride = null
+                                        Toast.makeText(
+                                            context,
+                                            "已是最新版本",
+                                            Toast.LENGTH_SHORT
+                                        )
+                                            .show()
+                                    } else {
+                                        AppRepository.setCachedUpdateInfo(null)
+                                        AppRepository.setCachedUpToDate(false)
+                                        AppRepository.setCachedCheckFailed(true)
+                                        manualOverride = null
+                                        Toast.makeText(
+                                            context,
+                                            "更新检测失败",
+                                            Toast.LENGTH_SHORT
+                                        )
+                                            .show()
                                     }
                                 }
                             }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MiuixText(
-                            text = "版本更新",
-                            style = MiuixTheme.textStyles.body1,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        when (checkState) {
-                            UpdateCheckState.HAS_UPDATE -> {
+                        },
+                        endActions = {
+                            when (checkState) {
+                                UpdateCheckState.HAS_UPDATE -> {
                                 Box(
                                     modifier = Modifier
                                         .padding(end = 4.dp)
@@ -327,7 +330,7 @@ fun AboutMeScreen(
                             label = "rotateAngle",
                         )
                         MiuixIcon(
-                            painter = painterResource(R.drawable.autorenew_outlined),
+                            imageVector = MiuixIcons.Glass.Refresh,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(20.dp)
@@ -337,7 +340,8 @@ fun AboutMeScreen(
                                 ),
                             tint = MiuixTheme.colorScheme.onSurfaceSecondary,
                         )
-                    }
+                    },
+                    )
                     SwitchPreference(
                         title = "自动检测更新",
                         summary = "每次启动时检测是否有更新",
@@ -352,23 +356,13 @@ fun AboutMeScreen(
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    ArrowPreference(title = "更新日志", onClick = onNavigateToChangeLog)
-                    ArrowPreference(title = "特别鸣谢", onClick = onNavigateToContributor)
-                    ArrowPreference(title = "免责声明", onClick = { showDisclaimerDialog = true })
-                    ArrowPreference(
-                        title = "权限清单",
-                        onClick = { openPermissionManager(context) })
-                    ArrowPreference(title = "开源许可", onClick = onNavigateToLicense)
+                    ArrowPreference(title = "开源组件许可", onClick = onNavigateToLicense)
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
-    DisclaimerDialog(
-        isOpen = showDisclaimerDialog,
-        onDismiss = { showDisclaimerDialog = false },
-    )
 
     UpdateBottomSheet(
         isOpen = showUpdateDialog,

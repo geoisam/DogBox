@@ -2,19 +2,20 @@ package pjs.dogbox.ui.screens.discover
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,13 +24,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +47,8 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -140,38 +142,25 @@ internal fun ProfileAvatarScreen(
                 insideMargin = PaddingValues(4.dp),
                 colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                MiuixTheme(
+                    colors = MiuixTheme.colorScheme.copy(outline = Color.Transparent),
                 ) {
-                    tabs.forEachIndexed { index, title ->
-                        val selected = pagerState.currentPage == index
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            colors = CardDefaults.defaultColors(
-                                color = if (selected) MiuixTheme.colorScheme.primary
-                                else MiuixTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = if (selected) MiuixTheme.colorScheme.onPrimary
-                                else MiuixTheme.colorScheme.onSurfaceSecondary,
-                            ),
-                            onClick = {
-                                scope.launch { pagerState.animateScrollToPage(index) }
-                            },
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                MiuixText(
-                                    text = title,
-                                    style = MiuixTheme.textStyles.body1,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            }
-                        }
-                    }
+                    TabRow(
+                        tabs = tabs,
+                        selectedTabIndex = pagerState.currentPage,
+                        onTabSelected = {
+                            scope.launch { pagerState.animateScrollToPage(it) }
+                        },
+                        colors = TabRowDefaults.tabRowColors(
+                            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MiuixTheme.colorScheme.onSurfaceSecondary,
+                            selectedBackgroundColor = MiuixTheme.colorScheme.primary,
+                            selectedContentColor = MiuixTheme.colorScheme.onPrimary,
+                        ),
+                        height = 44.dp,
+                        cornerRadius = 12.dp,
+                        itemSpacing = 4.dp,
+                    )
                 }
             }
 
@@ -183,6 +172,9 @@ internal fun ProfileAvatarScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        // 键盘弹出时缩小可视区域，并允许内容上下滚动到按钮
+                        .imePadding()
+                        .verticalScroll(rememberScrollState())
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {

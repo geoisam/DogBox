@@ -1,10 +1,12 @@
 package pjs.dogbox.ui.screens.mine
 
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import androidx.compose.ui.graphics.SolidColor
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,12 +58,16 @@ import pjs.dogbox.data.repository.AppRepository
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowDefaults
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -90,12 +96,21 @@ fun WatchHistoryScreen(
 
     MiuixScaffold(
         topBar = {
-            SmallTopAppBar(
+            GlassTopAppBar(
+                expandable = false,
+                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
+                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
+                } else {
+                    SolidColor(MiuixTheme.colorScheme.surface)
+                },
+
+                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
+
                 title = "观看历史",
                 navigationIcon = {
-                    MiuixIconButton(onClick = onBack) {
+                    GlassIconButton(onClick = onBack) {
                         MiuixIcon(
-                            painter = painterResource(R.drawable.arrow_back_outlined),
+                            imageVector = MiuixIcons.Glass.ChevronBackward,
                             contentDescription = "返回",
                             modifier = Modifier.size(24.dp),
                         )
@@ -103,7 +118,7 @@ fun WatchHistoryScreen(
                 },
                 actions = {
                     if (isDeleteMode) {
-                        MiuixIconButton(
+                        GlassIconButton(
                             onClick = {
                                 isDeleteMode = false
                                 selectedIds.clear()
@@ -116,7 +131,7 @@ fun WatchHistoryScreen(
                             )
                         }
                     } else if (items.isNotEmpty()) {
-                        MiuixIconButton(onClick = { isDeleteMode = true }) {
+                        GlassIconButton(onClick = { isDeleteMode = true }) {
                             MiuixIcon(
                                 painter = painterResource(R.drawable.delete_outlined),
                                 contentDescription = "删除",
@@ -199,68 +214,69 @@ fun WatchHistoryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
         ) {
-            Row(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+                insideMargin = PaddingValues(4.dp),
+                colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.surfaceContainer),
             ) {
-                listOf(0 to "竖屏", 1 to "横屏").forEach { (value, label) ->
-                    val selected = pagerState.currentPage == value
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (selected) MiuixTheme.colorScheme.primary
-                                else MiuixTheme.colorScheme.surfaceContainerHighest
-                            )
-                            .clickable { scope.launch { pagerState.animateScrollToPage(value) } }
-                            .padding(horizontal = 20.dp, vertical = 6.dp),
-                    ) {
-                        MiuixText(
-                            text = label,
-                            color = if (selected) MiuixTheme.colorScheme.onPrimary
-                            else MiuixTheme.colorScheme.onSurfaceSecondary,
-                            style = MiuixTheme.textStyles.footnote1,
-                        )
-                    }
+                MiuixTheme(
+                    colors = MiuixTheme.colorScheme.copy(outline = Color.Transparent),
+                ) {
+                    TabRow(
+                        tabs = listOf("竖屏", "横屏"),
+                        selectedTabIndex = pagerState.currentPage,
+                        onTabSelected = { page ->
+                            scope.launch { pagerState.animateScrollToPage(page) }
+                        },
+                        colors = TabRowDefaults.tabRowColors(
+                            backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MiuixTheme.colorScheme.onSurfaceSecondary,
+                            selectedBackgroundColor = MiuixTheme.colorScheme.primary,
+                            selectedContentColor = MiuixTheme.colorScheme.onPrimary,
+                        ),
+                        height = 44.dp,
+                        cornerRadius = 12.dp,
+                        itemSpacing = 4.dp,
+                    )
                 }
             }
 
-            if (items.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        MiuixIcon(
-                            painter = painterResource(R.drawable.history_outlined),
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.4f),
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        MiuixText(
-                            text = "暂无观看记录",
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                            style = MiuixTheme.textStyles.body1,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        MiuixText(
-                            text = "观看影视超过10秒将自动记录",
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.6f),
-                            style = MiuixTheme.textStyles.footnote1,
-                        )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 0,
+            ) { page ->
+                if (items.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            MiuixIcon(
+                                painter = painterResource(R.drawable.history_outlined),
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.4f),
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            MiuixText(
+                                text = "暂无观看记录",
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                style = MiuixTheme.textStyles.body1,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            MiuixText(
+                                text = "观看影视超过10秒将自动记录",
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary.copy(alpha = 0.6f),
+                                style = MiuixTheme.textStyles.footnote1,
+                            )
+                        }
                     }
-                }
-            } else {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    beyondViewportPageCount = 0,
-                ) { page ->
+                } else {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         contentPadding = PaddingValues(8.dp),
