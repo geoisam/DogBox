@@ -93,8 +93,11 @@ fun LicenseScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .padding(horizontal = 12.dp),
+                    contentPadding = PaddingValues(
+                        top = padding.calculateTopPadding(),
+                        bottom = padding.calculateBottomPadding(),
+                    ),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {

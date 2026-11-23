@@ -156,6 +156,9 @@ fun MineScreen(
 
     contentBottomPadding: Dp = 0.dp,
 
+    // 顶栏高度：作为 LazyColumn 首项前的 contentPadding，列表滚动穿透玻璃顶栏
+    contentTopPadding: Dp = 0.dp,
+
 ) {
 
     val context = LocalContext.current
@@ -322,7 +325,14 @@ fun MineScreen(
 
             .padding(horizontal = 12.dp),
 
-        contentPadding = PaddingValues(bottom = contentBottomPadding),
+        // top 进入 contentPadding：内容滚动到玻璃顶栏之下（miuix 标准穿透）
+        contentPadding = PaddingValues(
+
+            top = contentTopPadding,
+
+            bottom = contentBottomPadding,
+
+        ),
 
         verticalArrangement = Arrangement.spacedBy(12.dp),
 

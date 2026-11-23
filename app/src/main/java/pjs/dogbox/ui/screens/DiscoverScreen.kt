@@ -324,6 +324,9 @@ fun DiscoverScreen(
 
     contentBottomPadding: Dp = 0.dp,
 
+    // 顶栏高度：作为首元素参与滚动，内容滚动到玻璃顶栏之下（miuix 标准穿透）
+    contentTopPadding: Dp = 0.dp,
+
 ) {
 
     Column(
@@ -339,6 +342,8 @@ fun DiscoverScreen(
         verticalArrangement = Arrangement.spacedBy(4.dp),
 
     ) {
+
+        Spacer(modifier = Modifier.height(contentTopPadding))
 
         groups.forEach { group ->
 

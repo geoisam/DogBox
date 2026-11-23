@@ -1,9 +1,6 @@
 package pjs.dogbox.ui.screens.mine
 
-import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import androidx.compose.ui.graphics.SolidColor
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
@@ -56,19 +53,17 @@ import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.data.remote.fetchRemoteConfig
 import pjs.dogbox.data.remote.parseUpdateInfo
 import pjs.dogbox.data.repository.AppRepository
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.ui.components.UpdateBottomSheet
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.icon.glass.Refresh
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private enum class UpdateCheckState {
@@ -103,57 +98,38 @@ fun AboutMeScreen(
     var updateDown by remember { mutableStateOf(cachedInfo?.downloadUrl ?: AppConfig.GITHUB_PAGE) }
     var showUpdateDialog by remember { mutableStateOf(false) }
 
-    MiuixScaffold(
-        topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
-                title = "关于我们",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-                actions = {
-                    GlassIconButton(
-                        onClick = {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                AppConfig.GITHUB_PAGE.toUri()
-                            )
-                            context.startActivity(intent)
-                        }
-                    ) {
-                        MiuixIcon(
-                            painter = painterResource(R.drawable.github_logo),
-                            contentDescription = "GitHub",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-            )
+    MiuixSubScreen(
+        title = "关于我们",
+        onBack = onBack,
+        actions = {
+            GlassIconButton(
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        AppConfig.GITHUB_PAGE.toUri()
+                    )
+                    context.startActivity(intent)
+                }
+            ) {
+                MiuixIcon(
+                    painter = painterResource(R.drawable.github_logo),
+                    contentDescription = "GitHub",
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(bottom = padding.calculateBottomPadding())
                 .padding(horizontal = 12.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // 顶栏高度作为滚动首元素：内容滚动穿透顶栏（miuix 标准）
+            Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
 
             Column(
                 modifier = Modifier

@@ -1,12 +1,10 @@
 package pjs.dogbox.ui.navigation
 
-import androidx.compose.ui.graphics.Color
-import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,9 +23,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,7 +33,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
 import pjs.dogbox.BuildConfig
-import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.data.remote.fetchRemoteConfig
 import pjs.dogbox.data.remote.parseUpdateInfo
@@ -44,10 +40,11 @@ import pjs.dogbox.data.repository.ApiSitesRepository
 import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.components.DisclaimerDialog
 import pjs.dogbox.ui.components.UpdateBottomSheet
-import pjs.dogbox.ui.components.navbar.FloatingBarContentHeight
 import pjs.dogbox.ui.components.navbar.GlassBottomBar
 import pjs.dogbox.ui.components.navbar.NavBarEffect
 import pjs.dogbox.ui.components.navbar.NavBarEntry
+import pjs.dogbox.ui.components.navbar.floatingBarContentHeight
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import pjs.dogbox.ui.screens.DiscoverPage
 import pjs.dogbox.ui.screens.DiscoverScreen
 import pjs.dogbox.ui.screens.HomeScreen
@@ -91,7 +88,7 @@ import pjs.dogbox.ui.screens.movie.extractPath
 import pjs.dogbox.ui.screens.movie.extractPathWithQuery
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Search
 import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
@@ -546,6 +543,7 @@ private fun MainScaffold(
     onViewImage: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
+    val layoutDirection = LocalLayoutDirection.current
     val scope = rememberCoroutineScope()
 
     var currentPageIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -564,6 +562,7 @@ private fun MainScaffold(
     val isFloating = navBarSettings.floating
     // 轻透磨砂 / 柔光玻璃依赖运行时着色器，Android 13 以下自动降级为默认材质
     val glassSupported = isRuntimeShaderSupported()
+    val advancedMaterial = AppRepository.getAdvancedMaterial(context) && glassSupported
     val navEffect = if (glassSupported && isFloating) {
         NavBarEffect.fromIndex(navBarSettings.effect)
     } else {
@@ -571,13 +570,14 @@ private fun MainScaffold(
     }
     // 背板只记录自身绘制的内容，若页面没画背景就会模糊到透明黑，
     // 所以先铺一层不透明表面色再记录页面内容。
-    // 仅悬浮底栏需要背板：悬浮栏浮在内容之上，背板能延伸到它身后；
+    // 背板同时服务两处玻璃：顶栏玻璃按钮（高级材质开启时）与悬浮玻璃底栏；
     // 停靠式默认导航栏下方没有内容（背板被底栏 padding 截断，不延伸到栏后），
     // 玻璃效果取不到栏后画面，会把内容底边糊成一层半透明色膜盖在内容上，
     // 因此停靠栏固定为纯色 + 分割线，不套玻璃。
     // 默认材质不采样背景，也就不必录制背板。
+    val needBackdrop = advancedMaterial || (isFloating && navEffect != NavBarEffect.NONE)
     val backdropColor = MiuixTheme.colorScheme.surface
-    val backdrop = if (isFloating && navEffect != NavBarEffect.NONE) {
+    val backdrop = if (needBackdrop) {
         rememberLayerBackdrop {
             drawRect(backdropColor)
             drawContent()
@@ -588,23 +588,23 @@ private fun MainScaffold(
     val navBarEntries = remember {
         AppDestinations.entries.map { NavBarEntry(it.label, it.icon, it.selectedIcon) }
     }
-    // 悬浮底栏浮在内容之上，页面需要预留出等高的滚动空间
-    val contentBottomPadding = if (isFloating) FloatingBarContentHeight else 0.dp
+    // 悬浮底栏浮在内容之上，页面需要预留出等高的滚动空间（仿 iOS 栏体更高）
+    val contentBottomPadding = if (isFloating) {
+        floatingBarContentHeight(navEffect, backdrop != null)
+    } else {
+        0.dp
+    }
 
     MiuixScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = currentDestination.label,
+                onBack = null,
+                backdrop = backdrop,
+                // 主页 tab：筛选头常驻、内容不穿透顶栏，小标题常显；
+                // 高级材质开启时表面模糊常显（无 scrollBehavior 时材质进度恒为 1）。
+                expandable = false,
                 actions = {
                     GlassIconButton(onClick = { onSearchMovie("") }) {
                         MiuixIcon(
@@ -644,10 +644,16 @@ private fun MainScaffold(
             }
         },
     ) { padding ->
+        // 按 miuix 标准内容渲染在顶栏之下：外层只消费 start/end/bottom，
+        // top 由各页面自行挪进滚动容器 contentPadding，让内容真正穿过玻璃顶栏。
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(
+                    start = padding.calculateStartPadding(layoutDirection),
+                    end = padding.calculateEndPadding(layoutDirection),
+                    bottom = padding.calculateBottomPadding(),
+                )
         ) {
             // 只有页面内容进入 backdrop，避免底栏把自身也录进背板造成自模糊
             Box(
@@ -667,11 +673,13 @@ private fun MainScaffold(
                             onSearchMovie = onSearchMovie,
                             onViewImage = onViewImage,
                             contentBottomPadding = contentBottomPadding,
+                            contentTopPadding = padding.calculateTopPadding(),
                         )
 
                         AppDestinations.DISCOVER -> DiscoverScreen(
                             onNavigateToDetail = onNavigateToDetail,
                             contentBottomPadding = contentBottomPadding,
+                            contentTopPadding = padding.calculateTopPadding(),
                         )
 
                         AppDestinations.MINE -> MineScreen(
@@ -680,6 +688,7 @@ private fun MainScaffold(
                             onNavigateToAboutMe = onNavigateToAboutMe,
                             onNavigateToSponsor = onNavigateToSponsor,
                             contentBottomPadding = contentBottomPadding,
+                            contentTopPadding = padding.calculateTopPadding(),
                         )
                     }
                 }

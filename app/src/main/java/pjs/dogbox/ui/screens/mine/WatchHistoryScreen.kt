@@ -1,8 +1,6 @@
 package pjs.dogbox.ui.screens.mine
 
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import androidx.compose.ui.graphics.SolidColor
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -55,18 +53,22 @@ import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
 import pjs.dogbox.data.repository.ApiSitesRepository
 import pjs.dogbox.data.repository.AppRepository
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -94,28 +96,27 @@ fun WatchHistoryScreen(
         selectedIds.clear()
     }
 
+    // 玻璃采样依赖运行时着色器，Android 13 以下自动回退平材质
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (AppRepository.getAdvancedMaterial(LocalContext.current) && isRuntimeShaderSupported()) {
+        rememberLayerBackdrop {
+            drawRect(surfaceColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+
     MiuixScaffold(
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = "观看历史",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backdrop = backdrop,
+                scrollBehavior = scrollBehavior,
+                // TabRow 头部常驻，小标题常显（与主页一致）
+                expandable = false,
                 actions = {
                     if (isDeleteMode) {
                         GlassIconButton(
@@ -214,7 +215,14 @@ fun WatchHistoryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                // TabRow 头部常驻：top 直接下移避开栏区，bottom 留给删除模式底栏
+                .padding(bottom = paddingValues.calculateBottomPadding())
+                .padding(top = paddingValues.calculateTopPadding())
+                .overScrollVertical(
+                    onOffsetChanged = { scrollBehavior.state.overscrollOffset = it },
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
             Card(
                 modifier = Modifier

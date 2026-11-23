@@ -1,33 +1,32 @@
 package pjs.dogbox.ui.components.navbar
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import pjs.dogbox.ui.components.navbar.liquid.LiquidBarBottomMargin
+import pjs.dogbox.ui.components.navbar.liquid.LiquidBarHeight
+import pjs.dogbox.ui.components.navbar.liquid.LiquidGlassNavigationBar
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.material.GlassDefaults
-import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
-import top.yukonga.miuix.kmp.material.GlassShadows
-import top.yukonga.miuix.kmp.material.GlassStyles
 import top.yukonga.miuix.kmp.material.GlassMaterials
-import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 底栏内部可交互区域高度。 */
 private val BarHeight = 60.dp
 
-/** 单个入口的宽度。 */
-private val BarItemWidth = 76.dp
-
-/** 底栏内边距。 */
-private val BarInnerPadding = 4.dp
+/** 底栏与屏幕左右两侧的间距（miuix demo 标准 16dp）。 */
+private val BarHorizontalMargin = 16.dp
 
 /** 底栏距离屏幕底部的间距（不含系统栏）。 */
 private val BarBottomMargin = 16.dp
@@ -35,17 +34,25 @@ private val BarBottomMargin = 16.dp
 /** 悬浮底栏占用的总高度，页面内容需要预留同等滚动空间。 */
 internal val FloatingBarContentHeight = BarBottomMargin + BarHeight
 
+/** 仿 iOS 液态玻璃底栏占用的总高度（栏体更高，内容留白随之加大）。 */
+internal val LiquidBarContentHeight = LiquidBarBottomMargin + LiquidBarHeight
+
+/** 按特效返回悬浮底栏占用的总高度；背板缺失时玻璃特效会降级为标准材质。 */
+internal fun floatingBarContentHeight(effect: NavBarEffect, hasBackdrop: Boolean): Dp =
+    if (effect == NavBarEffect.LIQUID_GLASS && hasBackdrop) LiquidBarContentHeight else FloatingBarContentHeight
+
 /**
- * 悬浮底栏，三种材质均直接由 miuix 的 [GlassNavigationBar] 组件呈现：
+ * 悬浮底栏，三种材质均为「图标 + 文字」，对齐 miuix 官方示例的三档底栏样式：
  *
- * - [NavBarEffect.NONE]：标准材质（原有样式），传 `null` 背板，组件内部自动回退为
- *   不透明的 surfaceContainer 纯色胶囊；
- * - [NavBarEffect.FROSTED_GLASS]：轻透磨砂，Pured Thin Glass 薄玻璃 +
- *   Common 玻璃样式，轻度模糊透出背后内容；
- * - [NavBarEffect.LIQUID_GLASS]：柔光玻璃，iOS 风格：Bionic 玻璃样式 +
- *   PopupView 厚玻璃材质、更亮的描边和更高的阴影。
+ * - [NavBarEffect.NONE]：标准材质。不采样背板，[GlassNavigationBar] 内部回退为
+ *   不透明 surfaceContainer 纯色胶囊 + 默认 Float 悬浮阴影，选中指示器动画保留；
+ * - [NavBarEffect.FROSTED_GLASS]：轻透磨砂。Pured Thin Glass 薄玻璃 + Common 玻璃样式，
+ *   轻度模糊透出背后内容，描边 / 阴影用组件默认值；
+ * - [NavBarEffect.LIQUID_GLASS]：仿 iOS 液态玻璃。移植 miuix 官方示例的
+ *   IosLiquidGlassNavigationBar：vibrancy + 边缘折射透镜 + 可拖拽液态玻璃指示药丸。
  *
- * 设备不支持运行时着色器时组件同样会自动回退为标准材质，无需外部判断。
+ * 配色完全交由组件默认值：动态取色开启时选中色为 primary，否则 onBackground。
+ * 设备不支持运行时着色器或背板为 `null` 时，玻璃特效自动降级为标准材质。
  *
  * @param backdrop 页面内容的背板，`null` 时使用标准材质。
  */
@@ -74,62 +81,62 @@ fun GlassBottomBar(
         onSelect(index)
     }
 
-    val items = entries.mapIndexed { index, entry ->
-        GlassNavigationItem(
-            icon = if (index == safeIndex) entry.selectedIcon else entry.icon,
-            label = entry.label,
-            contentDescription = entry.label,
+    if (resolvedEffect == NavBarEffect.LIQUID_GLASS) {
+        LiquidGlassNavigationBar(
+            items = entries,
+            selectedIndex = safeIndex,
+            onItemClick = onSelectItem,
+            backdrop = backdrop,
+            modifier = modifier,
         )
+        return
     }
 
-    val labelAlpha = if (isDark) 0.62f else 0.55f
-    val indicatorAlpha = if (isDark) 0.22f else 0.14f
-    val indicatorPressedAlpha = if (isDark) 0.34f else 0.22f
+    // 官方文档要求 item 实例稳定（badge 等状态跟随实例），用 remember 避免每次重组重建
+    val items = remember(entries) {
+        entries.map { entry ->
+            GlassNavigationItem(
+                icon = entry.icon,
+                label = entry.label,
+                contentDescription = entry.label,
+            )
+        }
+    }
 
     GlassNavigationBar(
         items = items,
         selectedIndex = safeIndex,
         onSelect = onSelectItem,
-        backdrop = backdrop,
+        // 标准材质必须传 null 背板：否则组件仍会采样背景，材质层缺失时
+        // 胶囊会变成一层透明玻璃膜。传 null 才会回退不透明纯色胶囊。
+        backdrop = if (resolvedEffect == NavBarEffect.NONE) null else backdrop,
         modifier = modifier
-            .padding(bottom = BarBottomMargin)
-            .width(BarItemWidth * entries.size + BarInnerPadding * 2),
+            .fillMaxWidth()
+            .padding(
+                start = BarHorizontalMargin,
+                end = BarHorizontalMargin,
+                bottom = BarBottomMargin,
+            ),
         // 底栏位于 Scaffold 内容区内，系统栏间距与底部留白已由外部处理。
         defaultWindowInsetsPadding = false,
-        style = when (resolvedEffect) {
-            // 轻透磨砂：Common glass，低饱和 + 轻柔模糊。
-            NavBarEffect.FROSTED_GLASS -> GlassDefaults.style(isDark)
-            // 柔光玻璃：Bionic glass，iOS 风格的高饱和、强折射。
-            NavBarEffect.LIQUID_GLASS -> GlassStyles.BionicMediumRegular
-            // 标准材质：默认样式（无背板时组件回退为纯色胶囊，样式不生效）。
-            NavBarEffect.NONE -> GlassDefaults.Style
+        // 轻透磨砂：Common glass，低饱和 + 轻柔模糊；标准材质样式不生效。
+        style = if (resolvedEffect == NavBarEffect.FROSTED_GLASS) {
+            GlassDefaults.style(isDark)
+        } else {
+            GlassDefaults.Style
         },
-        stroke = when (resolvedEffect) {
-            NavBarEffect.FROSTED_GLASS -> GlassNavigationBarDefaults.stroke()
-            // 柔光玻璃用更亮的描边强调玻璃边缘。
-            NavBarEffect.LIQUID_GLASS -> GlassEdgeStrokes.forTheme(
-                isDark = isDark,
-                light = GlassEdgeStrokes.BigLight,
-                dark = GlassEdgeStrokes.BigDark,
-            )
-            NavBarEffect.NONE -> null
+        stroke = if (resolvedEffect == NavBarEffect.FROSTED_GLASS) {
+            GlassNavigationBarDefaults.stroke()
+        } else {
+            null
         },
-        shadow = when (resolvedEffect) {
-            NavBarEffect.FROSTED_GLASS -> GlassShadows.Float
-            NavBarEffect.LIQUID_GLASS -> GlassShadows.High
-            NavBarEffect.NONE -> null
-        },
+        shadow = GlassShadows.Float,
         height = BarHeight,
-        // 磨砂用薄玻璃，柔光玻璃用更厚、更亮的玻璃材质；标准材质传 null，
-        // 组件内部回退为 surfaceContainer 纯色胶囊。
-        material = when (resolvedEffect) {
-            NavBarEffect.LIQUID_GLASS -> GlassMaterials.popupViewGlass(isDark)
-            NavBarEffect.FROSTED_GLASS -> GlassMaterials.puredThinGlass(isDark)
-            NavBarEffect.NONE -> null
+        // 磨砂用薄玻璃；标准材质传 null，组件内部回退为 surfaceContainer 纯色胶囊。
+        material = if (resolvedEffect == NavBarEffect.FROSTED_GLASS) {
+            GlassMaterials.puredThinGlass(isDark)
+        } else {
+            null
         },
-        indicatorColor = colors.primary.copy(alpha = indicatorAlpha),
-        indicatorPressedColor = colors.primary.copy(alpha = indicatorPressedAlpha),
-        selectedColor = colors.primary,
-        unselectedColor = colors.onSurface.copy(alpha = labelAlpha),
     )
 }

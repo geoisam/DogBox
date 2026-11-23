@@ -1,9 +1,6 @@
 package pjs.dogbox.ui.screens.discover
 
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import pjs.dogbox.data.repository.AppRepository
-import androidx.compose.ui.graphics.SolidColor
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -64,13 +61,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import pjs.dogbox.R
 import pjs.dogbox.data.model.AppConfig
+import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.services.MediaDownloadService
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -152,29 +154,26 @@ fun MediaAnalyzeResultScreen(
         selected.clear()
     }
 
+    // 玻璃采样依赖运行时着色器，Android 13 以下自动回退平材质
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (AppRepository.getAdvancedMaterial(context) && isRuntimeShaderSupported()) {
+        rememberLayerBackdrop {
+            drawRect(surfaceColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+
     MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = "解析结果",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backdrop = backdrop,
+                scrollBehavior = scrollBehavior,
                 actions = {
                     GlassIconButton(
                         onClick = {
@@ -261,12 +260,21 @@ fun MediaAnalyzeResultScreen(
     ) { paddingValues ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(
+                start = 8.dp,
+                end = 8.dp,
+                top = paddingValues.calculateTopPadding() + 8.dp,
+                bottom = paddingValues.calculateBottomPadding() + 8.dp,
+            ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .overScrollVertical(
+                    onOffsetChanged = { scrollBehavior.state.overscrollOffset = it },
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
             items(count = urls.size) { index ->
                 MediaCell(

@@ -1,6 +1,9 @@
 package pjs.dogbox
 
+import android.os.Build
 import android.os.Bundle
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,9 +28,24 @@ import pjs.dogbox.ui.theme.resolveDarkTheme
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 class MainActivity : ComponentActivity() {
+    // 系统级兜底回调：清单已显式声明 enableOnBackInvokedCallback="false" 关闭预测性返回。
+    // 若未来系统版本移除该清单豁免并强制开启预测性返回，此常驻注册的回调会让系统
+    // 始终判定"返回由应用自行处理"，从而永不播放任何预测性返回动画
+    // （back-to-home / cross-activity / cross-task），返回逻辑经
+    // OnBackPressedDispatcher 原样分发给各页面的 BackHandler。
+    private val backInvokedCallback by lazy {
+        object : OnBackInvokedCallback {
+            override fun onBackInvoked() {
+                // 优先触发当前页面的 BackHandler；无启用项时按默认逻辑结束 Activity
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        disablePredictiveBack()
         AppRepository.resetAutoCheckDone()
         GlobalPlayerConfig.init(applicationContext)
         enableEdgeToEdge()
@@ -88,5 +106,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** 全面禁用预测性返回：注册系统级返回回调，保证返回手势永远走应用自身处理路径 */
+    private fun disablePredictiveBack() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            backInvokedCallback
+        )
+    }
+
+    override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backInvokedCallback)
+        }
+        super.onDestroy()
     }
 }

@@ -1,9 +1,6 @@
 package pjs.dogbox.ui.screens.discover
 
-import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import androidx.compose.ui.graphics.SolidColor
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,22 +52,19 @@ import pjs.dogbox.R
 import pjs.dogbox.data.remote.InviteExecutor
 import pjs.dogbox.data.repository.AppRepository
 import pjs.dogbox.ui.components.AppBottomSheet
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.security.CryptUtil
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
@@ -132,53 +126,34 @@ fun InviteMasterScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
-    MiuixScaffold(
+    MiuixSubScreen(
+        title = "邀请达人",
+        onBack = onBack,
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
+        actions = {
+            GlassIconButton(
+                onClick = {
+                    focusManager.clearFocus()
+                    showLogSheet = true
                 },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
-                title = "邀请达人",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-                actions = {
-                    GlassIconButton(
-                        onClick = {
-                            focusManager.clearFocus()
-                            showLogSheet = true
-                        },
-                    ) {
-                        MiuixIcon(
-                            painter = painterResource(R.drawable.bug_report_outlined),
-                            contentDescription = "运行日志",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-            )
+            ) {
+                MiuixIcon(
+                    painter = painterResource(R.drawable.bug_report_outlined),
+                    contentDescription = "运行日志",
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         },
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(bottom = paddingValues.calculateBottomPadding())
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp)
         ) {
+            // 顶栏高度作为滚动首元素：内容滚动穿透顶栏（miuix 标准）
+            Spacer(modifier = Modifier.height(paddingValues.calculateTopPadding()))
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primaryContainer),

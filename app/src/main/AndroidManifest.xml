@@ -116,7 +116,11 @@
     <!-- 调用killBackgroundProcesses(String)方法结束后台进程 -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
 
+    <!-- 全面禁用预测性返回（Predictive Back）：targetSdk 36+ 起系统默认强制开启
+         back-to-home / cross-task / cross-activity 预测性返回动画，
+         显式声明 false 为官方关闭方式，保证永不出现预测性返回 -->
     <application
+        android:enableOnBackInvokedCallback="false"
         android:name=".MainApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

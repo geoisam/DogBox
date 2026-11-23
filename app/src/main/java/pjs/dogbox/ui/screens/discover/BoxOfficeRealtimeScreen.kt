@@ -1,9 +1,6 @@
 package pjs.dogbox.ui.screens.discover
 
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import pjs.dogbox.data.repository.AppRepository
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import android.annotation.SuppressLint
 import androidx.compose.foundation.ScrollState
@@ -56,18 +53,15 @@ import kotlinx.serialization.json.jsonPrimitive
 import pjs.dogbox.R
 import pjs.dogbox.ui.components.MiuixEmptyText
 import pjs.dogbox.ui.components.MiuixLoading
+import pjs.dogbox.ui.components.MiuixSubScreen
 import pjs.dogbox.utils.network.HttpUtil
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.Calendar
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.NumberPicker as MiuixNumberPicker
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 
@@ -215,42 +209,22 @@ fun BoxOfficeRealtimeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    MiuixScaffold(
-        topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
-                title = "实时票房",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-                actions = {
-                    GlassIconButton(onClick = { showDatePicker = true }) {
-                        MiuixIcon(
-                            painter = painterResource(R.drawable.calendar_month_outlined),
-                            contentDescription = "选择日期",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
-            )
+    MiuixSubScreen(
+        title = "实时票房",
+        onBack = onBack,
+        modifier = modifier,
+        actions = {
+            GlassIconButton(onClick = { showDatePicker = true }) {
+                MiuixIcon(
+                    painter = painterResource(R.drawable.calendar_month_outlined),
+                    contentDescription = "选择日期",
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         },
     ) { padding ->
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {

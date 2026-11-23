@@ -340,6 +340,9 @@ internal fun HomeScreen(
 
     contentBottomPadding: Dp = 0.dp,
 
+    // 顶栏高度：筛选头为常驻设计，整体下移避开栏区（不参与穿透滚动）
+    contentTopPadding: Dp = 0.dp,
+
 ) {
 
     var filterState by state.filterState
@@ -428,7 +431,11 @@ internal fun HomeScreen(
 
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = contentTopPadding)
+        ) {
 
             if (firstTabLoaded) {
 

@@ -1,8 +1,5 @@
 package pjs.dogbox.ui.screens.discover
 
-import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
-import androidx.compose.ui.graphics.SolidColor
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
@@ -73,22 +70,25 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import pjs.dogbox.data.repository.AppRepository
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ColorPalette
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 import kotlin.math.roundToInt
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
@@ -705,29 +705,26 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
     }
 
+    // 玻璃采样依赖运行时着色器，Android 13 以下自动回退平材质
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (AppRepository.getAdvancedMaterial(context) && isRuntimeShaderSupported()) {
+        rememberLayerBackdrop {
+            drawRect(surfaceColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+
     MiuixScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = "滚动字幕",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backdrop = backdrop,
+                scrollBehavior = scrollBehavior,
             )
         },
         bottomBar = {
@@ -786,10 +783,17 @@ fun ScrollingTextScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .padding(bottom = padding.calculateBottomPadding())
+                .overScrollVertical(
+                    onOffsetChanged = { scrollBehavior.state.overscrollOffset = it },
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
+            // 顶栏高度作为滚动首元素：内容滚动穿透顶栏（miuix 标准）
+            Spacer(Modifier.height(padding.calculateTopPadding()))
             Spacer(Modifier.height(8.dp))
 
             Card(

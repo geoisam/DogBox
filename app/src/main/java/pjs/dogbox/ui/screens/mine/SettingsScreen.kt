@@ -1,7 +1,5 @@
 package pjs.dogbox.ui.screens.mine
 
-import androidx.compose.ui.graphics.Color
-import top.yukonga.miuix.kmp.glass.GlassIconButton
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -25,32 +23,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import pjs.dogbox.R
 import pjs.dogbox.data.repository.AppRepository
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import pjs.dogbox.ui.screens.movie.GlobalPlayerConfig
 import pjs.dogbox.ui.screens.movie.PlaybackOrder
 import pjs.dogbox.ui.screens.movie.SPEED_KEY_POINTS
 import pjs.dogbox.utils.player.DecoderMode
 import pjs.dogbox.utils.system.openPermissionManager
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 import kotlin.math.roundToInt
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 private val ThemeModeLabels = listOf("跟随系统", "浅色模式", "深色模式")
@@ -135,39 +133,43 @@ fun SettingsScreen(
     val paletteStyleIndex = paletteStyleIds.indexOf(dynamicColorStyle)
         .takeIf { it >= 0 } ?: paletteStyleIds.indexOf("TonalSpot").coerceAtLeast(0)
 
+    // 玻璃采样依赖运行时着色器，Android 13 以下自动回退平材质
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (advancedMaterial && isRuntimeShaderSupported()) {
+        rememberLayerBackdrop {
+            drawRect(surfaceColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+
     MiuixScaffold(
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (advancedMaterial) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (advancedMaterial) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = "设置",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backdrop = backdrop,
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 12.dp)
-                .verticalScroll(rememberScrollState()),
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .padding(bottom = padding.calculateBottomPadding())
+                .overScrollVertical(
+                    onOffsetChanged = { scrollBehavior.state.overscrollOffset = it },
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            // 顶栏高度作为滚动首元素：内容滚动穿透玻璃顶栏（miuix 标准）
+            Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
             SettingsSectionHeader("外观")
 
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -244,7 +246,7 @@ fun SettingsScreen(
                 // 高级材质依赖运行时着色器（Android 13+），更低版本固定关闭且不可选
                 SwitchPreference(
                     title = "高级材质",
-                    summary = "顶栏使用玻璃质感，关闭后为纯色",
+                    summary = "顶栏启用表面模糊，关闭后为纯色",
                     checked = advancedMaterial,
                     enabled = supportsNavBarEffect,
                     onCheckedChange = { enabled ->

@@ -1,9 +1,7 @@
 package pjs.dogbox.ui.screens.mine
 
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import pjs.dogbox.data.repository.AppRepository
-import androidx.compose.ui.graphics.SolidColor
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
@@ -75,19 +73,23 @@ import pjs.dogbox.data.repository.hasFileAccessPermission
 import pjs.dogbox.data.repository.queryMediaStoreVideos
 import pjs.dogbox.ui.components.MiuixLoading
 import pjs.dogbox.ui.components.ScrollToTopFab
+import pjs.dogbox.ui.components.topbar.AppGlassTopAppBar
 import pjs.dogbox.utils.system.openAllFilesAccessSettings
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import java.io.File
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -171,28 +173,25 @@ fun LocalVideosScreen(
         }
     }
 
+    // 玻璃采样依赖运行时着色器，Android 13 以下自动回退平材质
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop = if (AppRepository.getAdvancedMaterial(context) && isRuntimeShaderSupported()) {
+        rememberLayerBackdrop {
+            drawRect(surfaceColor)
+            drawContent()
+        }
+    } else {
+        null
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+
     MiuixScaffold(
         topBar = {
-            GlassTopAppBar(
-                expandable = false,
-                bandBrush = if (AppRepository.getAdvancedMaterial(LocalContext.current)) {
-                    GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface)
-                } else {
-                    SolidColor(MiuixTheme.colorScheme.surface)
-                },
-
-                fill = if (AppRepository.getAdvancedMaterial(LocalContext.current)) GlassTopAppBarDefaults.buttonFill() else Color.Transparent,
-
+            AppGlassTopAppBar(
                 title = "本地视频",
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        MiuixIcon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = "返回",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                },
+                onBack = onBack,
+                backdrop = backdrop,
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (videos.isNotEmpty()) {
                         GlassIconButton(
@@ -281,7 +280,12 @@ fun LocalVideosScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .padding(paddingValues)
+                .overScrollVertical(
+                    onOffsetChanged = { scrollBehavior.state.overscrollOffset = it },
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
             when {
                 !hasPermission -> {
